@@ -1,0 +1,41 @@
+rules_version = '2';
+// একটাই match + validWrite(col, data), default-deny (Architecture Plan §৩, B7/R1)।
+// ⚠️ DEPLOY-এর আগে OWNER_GMAIL নিজের Gmail দিয়ে বদলান (Staging ও Production আলাদা)।
+// না বদলালে কেউই ঢুকতে পারবে না — নিরাপদ ডিফল্ট।
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid
+             && request.auth.token.email == 'OWNER_GMAIL'
+             && request.auth.token.email_verified == true;
+    }
+    function nameOk(d) {
+      return d.name is string && d.name.size() > 0;
+    }
+    function posInt(v) {
+      return v is int && v > 0;
+    }
+    function validWrite(col, d) {
+      return (col == 'transactions'
+                ? (posInt(d.amountMinor) && d.type in ['income', 'expense']
+                   && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
+              : col in ['labels', 'categories'] ? nameOk(d)
+              : col == 'customLedgers' ? (nameOk(d) && d.kind in ['deposit', 'investment'])
+              : col == 'debts' ? posInt(d.totalAmountMinor)
+              : col == 'investments' ? posInt(d.principalMinor)
+              : col == 'homeDeposits' ? posInt(d.amountMinor)
+              : col == 'gpfEntries'
+                ? (posInt(d.amountMinor) && d.type in ['contribution', 'interest', 'withdrawal'])
+              : col == 'accountBalances' ? d.balanceMinor is int
+              : col == 'netWorthSnapshots' ? d.totalAssetsMinor is int
+              : col == 'zakatPayments' ? posInt(d.amountMinor)
+              : col == 'historicalYearlyTotals'
+                ? (d.totalIncomeMinor is int && d.totalExpenseMinor is int && d.totalDepositMinor is int)
+              : true);
+    }
+    match /users/{uid}/{col}/{id} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validWrite(col, request.resource.data);
+    }
+  }
+}

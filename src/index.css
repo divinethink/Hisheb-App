@@ -1,0 +1,38 @@
+@import './theme/tokens.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: rgb(var(--color-canvas));
+  color: rgb(var(--color-fg));
+  /* সিস্টেম ফন্ট (বাংলা fallback সহ) — কাস্টম ফন্ট self-host হলে font-display: swap সহ যোগ হবে */
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Bengali', 'Nirmala UI', sans-serif;
+  line-height: 1.6;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  /* UI Polish [1_4] ধাপ ২/৩, item ৭: টাকার অঙ্কের digit-width সবসময় align — non-digit
+     টেক্সটে কোনো visual effect নেই (font-variant-numeric শুধু digit glyph বদলায়), তাই
+     global-এ বসানো নিরাপদ ও প্রতিটা amount-জায়গায় আলাদা ক্লাস বসানোর চেয়ে minimal। */
+  font-variant-numeric: tabular-nums;
+}
+
+/* UI Polish [1_4] ধাপ ৩, item ৮: SkeletonLoader shimmer sweep — motion-safe:animate-[...]
+   Tailwind utility দিয়ে ব্যবহৃত হয় (prefers-reduced-motion স্বয়ংক্রিয়ভাবে সম্মানিত)। */
+@keyframes hn-shimmer {
+  0% { background-position: 150% 0; }
+  100% { background-position: -150% 0; }
+}
+
+/* মাইক্রো-পলিশ (Step ৩): বাটন/tappable elements-এ হালকা transition; motion-sensitive
+   ব্যবহারকারীদের জন্য OS-সেটিং অনুযায়ী সম্পূর্ণ বন্ধ। */
+@media (prefers-reduced-motion: no-preference) {
+  button, a, [role='button'] {
+    transition: transform 150ms ease, opacity 150ms ease, background-color 200ms ease, box-shadow 200ms ease;
+  }
+  button:active, [role='button']:active {
+    transform: scale(0.97);
+  }
+}

@@ -1,0 +1,57 @@
+/* Design tokens — single source of truth (Architecture Plan §৬).
+   রং RGB triplet আকারে, যাতে Tailwind alpha-value কাজ করে।
+   Accent (data-theme) ও Display Mode (data-mode) দুটো স্বতন্ত্র attribute — যেকোনো accent-এর সাথে Light/Dark মেলে। */
+:root {
+  color-scheme: light;
+  --color-primary: 37 99 235; /* ডিফল্ট accent (blue) */
+  --color-canvas: 255 255 255;
+  --color-surface: 248 250 252;
+  --color-fg: 15 23 42;
+  --color-muted: 100 116 139;
+  --color-income: 22 128 61;
+  --color-expense: 185 28 28;
+  --color-warning: 161 98 7; /* reminder ৮০% */
+  --color-danger: 194 65 12; /* reminder ৯০% */
+  /* Page canvas vs Card surface (UI Polish Step ১) — page ধূসর, card (bg-canvas) সাদা;
+     বিদ্যমান --color-canvas/--color-surface অপরিবর্তিত, শুধু নতুন তৃতীয় স্তর যোগ হলো। */
+  --color-page: 241 245 249;
+  /* ক্যাটাগরি-চার্ট প্যালেট (৮টা), Overview donut ও Home/Ledger আইকন-বৃত্তে reuse — কেন্দ্রীভূত single source (Roadmap §D-৫)। */
+  --chart-1: 59 130 246;
+  --chart-2: 16 185 129;
+  --chart-3: 168 85 247;
+  --chart-4: 249 115 22;
+  --chart-5: 244 63 94;
+  --chart-6: 20 184 166;
+  --chart-7: 217 119 6;
+  --chart-8: 6 182 212;
+}
+
+/* ৬টা accent (Light)। swatch-এ element-scoped ব্যবহারের জন্য [data-theme] যেকোনো element-এ কাজ করে */
+[data-theme='blue'] { --color-primary: 37 99 235; }
+[data-theme='green'] { --color-primary: 22 163 74; }
+[data-theme='purple'] { --color-primary: 147 51 234; }
+[data-theme='orange'] { --color-primary: 234 88 12; }
+[data-theme='teal'] { --color-primary: 13 148 136; }
+[data-theme='rose'] { --color-primary: 225 29 72; }
+
+/* Dark mode: pure black (#000) না, dark-gray base (UI Mockup §০ eye-comfort)।
+   Accent dark-এ হালকা করা — dark canvas-এর ওপর text-primary ও (text-canvas সহ) bg-primary বাটনের contrast ঠিক রাখতে। */
+[data-mode='dark'] {
+  color-scheme: dark;
+  --color-canvas: 24 24 27;
+  --color-surface: 39 39 42;
+  --color-fg: 244 244 245;
+  --color-muted: 161 161 170;
+  --color-income: 74 222 128;
+  --color-expense: 248 113 113;
+  --color-warning: 250 204 21;
+  --color-danger: 251 146 60;
+  --color-primary: 96 165 250;
+  --color-page: 9 9 11; /* card (canvas, 24 24 27)-এর চেয়ে গাঢ়, যাতে dark-এও card আলাদা বোঝা যায় */
+}
+[data-mode='dark'][data-theme='blue'], [data-mode='dark'] [data-theme='blue'] { --color-primary: 96 165 250; }
+[data-mode='dark'][data-theme='green'], [data-mode='dark'] [data-theme='green'] { --color-primary: 74 222 128; }
+[data-mode='dark'][data-theme='purple'], [data-mode='dark'] [data-theme='purple'] { --color-primary: 192 132 252; }
+[data-mode='dark'][data-theme='orange'], [data-mode='dark'] [data-theme='orange'] { --color-primary: 251 146 60; }
+[data-mode='dark'][data-theme='teal'], [data-mode='dark'] [data-theme='teal'] { --color-primary: 45 212 191; }
+[data-mode='dark'][data-theme='rose'], [data-mode='dark'] [data-theme='rose'] { --color-primary: 251 113 133; }
