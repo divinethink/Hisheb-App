@@ -9,22 +9,33 @@ const DateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const DirectionSchema = z.enum(['owe_me', 'i_owe']);
 export const ReceivableStatusSchema = z.enum(['active', 'doubtful', 'forgiven']);
+// প্রতিটি Borrowing লাইনের নিজস্ব manual status (owner-approved, 2026-10-13)। 'forgiven'-এর লাইন-স্তরের সমতুল্য = 'written_off'।
+export const LineStatusSchema = z.enum(['active', 'doubtful', 'written_off']);
 
 export const RepaymentSchema = z.object({
   date: DateStr,
   amountMinor: z.number().int().positive(),
   note: z.string().default(''), // ঐচ্ছিক, additive — পুরনো doc-এ না থাকলে '' (backward-compatible)
+  // ঐচ্ছিক, additive — কোন Borrowing লাইনের বিপরীতে শোধ। null/অনুপস্থিত = Oldest-first (FIFO) auto-allocation
+  borrowingId: nullish(z.string().min(1)),
 });
 export type Repayment = z.infer<typeof RepaymentSchema>;
+export type RepaymentIn = z.input<typeof RepaymentSchema>; // লেখার সময় (optional/null ফিল্ড বাদ দেওয়া যায়)
 
 // repayments[]-এর সিমেট্রিক — একাধিকবার ধার-দেওয়ার history (owner-approved, 2026-09-26)।
 // totalAmountMinor auto-derived (Σborrowings) থাকে, debtRepo.setBorrowings() লিখে সিংক রাখে।
 export const BorrowingSchema = z.object({
+  // স্থায়ী লাইন-আইডি (শোধ লিংক করার জন্য) — পুরনো doc-এ না থাকলে debtRepo পড়ার সময় 'L<index>' বসায়, লেখার সময় persist হয়
+  id: z.string().min(1).optional(),
   date: DateStr,
   amountMinor: z.number().int().positive(),
   note: z.string().default(''),
+  // অনুপস্থিত = পুরনো debt-level receivableStatus inherit (zero-migration); owe_me-তে প্রাসঙ্গিক
+  status: LineStatusSchema.optional(),
+  statusChangedAt: nullish(DateStr),
 });
 export type Borrowing = z.infer<typeof BorrowingSchema>;
+export type BorrowingIn = z.input<typeof BorrowingSchema>;
 
 export const DebtSchema = z.object({
   id: z.string(),

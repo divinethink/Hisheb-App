@@ -1,19 +1,21 @@
 // Net Worth অ্যাগ্রিগেশন — pure, platform-independent (lib/ purity, Architecture Plan §০/§২/§৪.৬)।
-import { outstandingMinor, type Repayment } from './debtCalc';
+import { receivableOutstandingMinor, type BorrowingLine, type LinkedRepayment, type Repayment } from './debtCalc';
 import { runningMinor } from './investmentCalc';
 
 export interface DebtLike {
   direction: 'owe_me' | 'i_owe';
   totalAmountMinor: number;
-  repayments: readonly Repayment[];
+  repayments: readonly LinkedRepayment[];
   receivableStatus: 'active' | 'doubtful' | 'forgiven';
+  // লাইন-ভিত্তিক (ঐচ্ছিক — না থাকলে একটাই synthetic লাইন, আগের আচরণ)
+  date?: string;
+  borrowings?: readonly BorrowingLine[];
+  receivableStatusChangedAt?: string | null;
 }
 
-/** owe_me দিকের active/doubtful outstanding-এর যোগফল — forgiven বাদ (§৪.৬, §১৩)। */
+/** owe_me দিকের active/doubtful লাইনের outstanding-এর যোগফল — written-off (পুরনো forgiven সহ) লাইন বাদ (§৪.৬, §১৩)। */
 export function receivableTotalMinor(debts: readonly DebtLike[]): number {
-  return debts
-    .filter((d) => d.direction === 'owe_me' && d.receivableStatus !== 'forgiven')
-    .reduce((s, d) => s + outstandingMinor(d.totalAmountMinor, d.repayments), 0);
+  return debts.filter((d) => d.direction === 'owe_me').reduce((s, d) => s + receivableOutstandingMinor(d), 0);
 }
 
 export interface InvestmentLike {

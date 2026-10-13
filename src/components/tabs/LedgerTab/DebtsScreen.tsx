@@ -4,15 +4,9 @@ import SkeletonLoader from '../../common/SkeletonLoader';
 import DebtSheet from './DebtSheet';
 import DebtDetailScreen from './DebtDetailScreen';
 import { formatAmount } from '../../../lib/format';
-import { outstandingMinor, repaymentStatus, REPAYMENT_STATUS_LABEL } from '../../../lib/debtCalc';
+import { lineViews, receivableOutstandingMinor, repaymentStatus, REPAYMENT_STATUS_LABEL } from '../../../lib/debtCalc';
 import { useDebts } from '../../../hooks/useData';
 import type { Debt } from '../../../validation/debtSchema';
-
-const RECEIVABLE_LABEL: Record<Debt['receivableStatus'], string> = {
-  active: 'Active',
-  doubtful: 'Doubtful',
-  forgiven: 'Forgiven',
-};
 
 export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () => void }) {
   const debts = useDebts(uid);
@@ -29,8 +23,8 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
   const list = debts.state.status === 'ready' ? debts.state.data.filter((d) => d.direction === dir) : [];
   const totalOutstanding =
     dir === 'owe_me'
-      ? list.filter((d) => d.receivableStatus !== 'forgiven').reduce((s, d) => s + outstandingMinor(d.totalAmountMinor, d.repayments), 0)
-      : list.reduce((s, d) => s + outstandingMinor(d.totalAmountMinor, d.repayments), 0);
+      ? list.reduce((s, d) => s + receivableOutstandingMinor(d), 0) // written-off লাইন বাদ
+      : list.reduce((s, d) => s + lineViews(d).reduce((a, v) => a + v.outstandingMinor, 0), 0);
 
   return (
     <FullScreenPage title="Debts & Receivables" onBack={onBack}>
@@ -68,7 +62,9 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
               <ul>
                 {list.map((d) => {
                   const status = repaymentStatus(d.totalAmountMinor, d.repayments);
-                  const out = outstandingMinor(d.totalAmountMinor, d.repayments);
+                  const out = dir === 'owe_me' ? receivableOutstandingMinor(d) : lineViews(d).reduce((a, v) => a + v.outstandingMinor, 0);
+                  const woCount = dir === 'owe_me' ? lineViews(d).filter((v) => v.status === 'written_off').length : 0;
+                  const dbCount = dir === 'owe_me' ? lineViews(d).filter((v) => v.status === 'doubtful').length : 0;
                   return (
                     <li key={d.id} className="border-b border-muted/20">
                       <button
@@ -80,7 +76,7 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
                           <span className="text-fg">{d.person}</span>
                           <span className="flex items-center gap-2">
                             {dir === 'owe_me' && (
-                              <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted">{RECEIVABLE_LABEL[d.receivableStatus]}</span>
+                              <span className="rounded-full bg-surface px-2 py-0.5 text-xs text-muted">{woCount > 0 ? `Written-off ${woCount}` : dbCount > 0 ? `Doubtful ${dbCount}` : 'Active'}</span>
                             )}
                             <span className="font-medium text-fg">{formatAmount(out)}</span>
                           </span>

@@ -1,14 +1,15 @@
 // Ledger-এর মাস/বছর-শেষ "as-of" হিসাব — Excel Monthly/Yearly Statement-এর মূলধন কলামের জন্য।
 // pure, platform-independent (lib/ purity)। শুধু তারিখ-ফিল্টার; কোনো আলাদা aggregate store হয় না।
-import type { Repayment } from './debtCalc';
+import { receivableOutstandingMinor, type BorrowingLine, type LinkedRepayment, type Repayment } from './debtCalc';
 
 export interface DebtAsOfLike {
   direction: 'owe_me' | 'i_owe';
   totalAmountMinor: number;
   date: string;
-  repayments: readonly (Repayment & { date: string })[];
+  repayments: readonly (LinkedRepayment & { date: string })[];
   receivableStatus: 'active' | 'doubtful' | 'forgiven';
   receivableStatusChangedAt: string | null;
+  borrowings?: readonly BorrowingLine[];
 }
 export interface InvestmentAsOfLike {
   principalMinor: number;
@@ -32,12 +33,11 @@ export function lastDayOfMonth(yyyymm: string): string {
 const paidBy = (rs: readonly Repayment[], asOf: string) =>
   rs.filter((r) => r.date <= asOf).reduce((s, r) => s + r.amountMinor, 0);
 
-/** asOf পর্যন্ত owe_me বকেয়া; asOf-এর আগেই "forgiven" হলে বাদ। */
+/** asOf পর্যন্ত owe_me বকেয়া; asOf-এর আগেই written-off (পুরনো "forgiven" সহ) হওয়া লাইন বাদ। */
 export function receivableAsOfMinor(debts: readonly DebtAsOfLike[], asOf: string): number {
   return debts
     .filter((d) => d.direction === 'owe_me' && d.date <= asOf)
-    .filter((d) => !(d.receivableStatus === 'forgiven' && (d.receivableStatusChangedAt === null || d.receivableStatusChangedAt <= asOf)))
-    .reduce((s, d) => s + Math.max(0, d.totalAmountMinor - paidBy(d.repayments, asOf)), 0);
+    .reduce((s, d) => s + receivableOutstandingMinor(d, asOf), 0);
 }
 
 /** asOf পর্যন্ত Running Investment (max(0, principal − repaid)); asOf-এর আগেই "written_off" হলে বাদ। */
@@ -83,7 +83,10 @@ export function countLedgerChangesAfter(
   let n = 0;
   for (const d of l.debts) {
     if (d.date > asOf) n++;
-    else if (d.receivableStatusChangedAt !== null && d.receivableStatusChangedAt > asOf) n++;
+    else {
+      if (d.receivableStatusChangedAt !== null && d.receivableStatusChangedAt > asOf) n++;
+      for (const b of d.borrowings ?? []) if (b.statusChangedAt && b.statusChangedAt > asOf) n++;
+    }
     n += d.repayments.filter((r) => r.date > asOf).length;
   }
   for (const i of l.investments) {

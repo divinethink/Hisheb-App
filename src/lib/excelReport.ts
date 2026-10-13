@@ -11,7 +11,7 @@ import type { GpfEntry } from '../validation/gpfSchema';
 import type { Account } from '../validation/accountSchema';
 import type { AccountBalance, NetWorthSnapshot } from '../validation/netWorthSchema';
 import type { HistoricalYearlyTotal } from '../validation/historicalSchema';
-import { outstandingMinor, sumRepayments as sumDebtRepayments } from './debtCalc';
+import { outstandingMinor, sumRepayments as sumDebtRepayments, writtenOffOutstandingMinor } from './debtCalc';
 import { sumRepayments as sumInvRepayments } from './investmentCalc';
 import { netBalanceMinor } from './homeDepositCalc';
 import { gpfTotalsMinor } from './gpfCalc';
@@ -205,16 +205,16 @@ function buildCalculationSheet(accounts: readonly Account[], balances: readonly 
 /** "Debts" sheet — প্রতিটা debt-এর Repaid/Outstanding formula (SUMIF দিয়ে নিচের Repayment Details থেকে), Total Receivable/I Owe SUMIFS। */
 function buildDebtsSheet(debts: readonly Debt[]): { ws: XLSX.WorkSheet; receivableCellRef: string; receivableMinor: number; ioweCellRef: string; ioweMinor: number } {
   const aoa: (string | number)[][] = [['Debts & Receivables'], []];
-  aoa.push(['ID', 'Person', 'Direction', 'Total (BDT)', 'Date', 'Status', 'Repaid (BDT)', 'Outstanding (BDT)']);
+  aoa.push(['ID', 'Person', 'Direction', 'Total (BDT)', 'Date', 'Status', 'Repaid (BDT)', 'Outstanding (BDT)', 'Written-off (BDT)']);
   const summaryStart = aoa.length;
   for (const d of debts) {
-    aoa.push([d.id, d.person, d.direction, toTaka(d.totalAmountMinor), d.date, d.receivableStatus, toTaka(sumDebtRepayments(d.repayments)), toTaka(outstandingMinor(d.totalAmountMinor, d.repayments))]);
+    aoa.push([d.id, d.person, d.direction, toTaka(d.totalAmountMinor), d.date, d.receivableStatus, toTaka(sumDebtRepayments(d.repayments)), toTaka(outstandingMinor(d.totalAmountMinor, d.repayments)), toTaka(d.direction === 'owe_me' ? writtenOffOutstandingMinor(d) : 0)]);
   }
   const summaryEnd = aoa.length - 1;
   aoa.push([]);
   const receivableRowIdx = aoa.length;
   const receivableMinor = receivableTotalMinor(debts);
-  aoa.push(['Total Receivable (Net Worth: owe_me, not forgiven)', toTaka(receivableMinor)]);
+  aoa.push(['Total Receivable (Net Worth: owe_me, excl. written-off)', toTaka(receivableMinor)]);
   const ioweRowIdx = aoa.length;
   const ioweMinor = debts.filter((d) => d.direction === 'i_owe').reduce((s, d) => s + outstandingMinor(d.totalAmountMinor, d.repayments), 0);
   aoa.push(['Total I Owe (Outstanding)', toTaka(ioweMinor)]);
@@ -234,12 +234,12 @@ function buildDebtsSheet(debts: readonly Debt[]): { ws: XLSX.WorkSheet; receivab
       if (hasDetail) ws[cellRef(i, 6)].f = `SUMIF($A$${detailStart + 1}:$A$${detailEnd + 1},A${i + 1},$D$${detailStart + 1}:$D$${detailEnd + 1})`;
       ws[cellRef(i, 7)].f = `MAX(0,D${i + 1}-G${i + 1})`;
     }
-    ws[cellRef(receivableRowIdx, 1)].f = `SUMIFS(H${summaryStart + 1}:H${summaryEnd + 1},C${summaryStart + 1}:C${summaryEnd + 1},"owe_me",F${summaryStart + 1}:F${summaryEnd + 1},"<>forgiven")`;
+    ws[cellRef(receivableRowIdx, 1)].f = `SUMIFS(H${summaryStart + 1}:H${summaryEnd + 1},C${summaryStart + 1}:C${summaryEnd + 1},"owe_me")-SUMIFS(I${summaryStart + 1}:I${summaryEnd + 1},C${summaryStart + 1}:C${summaryEnd + 1},"owe_me")`;
     ws[cellRef(ioweRowIdx, 1)].f = `SUMIFS(H${summaryStart + 1}:H${summaryEnd + 1},C${summaryStart + 1}:C${summaryEnd + 1},"i_owe")`;
   }
 
-  applyMoneyFormat(ws, [1, 3, 6, 7]);
-  ws['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 16 }];
+  applyMoneyFormat(ws, [1, 3, 6, 7, 8]);
+  ws['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 16 }];
   return { ws, receivableCellRef: cellRef(receivableRowIdx, 1), receivableMinor, ioweCellRef: cellRef(ioweRowIdx, 1), ioweMinor };
 }
 

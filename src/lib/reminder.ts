@@ -2,7 +2,7 @@
 // এটা guaranteed push না: অ্যাপ না খুললে মিস হবে (Cloud Function ছাড়া সম্ভব না)।
 import { shiftMonth, toDhakaDate } from './date';
 import { investmentStatus } from './investmentCalc';
-import { repaymentStatus } from './debtCalc';
+import { receivableOutstandingMinor, repaymentStatus, type BorrowingLine } from './debtCalc';
 
 export const DUE_WINDOW_DAYS = 3; // মেয়াদ-শেষের ৩ দিন আগে থেকে (আজ সহ) — export: Ledger due-soon chip (UI Polish 1_5 §৩) reuse করে
 
@@ -34,6 +34,10 @@ export interface DebtLike {
   repayments: readonly { date: string; amountMinor: number }[];
   receivableStatus: string;
   expectedRepaymentDate: string | null;
+  // লাইন-ভিত্তিক (ঐচ্ছিক)
+  date?: string;
+  borrowings?: readonly BorrowingLine[];
+  receivableStatusChangedAt?: string | null;
 }
 export interface InvestmentLike {
   investedTo: string;
@@ -47,7 +51,11 @@ export function dueItemsFrom(debts: readonly DebtLike[], investments: readonly I
     ...debts.map((d) => ({
       name: d.person,
       expectedRepaymentDate: d.expectedRepaymentDate,
-      settled: repaymentStatus(d.totalAmountMinor, d.repayments) === 'paid' || d.receivableStatus === 'forgiven',
+      // সব লাইন পরিশোধিত বা written-off হলে settled (পুরনো shape-এ আগের নিয়মই: paid বা forgiven)
+      settled:
+        repaymentStatus(d.totalAmountMinor, d.repayments) === 'paid' ||
+        d.receivableStatus === 'forgiven' ||
+        receivableOutstandingMinor({ ...d, receivableStatus: d.receivableStatus as 'active' | 'doubtful' | 'forgiven' }) === 0,
     })),
     ...investments.map((i) => ({
       name: i.investedTo,

@@ -7,7 +7,7 @@
 //   current  = চলতি snapshot-এর totalAssets, না থাকলে লাইভ
 // ঋণাত্মক = প্রত্যাশার চেয়ে কম সম্পদ। প্রতিটা factor `effectMinor` = Total Assets-এ ওই ঘটনার প্রভাব
 // (deviation-এর একই চিহ্ন)। বাকিটা unexplained।
-import { outstandingMinor } from './debtCalc';
+import { lineViews, type BorrowingLine } from './debtCalc';
 import { sumRepayments } from './investmentCalc';
 import { gpfChangeInWindowMinor } from './gpfCalc';
 
@@ -27,6 +27,7 @@ export interface TxLite {
 interface RepaymentLite {
   date: string;
   amountMinor: number;
+  borrowingId?: string | null;
 }
 
 export interface DebtLite {
@@ -37,6 +38,8 @@ export interface DebtLite {
   repayments: readonly RepaymentLite[];
   receivableStatus: 'active' | 'doubtful' | 'forgiven';
   receivableStatusChangedAt: string | null;
+  /** লাইন-ভিত্তিক (ঐচ্ছিক) — না থাকলে একটাই synthetic লাইন, আগের আচরণ */
+  borrowings?: readonly BorrowingLine[];
 }
 
 export interface InvestmentLite {
@@ -205,9 +208,13 @@ export function computeCrossCheck(inp: CrossCheckInput): CrossCheckResult {
     let effect = 0;
     const detail: string[] = [];
     for (const d of inp.debts) {
-      if (d.direction !== 'owe_me' || d.receivableStatus !== 'forgiven') continue;
-      if (!d.receivableStatusChangedAt || !inWindow(d.receivableStatusChangedAt, windowStart, windowEnd)) continue;
-      const out = outstandingMinor(d.totalAmountMinor, d.repayments);
+      if (d.direction !== 'owe_me') continue;
+      // লাইন-স্তরে: window-এ written-off (পুরনো forgiven সহ) হওয়া লাইনের outstanding
+      let out = 0;
+      for (const v of lineViews(d)) {
+        if (v.status !== 'written_off' || !v.statusChangedAt || !inWindow(v.statusChangedAt, windowStart, windowEnd)) continue;
+        out += v.outstandingMinor;
+      }
       if (out > 0) {
         effect -= out;
         detail.push(d.person);
@@ -223,8 +230,18 @@ export function computeCrossCheck(inp: CrossCheckInput): CrossCheckResult {
     let effect = 0;
     const detail: string[] = [];
     for (const d of inp.debts) {
-      if (d.direction !== 'owe_me' || d.receivableStatus === 'forgiven') continue;
-      const excess = excessInWindow(d.totalAmountMinor, d.repayments, windowStart, windowEnd);
+      if (d.direction !== 'owe_me') continue;
+      const views = lineViews(d);
+      if (views.every((v) => v.status === 'written_off')) continue; // সবটাই written-off/forgiven — আগের মতো বাদ
+      // written-off লাইন বাদে বাকির principal; ওই লাইনে লিংকড শোধ আলাদা — changedAt-এর পরের হলে recovery (account-এ ঢোকে, receivable অপরিবর্তিত)
+      const woIds = new Set(views.filter((v) => v.status === 'written_off' && v.line.id).map((v) => v.line.id as string));
+      const principal = views.filter((v) => v.status !== 'written_off').reduce((s, v) => s + v.line.amountMinor, 0);
+      const own = d.repayments.filter((r) => !(r.borrowingId && woIds.has(r.borrowingId)));
+      let excess = excessInWindow(principal, own, windowStart, windowEnd);
+      for (const r of d.repayments) {
+        const v = r.borrowingId ? views.find((x) => x.line.id === r.borrowingId && x.status === 'written_off') : undefined;
+        if (v && v.statusChangedAt && r.date > v.statusChangedAt && inWindow(r.date, windowStart, windowEnd)) excess += r.amountMinor;
+      }
       if (excess > 0) {
         effect += excess;
         detail.push(d.person);

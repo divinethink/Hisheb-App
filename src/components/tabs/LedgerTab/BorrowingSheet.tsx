@@ -3,7 +3,7 @@ import { useState } from 'react';
 import BottomSheet from '../../common/BottomSheet';
 import AmountInput, { AmountKeypad } from '../../common/AmountInput';
 import { parseAmountToMinor, minorToInput } from '../../../lib/money';
-import { setBorrowings } from '../../../data/debtRepo';
+import { newBorrowingId, setBorrowings } from '../../../data/debtRepo';
 import { settleOrPending } from '../../../lib/async';
 import type { Debt } from '../../../validation/debtSchema';
 
@@ -41,8 +41,8 @@ export default function BorrowingSheet({
     try {
       const next =
         editIndex !== undefined
-          ? debt.borrowings.map((b, i) => (i === editIndex ? { date, amountMinor: parsed, note } : b))
-          : [...debt.borrowings, { date, amountMinor: parsed, note }];
+          ? debt.borrowings.map((b, i) => (i === editIndex ? { ...b, date, amountMinor: parsed, note } : b))
+          : [...debt.borrowings, { id: newBorrowingId(), date, amountMinor: parsed, note }];
       await settleOrPending(setBorrowings(uid, debt.id, next), 3000);
       onClose();
     } catch {

@@ -4,18 +4,14 @@ import FullScreenPage from '../../common/FullScreenPage';
 import RepaymentSheet from './RepaymentSheet';
 import BorrowingSheet from './BorrowingSheet';
 import DebtSheet from './DebtSheet';
+import BorrowingActionSheet, { LINE_STATUS_LABEL } from './BorrowingActionSheet';
 import { formatAmount } from '../../../lib/format';
 import { formatDisplayDate } from '../../../lib/date';
 import { useSettings } from '../../../hooks/useData';
-import { outstandingMinor, repaymentStatus, sumRepayments, REPAYMENT_STATUS_LABEL } from '../../../lib/debtCalc';
-import { setReceivableStatus, setRepayments, setBorrowings, updateDebt } from '../../../data/debtRepo';
+import { lineViews, repaymentStatus, sumRepayments, REPAYMENT_STATUS_LABEL } from '../../../lib/debtCalc';
+import { setRepayments, setBorrowings, updateDebt } from '../../../data/debtRepo';
 import { settleOrPending } from '../../../lib/async';
-import { ReceivableStatusSchema, type Debt } from '../../../validation/debtSchema';
-import type { z } from 'zod';
-
-type ReceivableStatus = z.infer<typeof ReceivableStatusSchema>;
-const STATUS_OPTIONS: readonly ReceivableStatus[] = ['active', 'doubtful', 'forgiven'];
-const STATUS_LABEL: Record<ReceivableStatus, string> = { active: 'Active', doubtful: 'Doubtful', forgiven: 'Forgiven' };
+import type { Debt } from '../../../validation/debtSchema';
 
 export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; debt: Debt; onBack: () => void }) {
   const [addOpen, setAddOpen] = useState(false);
@@ -25,11 +21,21 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
   const [addBorrowOpen, setAddBorrowOpen] = useState(false);
   const [deleteBorrowIdx, setDeleteBorrowIdx] = useState<number | null>(null);
   const [editBorrowIdx, setEditBorrowIdx] = useState<number | null>(null);
+  const [actionIdx, setActionIdx] = useState<number | null>(null);
+  const [repayPreset, setRepayPreset] = useState<string | undefined>(undefined);
   const settings = useSettings(uid);
   const dateFormat = settings.state.status === 'ready' ? settings.state.data.dateFormat : 'dmy';
 
   const status = repaymentStatus(debt.totalAmountMinor, debt.repayments);
-  const outstanding = outstandingMinor(debt.totalAmountMinor, debt.repayments);
+  const views = lineViews(debt);
+  const owe = debt.direction === 'owe_me';
+  const outstanding = views.reduce((s, v) => s + v.outstandingMinor, 0);
+  const writtenOff = views.filter((v) => v.excluded).reduce((s, v) => s + v.outstandingMinor, 0);
+  const statusSummary = (['doubtful', 'written_off'] as const)
+    .map((k) => [k, views.filter((v) => v.status === k).length] as const)
+    .filter(([, n]) => n > 0)
+    .map(([k, n]) => `${LINE_STATUS_LABEL[k]} ${n}`)
+    .join(' · ');
 
   async function removeRepayment(idx: number) {
     const next = debt.repayments.filter((_, i) => i !== idx);
@@ -67,23 +73,10 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
           Repayment Status: <span className="text-fg">{REPAYMENT_STATUS_LABEL[status]}</span>
         </p>
 
-        {debt.direction === 'owe_me' && (
-          <div>
-            <p className="mb-1 text-sm text-muted">Receivable Status</p>
-            <div className="flex gap-2">
-              {STATUS_OPTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => void setReceivableStatus(uid, debt.id, s)}
-                  aria-pressed={debt.receivableStatus === s}
-                  className={`min-h-11 flex-1 rounded-lg border text-sm ${debt.receivableStatus === s ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-muted/40 text-muted'}`}
-                >
-                  {STATUS_LABEL[s]}
-                </button>
-              ))}
-            </div>
-          </div>
+        {owe && (
+          <p className="text-sm text-muted">
+            Receivable: <span className="text-fg">{statusSummary || 'All Active'}</span>
+          </p>
         )}
 
         <div>
@@ -103,8 +96,11 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
         <div>
           <p className="mb-2 text-sm text-muted">Borrowing History</p>
           <ul className="flex flex-col gap-1">
-            {debt.borrowings.map((b, i) => (
-              <li key={`${b.date}-${i}`} className="flex items-center justify-between border-b border-muted/20 py-2">
+            {debt.borrowings.map((b, i) => {
+              const v = views[i];
+              return (
+              <li key={`${b.id ?? b.date}-${i}`} className="border-b border-muted/20 py-2">
+              <div className="flex items-center justify-between">
                 <span className="flex flex-col text-sm text-fg">
                   {formatDisplayDate(b.date, dateFormat)}
                   {b.note && <span className="text-xs text-muted">{b.note}</span>}
@@ -133,8 +129,32 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
                     </span>
                   )}
                 </span>
+              </div>
+              {v && (
+                <button
+                  type="button"
+                  onClick={() => setActionIdx(i)}
+                  aria-label="Borrowing actions"
+                  className={`mt-1 flex min-h-11 w-full flex-col justify-center gap-1 rounded-lg px-1 text-left ${v.excluded ? 'opacity-70' : ''}`}
+                >
+                  <span className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-full bg-surface px-2 py-0.5 text-muted">{REPAYMENT_STATUS_LABEL[v.payStatus]}</span>
+                    {owe && v.status !== 'active' && (
+                      <span className="rounded-full bg-surface px-2 py-0.5 text-expense">{LINE_STATUS_LABEL[v.status]}</span>
+                    )}
+                    <span className="text-muted">
+                      {formatAmount(v.paidMinor)} / {formatAmount(b.amountMinor)}
+                    </span>
+                    <span className="ml-auto text-primary">Manage ›</span>
+                  </span>
+                  <span className="h-1.5 w-full overflow-hidden rounded-full bg-muted/20">
+                    <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.round((v.paidMinor / b.amountMinor) * 100))}%` }} />
+                  </span>
+                </button>
+              )}
               </li>
-            ))}
+              );
+            })}
           </ul>
           <button type="button" onClick={() => setAddBorrowOpen(true)} className="mt-2 min-h-11 w-full rounded-lg border border-dashed border-muted/60 text-sm text-muted">
             + Add Borrowing
@@ -151,6 +171,11 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
                 <li key={`${r.date}-${i}`} className="flex items-center justify-between border-b border-muted/20 py-2">
                   <span className="flex flex-col text-sm text-fg">
                     {formatDisplayDate(r.date, dateFormat)}
+                    {r.borrowingId && debt.borrowings.length > 1 && (
+                      <span className="text-xs text-muted">
+                        → {formatDisplayDate(debt.borrowings.find((b) => b.id === r.borrowingId)?.date ?? debt.date, dateFormat)} borrowing
+                      </span>
+                    )}
                     {r.note && <span className="text-xs text-muted">{r.note}</span>}
                   </span>
                   <span className="flex items-center gap-3">
@@ -183,6 +208,18 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
             <span className="text-muted">Outstanding</span>
             <span className="font-medium text-fg">{formatAmount(outstanding)}</span>
           </p>
+          {owe && writtenOff > 0 && (
+            <>
+              <p className="mt-1 flex justify-between text-sm">
+                <span className="text-muted">Written-off</span>
+                <span className="text-fg">− {formatAmount(writtenOff)}</span>
+              </p>
+              <p className="mt-1 flex justify-between text-sm">
+                <span className="text-muted">Receivable (Net Worth)</span>
+                <span className="font-medium text-fg">{formatAmount(outstanding - writtenOff)}</span>
+              </p>
+            </>
+          )}
           {sumRepayments(debt.repayments) > debt.totalAmountMinor && (
             <p className="mt-1 text-sm text-muted">Total paid exceeds the original amount — please confirm.</p>
           )}
@@ -193,7 +230,29 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
         </button>
       </div>
 
-      {addOpen && <RepaymentSheet uid={uid} debt={debt} onClose={() => setAddOpen(false)} />}
+      {addOpen && (
+        <RepaymentSheet
+          uid={uid}
+          debt={debt}
+          presetBorrowingId={repayPreset}
+          onClose={() => {
+            setAddOpen(false);
+            setRepayPreset(undefined);
+          }}
+        />
+      )}
+      {actionIdx !== null && views[actionIdx] && (
+        <BorrowingActionSheet
+          uid={uid}
+          debt={debt}
+          view={views[actionIdx]}
+          onAddRepayment={(id) => {
+            setRepayPreset(id);
+            setAddOpen(true);
+          }}
+          onClose={() => setActionIdx(null)}
+        />
+      )}
       {editRepaymentIdx !== null && (
         <RepaymentSheet uid={uid} debt={debt} editIndex={editRepaymentIdx} onClose={() => setEditRepaymentIdx(null)} />
       )}
