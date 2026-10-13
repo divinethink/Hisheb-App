@@ -1,0 +1,20 @@
+name: deploy-rules
+# Actions -> deploy-rules -> Run workflow (মোবাইল থেকেও চলে)। শুধু firestore.rules deploy করে।
+on:
+  workflow_dispatch:
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Service account
+        run: printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HISHAB_NIKASH_41B9B }}
+      - name: Deploy Firestore rules
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: npx --yes firebase-tools@13 deploy --only firestore:rules --project hishab-nikash-41b9b --non-interactive
