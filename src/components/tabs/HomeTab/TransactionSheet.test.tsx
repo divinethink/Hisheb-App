@@ -70,6 +70,7 @@ describe('TransactionSheet', () => {
     expect(document.activeElement).toBe(screen.getByLabelText('Amount'));
     await typeAmount(user, '120');
     expect((screen.getByLabelText('Amount') as HTMLInputElement).value).toBe('500+120');
+    expect(screen.getByText('620')).toBeTruthy(); // বড় field-এ মোট
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(repo.addTransaction.mock.calls[0][2]).toMatchObject({ amountMinor: 62000 });

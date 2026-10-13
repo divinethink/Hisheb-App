@@ -69,7 +69,7 @@ export default function AmountInput({
   // owner-request (২০২৬-০৯-২৬): main field-এ বড় করে total (evaluated) দেখাবে, ছোট লাইনে raw
   // expression — Spendee-র মতো। expression অসম্পূর্ণ থাকলে (evaluated===null) fallback হিসেবে
   // main field-এ raw value-ই থাকে, দেখানোর মতো total এখনো নেই।
-  const mainDisplay = !native && exprActive && evaluated !== null ? evaluated : value;
+  const mainDisplay = exprActive && evaluated !== null ? evaluated : value;
   const parsed = parseAmountToMinor(value);
   // expression অসম্পূর্ণ/অবৈধ (dangling operator, ÷0, non-positive result) অবস্থায় Save চাপলেও
   // যেন silently কিছু না হয়ে স্পষ্ট error দেখা যায়।
@@ -79,7 +79,7 @@ export default function AmountInput({
 
   return (
     <div>
-      <label htmlFor="amount" className="mb-1 block text-sm text-muted">
+      <label htmlFor="amount" className={native ? 'sr-only' : 'mb-1 block text-sm text-muted'}>
         Amount
       </label>
       <div className="flex items-center gap-2">
@@ -89,22 +89,32 @@ export default function AmountInput({
               {type === 'income' ? '+' : '−'}
             </span>
           )}
-          {/* readOnly + inputMode="none" — native OS কীবোর্ড কখনো খুলবে না; নিচের/পরের
-              AmountKeypad-ই একমাত্র ইনপুট-উৎস (Spendee-প্যাটার্ন)। */}
-          <input
-            id="amount"
-            ref={inputRef}
-            inputMode={native ? 'decimal' : 'none'}
-            readOnly={!native}
-            // native মোডে শুধু অঙ্ক, '.' ও '+' গ্রহণযোগ্য; ',' → '.' (কিছু কীবোর্ডে দশমিক কমা)
-            onChange={native ? (e) => onChange(e.target.value.replace(/,/g, '.').replace(/[^0-9.+]/g, '')) : undefined}
-            autoComplete="off"
-            placeholder="0"
-            value={mainDisplay}
-            aria-invalid={invalid}
-            aria-describedby={invalid ? 'amount-error' : undefined}
-            className="w-full bg-transparent text-xl text-fg outline-none"
-          />
+          {native ? (
+            // native মোডে বড় field শুধু *মোট* দেখায় (display-only); আসল editable input নিচের লাইনে
+            // (raw expression "12+12+12")। field-এ ট্যাপ করলে input-এই focus যায়।
+            <span
+              aria-hidden="true"
+              onMouseDown={keepFocus}
+              onClick={() => inputRef.current?.focus()}
+              className={`w-full truncate text-xl ${mainDisplay ? 'text-fg' : 'text-muted'}`}
+            >
+              {mainDisplay || '0'}
+            </span>
+          ) : (
+            // readOnly + inputMode="none" — OS কীবোর্ড খুলবে না; AmountKeypad-ই একমাত্র ইনপুট-উৎস।
+            <input
+              id="amount"
+              ref={inputRef}
+              inputMode="none"
+              readOnly
+              autoComplete="off"
+              placeholder="0"
+              value={mainDisplay}
+              aria-invalid={invalid}
+              aria-describedby={invalid ? 'amount-error' : undefined}
+              className="w-full bg-transparent text-xl text-fg outline-none"
+            />
+          )}
         </div>
         {native && (
           <button
@@ -123,9 +133,27 @@ export default function AmountInput({
 
       {/* সবসময় fixed-height লাইন (ফাঁকা থাকলেও জায়গা ধরে) — expression শুরু/শেষে keypad shake করে না।
           অসম্পূর্ণ expression-এ error না, শুধু চলমান হিসেব; error শুধু Save-এ (নিচের `invalid`)। */}
-      <p className="mt-1 h-5 truncate text-sm text-muted" aria-live="polite">
-        {exprActive ? (evaluated !== null ? (native ? `${value} = ${evaluated}` : `${value} =`) : value) : '\u00A0'}
-      </p>
+      {native ? (
+        // মূল editable input: expression থাকলে raw "12+12+12" দেখায়; না থাকলে লেখা লুকানো (বড় field-এ
+        // একই সংখ্যা আছে, দুবার দেখানো হয় না)।
+        <input
+          id="amount"
+          ref={inputRef}
+          inputMode="decimal"
+          autoComplete="off"
+          value={value}
+          onChange={(e) => onChange(e.target.value.replace(/,/g, '.').replace(/[^0-9.+]/g, ''))}
+          aria-invalid={invalid}
+          aria-describedby={invalid ? 'amount-error' : undefined}
+          className={`mt-1 block h-5 w-full bg-transparent text-sm outline-none ${
+            exprActive ? 'text-muted' : 'text-transparent caret-transparent'
+          }`}
+        />
+      ) : (
+        <p className="mt-1 h-5 truncate text-sm text-muted" aria-live="polite">
+          {exprActive ? (evaluated !== null ? `${value} =` : value) : '\u00A0'}
+        </p>
+      )}
       {invalid && (
         <p id="amount-error" role="alert" className="mt-1 text-sm text-expense">
           {exprActive
