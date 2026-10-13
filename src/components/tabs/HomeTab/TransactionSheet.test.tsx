@@ -38,12 +38,8 @@ function setup(initial: Transaction | null = null, onDelete?: () => Promise<void
   return { onClose, user: userEvent.setup() };
 }
 
-// Amount field এখন readOnly + custom on-screen keypad (Spendee-স্টাইল, ২০২৬-০৯-২৬) — native
-// user.type()/user.clear() আর কাজ করে না। এই তিনটা helper সেই keypad-ট্যাপ simulate করে।
+// Transaction-এ Amount এখন native কীবোর্ড (২০২৬-১০-১৩) — user.type() দিয়ে টাইপ।
 type TestUser = ReturnType<typeof userEvent.setup>;
-async function openKeypad(user: TestUser) {
-  await user.click(screen.getByLabelText('Amount'));
-}
 async function typeAmount(user: TestUser, digits: string) {
   await user.type(screen.getByLabelText('Amount'), digits);
 }
@@ -154,9 +150,8 @@ describe('TransactionSheet', () => {
     const { user, onClose } = setup(initial);
     const amount = screen.getByLabelText('Amount') as HTMLInputElement;
     expect(amount.value).toBe('500');
-    await openKeypad(user);
     await backspaceAmount(user, amount.value.length);
-    for (const ch of '750') await user.click(screen.getByRole('button', { name: ch }));
+    await typeAmount(user, '750');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(repo.addTransaction).not.toHaveBeenCalled();
