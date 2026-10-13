@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { evaluateExpression, hasOperator } from '../../lib/calculator';
 import { parseAmountToMinor } from '../../lib/money';
 
@@ -42,20 +43,33 @@ export default function AmountInput({
   showError,
   type,
   largeAmountThresholdMinor = null,
+  onChange,
 }: {
   value: string;
+  /** দিলে native (OS) numeric কীবোর্ড মোড: field editable, amount-এর পাশে "+" বাটন (BDT-এর আগে)।
+   * না দিলে আগের মতো readOnly + AmountKeypad (অন্য সব ফর্ম অপরিবর্তিত)। */
+  onChange?: (v: string) => void;
   showError: boolean;
   /** income→সবুজ "+", expense→লাল "−" প্রিফিক্স (Spendee-স্টাইল)। ঐচ্ছিক — যেসব ফর্মে income/expense ধারণা নেই (Debt/Investment/Home Deposit/GPF) সেখানে বাদ দিলে কোনো প্রিফিক্স দেখাবে না, বিদ্যমান আচরণ অপরিবর্তিত। */
   type?: 'income' | 'expense';
   /** G3: null/undefined হলে ফিচার off (settings.largeAmountWarningThresholdMinor)। */
   largeAmountThresholdMinor?: number | null;
 }) {
+  const native = onChange !== undefined;
+  const inputRef = useRef<HTMLInputElement>(null);
+  // "+" চাপলে input-এর focus যেন না হারায় (হারালে native কীবোর্ড নেমে যায়) — mousedown/pointerdown
+  // default (focus-shift) আটকানো + click-এ আবার focus() (কীবোর্ড আগে থেকেই খোলা থাকলে no-op)।
+  const keepFocus = (e: { preventDefault: () => void }) => e.preventDefault();
+  const addPlus = () => {
+    if (onChange && value !== '' && !value.endsWith('+')) onChange(value + '+');
+    inputRef.current?.focus();
+  };
   const exprActive = hasOperator(value);
   const evaluated = exprActive ? evaluateExpression(value) : null;
   // owner-request (২০২৬-০৯-২৬): main field-এ বড় করে total (evaluated) দেখাবে, ছোট লাইনে raw
   // expression — Spendee-র মতো। expression অসম্পূর্ণ থাকলে (evaluated===null) fallback হিসেবে
   // main field-এ raw value-ই থাকে, দেখানোর মতো total এখনো নেই।
-  const mainDisplay = exprActive && evaluated !== null ? evaluated : value;
+  const mainDisplay = !native && exprActive && evaluated !== null ? evaluated : value;
   const parsed = parseAmountToMinor(value);
   // expression অসম্পূর্ণ/অবৈধ (dangling operator, ÷0, non-positive result) অবস্থায় Save চাপলেও
   // যেন silently কিছু না হয়ে স্পষ্ট error দেখা যায়।
@@ -79,8 +93,11 @@ export default function AmountInput({
               AmountKeypad-ই একমাত্র ইনপুট-উৎস (Spendee-প্যাটার্ন)। */}
           <input
             id="amount"
-            inputMode="none"
-            readOnly
+            ref={inputRef}
+            inputMode={native ? 'decimal' : 'none'}
+            readOnly={!native}
+            // native মোডে শুধু অঙ্ক, '.' ও '+' গ্রহণযোগ্য; ',' → '.' (কিছু কীবোর্ডে দশমিক কমা)
+            onChange={native ? (e) => onChange(e.target.value.replace(/,/g, '.').replace(/[^0-9.+]/g, '')) : undefined}
             autoComplete="off"
             placeholder="0"
             value={mainDisplay}
@@ -89,13 +106,25 @@ export default function AmountInput({
             className="w-full bg-transparent text-xl text-fg outline-none"
           />
         </div>
+        {native && (
+          <button
+            type="button"
+            aria-label="Add"
+            onMouseDown={keepFocus}
+            onPointerDown={keepFocus}
+            onClick={addPlus}
+            className="flex h-12 w-12 items-center justify-center rounded-lg border border-primary/40 bg-primary/10 text-xl text-primary active:bg-primary/20"
+          >
+            +
+          </button>
+        )}
         <span className="text-muted">BDT</span>
       </div>
 
       {/* সবসময় fixed-height লাইন (ফাঁকা থাকলেও জায়গা ধরে) — expression শুরু/শেষে keypad shake করে না।
           অসম্পূর্ণ expression-এ error না, শুধু চলমান হিসেব; error শুধু Save-এ (নিচের `invalid`)। */}
       <p className="mt-1 h-5 truncate text-sm text-muted" aria-live="polite">
-        {exprActive ? (evaluated !== null ? `${value} =` : value) : '\u00A0'}
+        {exprActive ? (evaluated !== null ? (native ? `${value} = ${evaluated}` : `${value} =`) : value) : '\u00A0'}
       </p>
       {invalid && (
         <p id="amount-error" role="alert" className="mt-1 text-sm text-expense">

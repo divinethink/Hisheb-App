@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import BottomSheet from '../../common/BottomSheet';
-import AmountInput, { AmountKeypad } from '../../common/AmountInput';
+import AmountInput from '../../common/AmountInput';
 import DateInput from '../../common/DateInput';
 import CatalogEntryForm from '../../common/CatalogEntryForm';
 import { addTransaction, newTransactionId, updateTransaction } from '../../../data/transactionRepo';
@@ -325,7 +325,7 @@ export default function TransactionSheet({
             <p role="alert" className="text-sm text-expense">Choose a category.</p>
           )}
 
-          <AmountInput value={amountStr} showError={submitted} type={type} largeAmountThresholdMinor={largeThreshold} />
+          <AmountInput value={amountStr} onChange={setAmountStr} showError={submitted} type={type} largeAmountThresholdMinor={largeThreshold} />
 
           {/* owner-request (২০২৬-০৯-২৭): Labels ও Date/Note কম্প্যাক্ট + Labels আরো উপরে (Amount-এর
               ঠিক পরে) — যাতে expression-preview লাইন এলেও নিচের flex-1 AmountKeypad-এর উচ্চতা কম না
@@ -373,10 +373,8 @@ export default function TransactionSheet({
           </div>
 
           <div className="flex flex-1 min-h-0 flex-col gap-2">
-            <div className="flex-1 min-h-0">
-              <AmountKeypad value={amountStr} onChange={setAmountStr} />
-            </div>
-
+            {/* owner-request (২০২৬-১০-১৩): Transaction-এ native কীবোর্ড + Amount-এর পাশে "+" বাটন;
+                on-screen AmountKeypad এখানে আর নেই (অন্য ফর্মে অপরিবর্তিত)। */}
             {initial && onDelete && (
               <button
                 type="button"

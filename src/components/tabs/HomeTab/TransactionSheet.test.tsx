@@ -45,15 +45,10 @@ async function openKeypad(user: TestUser) {
   await user.click(screen.getByLabelText('Amount'));
 }
 async function typeAmount(user: TestUser, digits: string) {
-  await openKeypad(user);
-  for (const ch of digits) {
-    await user.click(screen.getByRole('button', { name: ch }));
-  }
+  await user.type(screen.getByLabelText('Amount'), digits);
 }
 async function backspaceAmount(user: TestUser, times: number) {
-  for (let i = 0; i < times; i++) {
-    await user.click(screen.getByRole('button', { name: 'Backspace' }));
-  }
+  await user.type(screen.getByLabelText('Amount'), '{Backspace}'.repeat(times));
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -69,6 +64,19 @@ describe('TransactionSheet', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(screen.getByText(/greater than 0/)).toBeTruthy();
     expect(repo.addTransaction).not.toHaveBeenCalled();
+  });
+
+  it('"+" button adds amounts, keeps input focused, saves the sum', async () => {
+    const { user, onClose } = setup();
+    await user.click(screen.getByRole('button', { name: 'Groceries' }));
+    await typeAmount(user, '500');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(document.activeElement).toBe(screen.getByLabelText('Amount'));
+    await typeAmount(user, '120');
+    expect((screen.getByLabelText('Amount') as HTMLInputElement).value).toBe('500+120');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(repo.addTransaction.mock.calls[0][2]).toMatchObject({ amountMinor: 62000 });
   });
 
   it('rejects zero amount', async () => {
