@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accountBalanceOf, accountColumns, groupHistoryByYear, monthName } from './historyCalc';
+import { accountBalanceOf, accountColumns, earliestSnapshotMonth, groupHistoryByYear, monthDetail, monthName } from './historyCalc';
 import type { NetWorthSnapshot } from '../validation/netWorthSchema';
 
 const snap = (yyyymm: string, total: number, breakdown?: NetWorthSnapshot['breakdown']): NetWorthSnapshot => ({
@@ -43,5 +43,33 @@ describe('monthName', () => {
   it('names', () => {
     expect(monthName('2026-09')).toBe('September');
     expect(monthName('2026-09', true)).toBe('Sep');
+  });
+});
+
+
+describe('monthDetail / earliestSnapshotMonth', () => {
+  const mk = (yyyymm: string, total: number, extra: Record<string, unknown> = {}) =>
+    ({ yyyymm, totalAssetsMinor: total, snapshotDate: `${yyyymm}-28`, ...extra }) as never;
+  const split = { accountsMinor: 300, receivableMinor: 10, investmentMinor: 20, homeDepositMinor: 30, gpfMinor: 0, accounts: [{ name: 'B', balanceMinor: 100 }, { name: 'A', balanceMinor: 200 }] };
+  const snaps = [mk('2026-04', 1000), mk('2026-05', 1500, { breakdown: split }), mk('2026-06', 1200, { unverified: true })];
+  it('আগের মাসের সাথে পার্থক্য ও %; account-ক্রম মানা হয়', () => {
+    const d = monthDetail(snaps, '2026-05', ['A', 'B'])!;
+    expect(d).toMatchObject({ totalMinor: 1500, prevYyyymm: '2026-04', deltaMinor: 500, deltaPct: 50, snapshotDate: '2026-05-28' });
+    expect(d.accounts.map((a) => a.name)).toEqual(['A', 'B']);
+    expect(d.breakdown?.receivableMinor).toBe(10);
+  });
+  it('ভাঙা-হিসাব না থাকলে breakdown null (বানানো হয় না); ঋণাত্মক পার্থক্য; unverified', () => {
+    const d = monthDetail(snaps, '2026-06')!;
+    expect(d.breakdown).toBeNull();
+    expect(d.accounts).toEqual([]);
+    expect(d).toMatchObject({ deltaMinor: -300, deltaPct: 20, unverified: true });
+  });
+  it('প্রথম snapshot-এ পার্থক্য নেই; snapshot না থাকা মাসে null', () => {
+    expect(monthDetail(snaps, '2026-04')).toMatchObject({ prevYyyymm: null, deltaMinor: null, deltaPct: null });
+    expect(monthDetail(snaps, '2026-09')).toBeNull();
+  });
+  it('earliestSnapshotMonth', () => {
+    expect(earliestSnapshotMonth(snaps)).toBe('2026-04');
+    expect(earliestSnapshotMonth([])).toBeNull();
   });
 });

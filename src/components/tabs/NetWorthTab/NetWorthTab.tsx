@@ -8,6 +8,7 @@ import AccountSheet from './AccountSheet';
 import UpdateBalancesScreen from './UpdateBalancesScreen';
 import CrossCheckView from './CrossCheckView';
 import MonthlyHistory from './MonthlyHistory';
+import PastMonthView, { MonthStepper } from './PastMonthView';
 import {
   useAccountBalances,
   useAccounts,
@@ -22,7 +23,8 @@ import { accountsTotalMinor, latestBalanceByAccount, liveBasisDate, totalAssetsM
 import { countLedgerChangesAfter, depositNetAsOfMinor, receivableAsOfMinor, runningInvestmentAsOfMinor } from '../../../lib/ledgerAsOf';
 import { pickSnapshotPair } from '../../../lib/crossCheck';
 import { gpfBalanceAsOfMinor } from '../../../lib/gpfCalc';
-import { currentMonth, formatDisplayDate, toDhakaDate } from '../../../lib/date';
+import { currentMonth, formatDisplayDate, shiftMonth, toDhakaDate } from '../../../lib/date';
+import { earliestSnapshotMonth, monthDetail } from '../../../lib/historyCalc';
 import { formatAmount, formatNet } from '../../../lib/format';
 import type { Account } from '../../../validation/accountSchema';
 import type { AccountBalance } from '../../../validation/netWorthSchema';
@@ -61,6 +63,8 @@ export default function NetWorthTab({
   const [updateOpen, setUpdateOpen] = useState(updateRequest !== null);
   const [updateMonth, setUpdateMonth] = useState<string | undefined>(updateRequest?.month);
   const [crossOpen, setCrossOpen] = useState(false);
+  // `‹ মাস ›` — ডিফল্ট চলতি মাস (লাইভ, অপরিবর্তিত); আগের মাস = সংরক্ষিত snapshot, read-only
+  const [viewMonth, setViewMonth] = useState(() => currentMonth());
 
   // reminder ব্যানার থেকে আসা অনুরোধ: Update Balances খোলে (নির্দিষ্ট মাস preselect), অনুরোধ একবারই ব্যবহৃত
   useEffect(() => {
@@ -144,11 +148,45 @@ export default function NetWorthTab({
     return <CrossCheckView {...crossProps} mode="details" onBack={() => setCrossOpen(false)} />;
   }
 
+  const nowMonth = currentMonth();
+  const minMonth = snaps.state.status === 'ready' ? earliestSnapshotMonth(snaps.state.data) ?? nowMonth : nowMonth;
+  const stepper = (
+    <MonthStepper
+      month={viewMonth}
+      onPrev={() => setViewMonth((m) => shiftMonth(m, -1))}
+      onNext={() => setViewMonth((m) => (shiftMonth(m, 1) > nowMonth ? nowMonth : shiftMonth(m, 1)))}
+      prevDisabled={viewMonth <= minMonth}
+      nextDisabled={viewMonth >= nowMonth}
+    />
+  );
+
+  if (viewMonth < nowMonth) {
+    return (
+      <div className="h-full overflow-y-auto pb-24">
+        <header className="px-4 pb-1 pt-3">
+          <h1 className="text-lg font-semibold text-fg">Net Worth</h1>
+        </header>
+        {stepper}
+        {snaps.state.status === 'loading' && <SkeletonLoader />}
+        {snaps.state.status === 'error' && (
+          <Card role="alert" className="m-4 p-4 text-center">
+            <p className="text-sm text-fg">Couldn’t load snapshots.</p>
+            <button type="button" onClick={snaps.retry} className="mt-2 min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas">Retry</button>
+          </Card>
+        )}
+        {snaps.state.status === 'ready' && (
+          <PastMonthView month={viewMonth} dateFormat={dateFormat} detail={monthDetail(snaps.state.data, viewMonth, acc.state.status === 'ready' ? acc.state.data.map((a) => a.name) : [])} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto pb-24">
-      <header className="px-4 pb-2 pt-3">
+      <header className="px-4 pb-1 pt-3">
         <h1 className="text-lg font-semibold text-fg">Net Worth</h1>
       </header>
+      {stepper}
 
       {acc.state.status === 'loading' && <SkeletonLoader />}
 
