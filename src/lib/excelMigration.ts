@@ -535,11 +535,22 @@ export interface MonthlyFlowRow {
 
 const FLOW_HEADERS = { income: ['মোট আয়'], expense: ['মোট ব্যয়'] } as const;
 
-export function parseMonthlyFlow(workbook: XLSX.WorkBook): { rows: MonthlyFlowRow[]; errors: string[] } {
+export interface FlowParseResult {
+  rows: MonthlyFlowRow[];
+  errors: string[];
+  /** ডায়াগনস্টিক: যে মাস-সারি পড়া গেল না ও কারণ (ফাঁকা মান / ফর্মুলার cached মান নেই ইত্যাদি) */
+  skipped: { yyyymm: string; reason: string }[];
+  /** পাওয়া বছর-সেকশন ও কলাম-হেডার পাওয়া গেছে কিনা */
+  sections: { year: number; headerFound: boolean }[];
+}
+
+export function parseMonthlyFlow(workbook: XLSX.WorkBook): FlowParseResult {
   const sheet = workbook.Sheets['Monthly Statement'];
-  if (!sheet) return { rows: [], errors: ['"Monthly Statement" শীট পাওয়া যায়নি'] };
+  if (!sheet) return { rows: [], errors: ['"Monthly Statement" শীট পাওয়া যায়নি'], skipped: [], sections: [] };
   const grid: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
   const rows: MonthlyFlowRow[] = [];
+  const skipped: { yyyymm: string; reason: string }[] = [];
+  const sections: { year: number; headerFound: boolean }[] = [];
   let curYear: number | null = null;
   let cols: { inc: number; exp: number } | null = null;
 
@@ -548,24 +559,38 @@ export function parseMonthlyFlow(workbook: XLSX.WorkBook): { rows: MonthlyFlowRo
     const sec = /^(20\d{2}) income/.exec(first);
     if (sec) {
       curYear = Number(sec[1]);
+      sections.push({ year: curYear, headerFound: false });
       cols = null;
       continue;
     }
     if (curYear == null) continue;
     if (first === 'মাস') {
       cols = { inc: findCol(row, FLOW_HEADERS.income), exp: findCol(row, FLOW_HEADERS.expense) };
+      const sc = sections[sections.length - 1];
+      if (sc) sc.headerFound = cols.inc !== -1 && cols.exp !== -1;
       continue;
     }
     const monthNum = MONTH_NUM[first];
     if (!monthNum || !cols || cols.inc === -1 || cols.exp === -1) continue;
+    const yyyymm = `${curYear}-${String(monthNum).padStart(2, '0')}`;
     const income = parseTakaToMinorAllowAny(row[cols.inc]);
     const expense = parseTakaToMinorAllowAny(row[cols.exp]);
-    if (income == null || expense == null || income < 0 || expense < 0) continue; // ফাঁকা/ভবিষ্যৎ/অবৈধ মাস
-    if (income === 0 && expense === 0) continue;
-    rows.push({ yyyymm: `${curYear}-${String(monthNum).padStart(2, '0')}`, incomeMinor: income, expenseMinor: expense });
+    if (income == null || expense == null) {
+      skipped.push({ yyyymm, reason: 'আয়/ব্যয়ের ঘর ফাঁকা (ফর্মুলার সংরক্ষিত মান নেই?)' });
+      continue;
+    }
+    if (income < 0 || expense < 0) {
+      skipped.push({ yyyymm, reason: 'ঋণাত্মক মান' });
+      continue;
+    }
+    if (income === 0 && expense === 0) {
+      skipped.push({ yyyymm, reason: 'দুটোই ০' });
+      continue;
+    }
+    rows.push({ yyyymm, incomeMinor: income, expenseMinor: expense });
   }
   rows.sort((a, b) => a.yyyymm.localeCompare(b.yyyymm));
-  return { rows, errors: [] };
+  return { rows, errors: [], skipped, sections };
 }
 
 export interface FlowPlan {

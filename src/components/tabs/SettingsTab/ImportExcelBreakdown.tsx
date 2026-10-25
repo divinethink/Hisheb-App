@@ -25,12 +25,17 @@ export default function ImportExcelBreakdown({ uid, onClose }: { uid: string; on
       const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
       const parsed = parseMonthlyBreakdowns(wb);
       if (parsed.errors.length) throw new Error(parsed.errors.join(' · '));
+      if (parsed.rows.length === 0) throw new Error('Excel থেকে কোনো মাস পড়া যায়নি (Monthly Statement-এর পাওনা/বাসায় জমা/Running Investment/ব্যাংক ঘর ফাঁকা বা সংরক্ষিত মান নেই?)');
       const existing = await getNetWorthSnapshots(uid);
       const p = planBreakdownBackfill(
         parsed.rows,
         existing.map((s) => ({ yyyymm: s.yyyymm, totalAssetsMinor: s.totalAssetsMinor, hasBreakdown: s.breakdown !== undefined })),
       );
-      if (p.apply.length === 0) throw new Error('বসানোর মতো কোনো মাস পাওয়া যায়নি (সব হয় আগেই আছে, নয় total মেলেনি)');
+      if (p.apply.length === 0) {
+        throw new Error(
+          `বসানোর মতো মাস নেই। Excel থেকে পড়া: ${parsed.rows.length}টা (${parsed.rows[0].yyyymm} – ${parsed.rows[parsed.rows.length - 1].yyyymm}); Net Worth snapshot: ${existing.length}টা। বাদ: ${p.skipped.slice(0, 8).map((s) => `${s.yyyymm} (${s.reason})`).join(', ')}`,
+        );
+      }
       setPlan(p);
       setStep('review');
     } catch (e) {

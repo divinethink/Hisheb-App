@@ -316,3 +316,16 @@ describe('planFlowBackfill', () => {
     expect(plan.skipped.map((x) => x.yyyymm)).toEqual(['2025-02', '2025-03', '2026-01']);
   });
 });
+
+describe('parseMonthlyFlow diagnostics', () => {
+  it('ফাঁকা ঘরের মাস skipped-এ কারণসহ; সেকশন/হেডার রিপোর্ট', () => {
+    const wb = workbookFromRows(
+      [['2025 Income, Expenditure & Deposit'], ['মাস', 'মোট আয়', 'মোট ব্যয়'], ['January', null, null], ['February', 0, 0]],
+      'Monthly Statement',
+    );
+    const r = parseMonthlyFlow(wb);
+    expect(r.rows).toEqual([]);
+    expect(r.skipped.map((x) => x.yyyymm)).toEqual(['2025-01', '2025-02']);
+    expect(r.sections).toEqual([{ year: 2025, headerFound: true }]);
+  });
+});

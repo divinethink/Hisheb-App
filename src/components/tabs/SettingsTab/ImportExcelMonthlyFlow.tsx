@@ -29,13 +29,24 @@ export default function ImportExcelMonthlyFlow({ uid, onClose }: { uid: string; 
       const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
       const parsed = parseMonthlyFlow(wb);
       if (parsed.errors.length) throw new Error(parsed.errors.join(' · '));
+      if (parsed.rows.length === 0) {
+        const sec = parsed.sections.map((x) => `${x.year}${x.headerFound ? '' : ' (মোট আয়/ব্যয় হেডার নেই)'}`).join(', ') || 'কোনো বছর-সেকশন নেই';
+        const sk = parsed.skipped.slice(0, 6).map((x) => `${x.yyyymm}: ${x.reason}`).join('; ');
+        throw new Error(`Excel থেকে কোনো মাস পড়া যায়নি। সেকশন: ${sec}.${sk ? ` বাদ: ${sk}` : ''}`);
+      }
       const existing = await getNetWorthSnapshots(uid);
       const p = planFlowBackfill(
         parsed.rows,
         existing.map((s) => ({ yyyymm: s.yyyymm, hasFlow: s.flow !== undefined })),
         years,
       );
-      if (p.apply.length === 0) throw new Error('বসানোর মতো কোনো মাস পাওয়া যায়নি (সব হয় আগেই আছে, নয় snapshot/yearly record নেই)');
+      if (p.apply.length === 0) {
+        const first = parsed.rows[0].yyyymm;
+        const last = parsed.rows[parsed.rows.length - 1].yyyymm;
+        throw new Error(
+          `বসানোর মতো মাস নেই। Excel থেকে পড়া: ${parsed.rows.length}টা (${first} – ${last}); Net Worth snapshot: ${existing.length}টা; Yearly record-এর বছর: ${years.join(', ') || 'নেই'}। বাদ: ${p.skipped.slice(0, 8).map((s) => `${s.yyyymm} (${s.reason})`).join(', ')}`,
+        );
+      }
       setPlan(p);
       setStep('review');
     } catch (e) {
