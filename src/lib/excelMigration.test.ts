@@ -329,3 +329,16 @@ describe('parseMonthlyFlow diagnostics', () => {
     expect(r.sections).toEqual([{ year: 2025, headerFound: true }]);
   });
 });
+
+describe('Bengali য় encoding (U+09DF বনাম য+়)', () => {
+  it('Excel-এর precomposed য় হেডারও মেলে', () => {
+    const inc = 'মোট আ\u09DF';
+    const exp = 'মোট  ব্য\u09DF';
+    const wb = workbookFromRows(
+      [['2025 Income, Expenditure & Deposit'], ['মাস', inc, exp], ['January', 38200, 58089]],
+      'Monthly Statement',
+    );
+    const r = parseMonthlyFlow(wb);
+    expect(r.rows).toEqual([{ yyyymm: '2025-01', incomeMinor: 3820000, expenseMinor: 5808900 }]);
+  });
+});

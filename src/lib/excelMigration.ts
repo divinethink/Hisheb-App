@@ -37,11 +37,13 @@ const HEADER_ALIASES = {
 type ColKey = keyof typeof HEADER_ALIASES;
 
 function norm(s: unknown): string {
-  return String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  // NFC: Excel-এ বাংলা "য়" প্রায়ই precomposed U+09DF, কোডে য+়-এর রূপ — NFC দুটোকে এক করে (হেডার না-মেলার মূল কারণ ছিল)
+  return String(s ?? '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function findCol(headerRow: unknown[], aliases: readonly string[]): number {
-  return headerRow.findIndex((c) => aliases.includes(norm(c)));
+  const wanted = aliases.map((a) => norm(a));
+  return headerRow.findIndex((c) => wanted.includes(norm(c)));
 }
 
 /** Excel serial date (real xlsx cell) বা "DD.MM.YYYY"/"DD-MM-YYYY" স্ট্রিং — দুটোই "YYYY-MM-DD"-তে। */
