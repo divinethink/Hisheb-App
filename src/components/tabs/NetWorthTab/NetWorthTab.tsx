@@ -141,12 +141,13 @@ export default function NetWorthTab({
     acc.state.status === 'ready' && acc.state.data.length > 0 && debts.state.status === 'ready' && investments.state.status === 'ready' && gpf.state.status === 'ready' && homeDeposits.state.status === 'ready'
       ? countLedgerChangesAfter(basisDate, { debts: debtList, investments: invList, deposits: depositList, gpf: gpfList })
       : 0;
-  // hero-কার্ডের ভাঙা-হিসাব (Accounts / Investment / Home Deposit / Receivable+GPF) — আগের আলাদা breakdown-কার্ডের জায়গায়
+  // ভাঙা-হিসাব কার্ড (অ্যাকাউন্ট-তালিকার নিচে): Accounts Total + Receivable + Investment + Home Deposit + GPF = Total Assets
   const parts = [
-    { label: 'Accounts', value: accTotal, dot: 'bg-primary' },
-    { label: 'Running Investment', value: runningInv, dot: 'bg-sky-400' },
-    { label: 'Home Deposit (Net)', value: homeDepositNet, dot: 'bg-amber-400' },
-    { label: 'Receivable + GPF', value: receivable + gpfBalance, dot: 'bg-violet-400' },
+    { label: 'Accounts Total', value: accTotal, dot: 'bg-primary' },
+    { label: '+ Receivable (Ledger)', value: receivable, dot: 'bg-violet-400' },
+    { label: '+ Running Investment', value: runningInv, dot: 'bg-sky-400' },
+    { label: '+ Home Deposit (Net)', value: homeDepositNet, dot: 'bg-amber-400' },
+    { label: '+ GPF Balance', value: gpfBalance, dot: 'bg-rose-400' },
   ];
   const barTotal = parts.reduce((t, x) => t + Math.max(0, x.value), 0);
   const crossProps = { uid, liveTotalMinor: totalAssets, basisDate, debts: debtList, investments: invList, gpfEntries: gpfList, balances };
@@ -234,42 +235,7 @@ export default function NetWorthTab({
               )}
             </div>
           </div>
-          {acc.state.data.length > 0 && (
-            <div className="mt-4 border-t border-muted/10 pt-3">
-              {barTotal > 0 && (
-                <div className="mb-2 flex h-1.5 w-full overflow-hidden rounded-full bg-muted/10" aria-hidden>
-                  {parts.map((x) => (
-                    <span key={x.label} className={x.dot} style={{ width: `${(Math.max(0, x.value) / barTotal) * 100}%` }} />
-                  ))}
-                </div>
-              )}
-              <dl className="flex flex-col gap-1 text-sm">
-                {parts.map((x) => (
-                  <div key={x.label} className="flex items-center justify-between gap-3">
-                    <dt className="flex items-center gap-2 text-muted">
-                      <span aria-hidden className={`h-2 w-2 rounded-full ${x.dot}`} /> {x.label}
-                    </dt>
-                    <dd className="text-fg">{formatAmount(x.value)}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          )}
         </Card>
-      )}
-
-      {pendingLedgerChanges > 0 && (
-        <button
-          type="button"
-          onClick={() => setUpdateOpen(true)}
-          className="mx-4 mb-3 flex min-h-11 w-[calc(100%-2rem)] items-start gap-2 rounded-2xl border border-muted/10 bg-canvas p-3 text-left text-xs text-muted shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-        >
-          <Info aria-hidden size={16} className="mt-0.5 shrink-0" />
-          <span>
-            Balances last updated {formatDisplayDate(basisDate, dateFormat)}. {pendingLedgerChanges} ledger change
-            {pendingLedgerChanges === 1 ? '' : 's'} since then (loans, investments, deposits, GPF) will be counted when you update balances.
-          </span>
-        </button>
       )}
 
       {acc.state.status === 'ready' && (
@@ -321,6 +287,30 @@ export default function NetWorthTab({
                 </ul>
               </Card>
 
+              <Card className="mx-4 mb-3 p-4">
+                {barTotal > 0 && (
+                  <div className="mb-3 flex h-1.5 w-full overflow-hidden rounded-full bg-muted/10" aria-hidden>
+                    {parts.map((x) => (
+                      <span key={x.label} className={x.dot} style={{ width: `${(Math.max(0, x.value) / barTotal) * 100}%` }} />
+                    ))}
+                  </div>
+                )}
+                <dl className="flex flex-col gap-1 text-sm">
+                  {parts.map((x) => (
+                    <div key={x.label} className="flex items-center justify-between gap-3">
+                      <dt className="flex items-center gap-2 text-muted">
+                        <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${x.dot}`} /> {x.label}
+                      </dt>
+                      <dd className="text-fg">{formatAmount(x.value)}</dd>
+                    </div>
+                  ))}
+                  <div className="mt-1 flex justify-between border-t border-muted/10 pt-2 text-base">
+                    <dt className="font-medium text-fg">= Total Assets (Gross)</dt>
+                    <dd className="font-semibold text-fg">{formatAmount(totalAssets)}</dd>
+                  </div>
+                </dl>
+              </Card>
+
               <div className="flex flex-col gap-2 px-4 pb-1">
                 <button
                   type="button"
@@ -341,6 +331,20 @@ export default function NetWorthTab({
 
               {debts.state.status === 'ready' && investments.state.status === 'ready' && gpf.state.status === 'ready' && (
                 <CrossCheckView {...crossProps} mode="summary" onOpen={() => setCrossOpen(true)} />
+              )}
+
+              {pendingLedgerChanges > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setUpdateOpen(true)}
+                  className="mx-4 mb-3 flex min-h-11 w-[calc(100%-2rem)] items-start gap-2 rounded-2xl border border-muted/10 bg-canvas p-3 text-left text-xs text-muted shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                >
+                  <Info aria-hidden size={16} className="mt-0.5 shrink-0" />
+                  <span>
+                    Balances last updated {formatDisplayDate(basisDate, dateFormat)}. {pendingLedgerChanges} ledger change
+                    {pendingLedgerChanges === 1 ? '' : 's'} since then (loans, investments, deposits, GPF) will be counted when you update balances.
+                  </span>
+                </button>
               )}
 
               {snaps.state.status === 'ready' && (
