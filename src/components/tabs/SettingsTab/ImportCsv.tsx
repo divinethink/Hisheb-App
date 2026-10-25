@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useBackClose } from '../../../hooks/useBackClose';
 import { dateRangeOf, dedupeRows, mergeParseResults, parseSpendeeCsv, type ParsedRow, type ParseResult, type SkippedRow } from '../../../lib/csvImport';
 import { addCategory, addLabel } from '../../../data/catalogRepo';
 import { getExistingImportKeys, importTransactionsBatch } from '../../../data/transactionRepo';
@@ -47,6 +48,7 @@ function SkippedRowsPanel({ rows }: { rows: SkippedRow[] }) {
 }
 
 export default function ImportCsv({ uid, onClose }: { uid: string; onClose: () => void }) {
+  useBackClose(onClose); // ফোনের ব্যাক = বন্ধ
   const [step, setStep] = useState<Step>('pick');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

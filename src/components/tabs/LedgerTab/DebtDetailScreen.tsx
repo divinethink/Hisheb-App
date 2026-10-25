@@ -6,9 +6,9 @@ import BorrowingSheet from './BorrowingSheet';
 import DebtSheet from './DebtSheet';
 import BorrowingActionSheet, { LINE_STATUS_LABEL } from './BorrowingActionSheet';
 import { formatAmount } from '../../../lib/format';
-import { formatDisplayDate } from '../../../lib/date';
+import { formatDisplayDate, toDhakaDate } from '../../../lib/date';
 import { useSettings } from '../../../hooks/useData';
-import { lineViews, repaymentStatus, sumRepayments, REPAYMENT_STATUS_LABEL } from '../../../lib/debtCalc';
+import { lineViews, repaymentStatus, sumRepayments, REPAYMENT_STATUS_LABEL, type LineView } from '../../../lib/debtCalc';
 import { setRepayments, setBorrowings, updateDebt } from '../../../data/debtRepo';
 import { settleOrPending } from '../../../lib/async';
 import type { Debt } from '../../../validation/debtSchema';
@@ -23,6 +23,10 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
   const [editBorrowIdx, setEditBorrowIdx] = useState<number | null>(null);
   const [actionIdx, setActionIdx] = useState<number | null>(null);
   const [repayPreset, setRepayPreset] = useState<string | undefined>(undefined);
+  // এক-ট্যাপ "Mark fully repaid": প্রথম ট্যাপে নিশ্চিতকরণ (ভুল ট্যাপ ঠেকাতে), দ্বিতীয় ট্যাপে সেভ; busy গার্ড = double-tap-এ duplicate নয়
+  const [confirmRepaidIdx, setConfirmRepaidIdx] = useState<number | null>(null);
+  const [repaying, setRepaying] = useState(false);
+  const [repayError, setRepayError] = useState('');
   const settings = useSettings(uid);
   const dateFormat = settings.state.status === 'ready' ? settings.state.data.dateFormat : 'dmy';
 
@@ -52,6 +56,27 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
     const next = debt.borrowings.filter((_, i) => i !== idx);
     await settleOrPending(setBorrowings(uid, debt.id, next), 3000).catch(() => {});
     setDeleteBorrowIdx(null);
+  }
+
+  async function markRepaid(v: LineView) {
+    if (repaying || v.outstandingMinor <= 0) return;
+    setRepaying(true);
+    setRepayError('');
+    try {
+      const link = v.line.id ? { borrowingId: v.line.id } : {};
+      await settleOrPending(
+        setRepayments(uid, debt.id, [
+          ...debt.repayments,
+          { date: toDhakaDate(new Date()), amountMinor: v.outstandingMinor, note: '', ...link },
+        ]),
+        3000,
+      );
+      setConfirmRepaidIdx(null);
+    } catch {
+      setRepayError('Could not save. Check your connection and try again.');
+    } finally {
+      setRepaying(false);
+    }
   }
 
   if (editOpen) return <DebtSheet uid={uid} initial={debt} onClose={() => setEditOpen(false)} />;
@@ -131,12 +156,7 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
                 </span>
               </div>
               {v && (
-                <button
-                  type="button"
-                  onClick={() => setActionIdx(i)}
-                  aria-label="Borrowing actions"
-                  className={`mt-1 flex min-h-11 w-full flex-col justify-center gap-1 rounded-lg px-1 text-left ${v.excluded ? 'opacity-70' : ''}`}
-                >
+                <div className={`mt-1 flex flex-col gap-2 px-1 ${v.excluded ? 'opacity-80' : ''}`}>
                   <span className="flex flex-wrap items-center gap-2 text-xs">
                     <span className="rounded-full bg-surface px-2 py-0.5 text-muted">{REPAYMENT_STATUS_LABEL[v.payStatus]}</span>
                     {owe && v.status !== 'active' && (
@@ -145,12 +165,62 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
                     <span className="text-muted">
                       {formatAmount(v.paidMinor)} / {formatAmount(b.amountMinor)}
                     </span>
-                    <span className="ml-auto text-primary">Manage ›</span>
+                    {owe && (
+                      <button
+                        type="button"
+                        onClick={() => setActionIdx(i)}
+                        aria-label="Change borrowing status"
+                        className="ml-auto flex min-h-8 items-center text-primary"
+                      >
+                        Status ›
+                      </button>
+                    )}
                   </span>
                   <span className="h-1.5 w-full overflow-hidden rounded-full bg-muted/20">
                     <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.round((v.paidMinor / b.amountMinor) * 100))}%` }} />
                   </span>
-                </button>
+                  {v.outstandingMinor > 0 &&
+                    (confirmRepaidIdx === i ? (
+                      <span className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={repaying}
+                          onClick={() => void markRepaid(v)}
+                          className="min-h-11 flex-1 rounded-lg bg-primary px-3 text-sm font-medium text-canvas disabled:opacity-60"
+                        >
+                          {repaying ? 'Saving…' : `Confirm · ${formatAmount(v.outstandingMinor)} repaid`}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={repaying}
+                          onClick={() => setConfirmRepaidIdx(null)}
+                          className="min-h-11 rounded-lg border border-muted/40 px-4 text-sm text-muted disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRepaidIdx(i)}
+                          className="min-h-11 flex-1 rounded-lg border border-primary/40 bg-primary/10 px-3 text-sm font-medium text-primary"
+                        >
+                          ✅ Mark fully repaid
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRepayPreset(b.id);
+                            setAddOpen(true);
+                          }}
+                          className="min-h-11 flex-1 rounded-lg border border-muted/40 px-3 text-sm"
+                        >
+                          + Add repayment
+                        </button>
+                      </span>
+                    ))}
+                </div>
               )}
               </li>
               );
@@ -162,7 +232,19 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
         </div>
 
         <div>
-          <p className="mb-2 text-sm text-muted">Repayment History</p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm text-muted">Repayment History</p>
+            <button
+              type="button"
+              onClick={() => {
+                setRepayPreset(undefined);
+                setAddOpen(true);
+              }}
+              className="min-h-8 rounded-full bg-primary/10 px-3 text-xs font-medium text-primary"
+            >
+              + Add
+            </button>
+          </div>
           {debt.repayments.length === 0 ? (
             <p className="text-sm text-muted">No repayments yet.</p>
           ) : (
@@ -225,9 +307,11 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
           )}
         </div>
 
-        <button type="button" onClick={() => setAddOpen(true)} className="min-h-11 rounded-lg border border-dashed border-muted/60 text-sm text-muted">
-          + Add Repayment
-        </button>
+        {repayError && (
+          <p role="alert" className="text-sm text-expense">
+            {repayError}
+          </p>
+        )}
       </div>
 
       {addOpen && (
@@ -246,10 +330,6 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
           uid={uid}
           debt={debt}
           view={views[actionIdx]}
-          onAddRepayment={(id) => {
-            setRepayPreset(id);
-            setAddOpen(true);
-          }}
           onClose={() => setActionIdx(null)}
         />
       )}

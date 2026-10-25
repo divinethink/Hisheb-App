@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import FullScreenPage from '../../common/FullScreenPage';
-import AmountInput, { AmountKeypad } from '../../common/AmountInput';
-import { minorToInput, parseAmountToMinor } from '../../../lib/money';
+import AmountInput from '../../common/AmountInput';
+import { minorToInput, resolveAmountMinor } from '../../../lib/money';
 import { addInvestment, updateInvestment } from '../../../data/investmentRepo';
 import { markClean, markDirty } from '../../../pwa/dirtyForms';
 import { settleOrPending } from '../../../lib/async';
@@ -53,7 +53,7 @@ export default function InvestmentSheet({
     if (saving) return;
     setSubmitted(true);
     const trimmedTo = investedTo.trim();
-    const parsed = parseAmountToMinor(amount);
+    const parsed = resolveAmountMinor(amount);
     setError('');
     if (!trimmedTo || parsed === null || !date) return;
     setSaving(true);
@@ -150,7 +150,7 @@ export default function InvestmentSheet({
           />
         </div>
 
-        <AmountInput value={amount} showError={submitted} />
+        <AmountInput value={amount} onChange={setAmount} showError={submitted} />
 
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -179,8 +179,6 @@ export default function InvestmentSheet({
             />
           </div>
         </div>
-
-        <AmountKeypad value={amount} onChange={setAmount} />
 
         <div>
           <label htmlFor="inv-duration" className="mb-1 block text-sm text-muted">

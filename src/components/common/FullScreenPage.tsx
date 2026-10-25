@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useBackClose } from '../../hooks/useBackClose';
 
 // §৩.১: ৫+ ফিল্ডের ফর্ম bottom-sheet না, full-screen page। safe-area-inset হ্যান্ডলড।
 export default function FullScreenPage({
@@ -15,6 +16,8 @@ export default function FullScreenPage({
 }) {
   const backRef = { current: onBack };
   backRef.current = onBack;
+  // ফোনের ব্যাক বাটন: অ্যাপ থেকে না বেরিয়ে এই পেজ বন্ধ (owner-request, ২০২৬-১০-২৫)
+  useBackClose(onBack);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') backRef.current();

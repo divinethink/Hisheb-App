@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import FullScreenPage from '../../common/FullScreenPage';
-import AmountInput, { AmountKeypad } from '../../common/AmountInput';
-import { minorToInput, parseAmountToMinor } from '../../../lib/money';
+import AmountInput from '../../common/AmountInput';
+import { minorToInput, resolveAmountMinor } from '../../../lib/money';
 import { addDebt, updateDebt } from '../../../data/debtRepo';
 import { markClean, markDirty } from '../../../pwa/dirtyForms';
 import { settleOrPending } from '../../../lib/async';
@@ -42,7 +42,7 @@ export default function DebtSheet({ uid, initial, onClose }: { uid: string; init
     if (saving) return;
     setSubmitted(true);
     const trimmedPerson = person.trim();
-    const parsed = parseAmountToMinor(amount);
+    const parsed = resolveAmountMinor(amount);
     setError('');
     if (!trimmedPerson || !date) return;
     if (!initial && parsed === null) return;
@@ -138,7 +138,7 @@ export default function DebtSheet({ uid, initial, onClose }: { uid: string; init
           )}
         </div>
 
-        {!initial && <AmountInput value={amount} showError={submitted} />}
+        {!initial && <AmountInput value={amount} onChange={setAmount} showError={submitted} />}
 
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -167,8 +167,6 @@ export default function DebtSheet({ uid, initial, onClose }: { uid: string; init
             />
           </div>
         </div>
-
-        {!initial && <AmountKeypad value={amount} onChange={setAmount} />}
 
         {error && (
           <p role="alert" className="text-sm text-expense">

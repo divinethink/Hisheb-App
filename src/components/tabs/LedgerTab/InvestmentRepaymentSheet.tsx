@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import BottomSheet from '../../common/BottomSheet';
-import AmountInput, { AmountKeypad } from '../../common/AmountInput';
-import { parseAmountToMinor, minorToInput } from '../../../lib/money';
+import AmountInput from '../../common/AmountInput';
+import { resolveAmountMinor, minorToInput } from '../../../lib/money';
 import { setInvestmentRepayments } from '../../../data/investmentRepo';
 import { settleOrPending } from '../../../lib/async';
 import type { Investment } from '../../../validation/investmentSchema';
@@ -29,7 +29,7 @@ export default function InvestmentRepaymentSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const parsed = parseAmountToMinor(amount);
+  const parsed = resolveAmountMinor(amount);
 
   async function save() {
     if (saving) return;
@@ -64,7 +64,7 @@ export default function InvestmentRepaymentSheet({
   return (
     <BottomSheet title={editing ? 'Edit repayment' : 'Add repayment'} onRequestClose={onClose} footer={footer}>
       <div className="flex flex-col gap-4">
-        <AmountInput value={amount} showError={submitted} />
+        <AmountInput value={amount} onChange={setAmount} showError={submitted} autoFocus={!editing} />
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label htmlFor="inv-rep-date" className="mb-1 block text-sm text-muted">
@@ -93,7 +93,6 @@ export default function InvestmentRepaymentSheet({
             />
           </div>
         </div>
-        <AmountKeypad value={amount} onChange={setAmount} />
         {error && (
           <p role="alert" className="text-sm text-expense">
             {error}

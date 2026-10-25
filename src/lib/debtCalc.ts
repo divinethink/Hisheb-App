@@ -153,3 +153,31 @@ export function writtenOffOutstandingMinor(d: DebtLinesInput, asOf?: string): nu
     .filter((v) => v.excluded)
     .reduce((s, v) => s + v.outstandingMinor, 0);
 }
+
+// ───────── তালিকার ক্রম (owner-request, ২০২৬-১০-২৫) ─────────
+
+/** সর্বশেষ ধারের তারিখ (YYYY-MM-DD) — borrowings না থাকলে (পুরনো doc) debt.date। */
+export function latestBorrowingDate(d: DebtLinesInput): string {
+  return linesOf(d).reduce((m, l) => (l.date > m ? l.date : m), '');
+}
+
+/**
+ * পুরোপুরি পরিশোধ: প্রতিটা লাইনের outstanding শোধের কারণে ০। Written-off লাইনের অশোধিত অংশ ০ হয় না
+ * (শুধু Net Worth থেকে বাদ), তাই written-off-এর কারণে "০ দেখানো" দেনা এই দলে পড়ে না — ওপরের দলেই থাকে।
+ */
+export function isSettledByRepayment(d: DebtLinesInput): boolean {
+  return lineViews(d).every((v) => v.outstandingMinor === 0);
+}
+
+/**
+ * তালিকা দুই দলে: `open` (বাকি/written-off/doubtful — ওপরে) ও `settled` (পুরো শোধ — নিচে)।
+ * প্রতিটা দলে সর্বশেষ ধারের তারিখ অনুযায়ী নতুন আগে (ওপর→নিচ); একই তারিখে মূল ক্রম বজায়।
+ */
+export function partitionDebtsForList<T extends DebtLinesInput>(list: readonly T[]): { open: T[]; settled: T[] } {
+  const byLatestFirst = (a: T, b: T) => latestBorrowingDate(b).localeCompare(latestBorrowingDate(a));
+  const sorted = [...list].sort(byLatestFirst); // Array.sort stable
+  return {
+    open: sorted.filter((d) => !isSettledByRepayment(d)),
+    settled: sorted.filter((d) => isSettledByRepayment(d)),
+  };
+}

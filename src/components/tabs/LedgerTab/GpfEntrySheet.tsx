@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import BottomSheet from '../../common/BottomSheet';
-import AmountInput, { AmountKeypad } from '../../common/AmountInput';
-import { parseAmountToMinor, minorToInput } from '../../../lib/money';
+import AmountInput from '../../common/AmountInput';
+import { resolveAmountMinor, minorToInput } from '../../../lib/money';
 import { fiscalYearOf } from '../../../lib/gpfCalc';
 import { addGpfEntry, updateGpfEntry } from '../../../data/gpfRepo';
 import { settleOrPending } from '../../../lib/async';
@@ -31,7 +31,7 @@ export default function GpfEntrySheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const parsed = parseAmountToMinor(amount);
+  const parsed = resolveAmountMinor(amount);
 
   async function save() {
     if (saving) return;
@@ -80,7 +80,7 @@ export default function GpfEntrySheet({
             </button>
           ))}
         </div>
-        <AmountInput value={amount} showError={submitted} />
+        <AmountInput value={amount} onChange={setAmount} showError={submitted} />
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label htmlFor="gpf-date" className="mb-1 block text-sm text-muted">
@@ -109,7 +109,6 @@ export default function GpfEntrySheet({
             />
           </div>
         </div>
-        <AmountKeypad value={amount} onChange={setAmount} />
         {error && (
           <p role="alert" className="text-sm text-expense">
             {error}

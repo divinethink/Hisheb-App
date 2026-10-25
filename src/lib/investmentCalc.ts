@@ -29,3 +29,18 @@ export const INVESTMENT_STATUS_LABEL: Record<InvestmentStatus, string> = {
 export function profitMinor(principalMinor: number, repayments: readonly Repayment[]): number {
   return sumRepayments(repayments) - principalMinor;
 }
+
+/**
+ * তালিকা দুই দলে: `open` (Running — ওপরে) ও `closed` (Σrepayments ≥ principal — নিচে)।
+ * প্রতিটা দলে সর্বশেষ ইনভেস্টমেন্টের তারিখ অনুযায়ী নতুন আগে (ওপর→নিচ) — repayment-এর ভিত্তিতে নয়
+ * (owner-request, ২০২৬-১০-২৫); একই তারিখে মূল ক্রম বজায়।
+ */
+export function partitionInvestmentsForList<T extends { date: string; principalMinor: number; repayments: readonly Repayment[] }>(
+  list: readonly T[],
+): { open: T[]; closed: T[] } {
+  const sorted = [...list].sort((a, b) => b.date.localeCompare(a.date)); // Array.sort stable
+  return {
+    open: sorted.filter((i) => investmentStatus(i.principalMinor, i.repayments) !== 'closed'),
+    closed: sorted.filter((i) => investmentStatus(i.principalMinor, i.repayments) === 'closed'),
+  };
+}

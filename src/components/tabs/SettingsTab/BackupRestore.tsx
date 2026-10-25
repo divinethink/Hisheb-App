@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useBackClose } from '../../../hooks/useBackClose';
 import type { SessionUser } from '../../../auth/AuthProvider';
 import { getEnv } from '../../../config/env';
 import { buildBackupPayload, parseBackupPayload, restoreFromBackup, type BackupPayload } from '../../../data/backupRepo';
@@ -34,6 +35,14 @@ export default function BackupRestore({ user, onClose }: { user: SessionUser; on
   const [confirmText, setConfirmText] = useState('');
   const [restoreProgress, setRestoreProgress] = useState<string | null>(null);
   const [restoreBusy, setRestoreBusy] = useState(false);
+  // ফোনের ব্যাক: confirm-স্ক্রিনে থাকলে শুধু সেটা বাতিল, নইলে শিট বন্ধ; restore চলার সময় কিছু না
+  useBackClose(() => {
+    if (restoreBusy) return;
+    if (pendingRestore) {
+      setPendingRestore(null);
+      setStatus(null);
+    } else onClose();
+  });
 
   function pickRestoreFile() {
     setStatus(null);

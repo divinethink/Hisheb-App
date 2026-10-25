@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import BottomSheet from '../../common/BottomSheet';
-import AmountInput, { AmountKeypad } from '../../common/AmountInput';
-import { parseAmountToMinor, minorToInput } from '../../../lib/money';
+import AmountInput from '../../common/AmountInput';
+import { resolveAmountMinor, minorToInput } from '../../../lib/money';
 import { addHomeDeposit, updateHomeDeposit } from '../../../data/homeDepositRepo';
 import { settleOrPending } from '../../../lib/async';
 import { HomeDepositTypeSchema, type HomeDepositEntry } from '../../../validation/homeDepositSchema';
@@ -36,7 +36,7 @@ export default function HomeDepositEntrySheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const parsed = parseAmountToMinor(amount);
+  const parsed = resolveAmountMinor(amount);
 
   async function save() {
     if (saving) return;
@@ -98,7 +98,7 @@ export default function HomeDepositEntrySheet({
             ))}
           </div>
         )}
-        <AmountInput value={amount} showError={submitted} />
+        <AmountInput value={amount} onChange={setAmount} showError={submitted} />
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label htmlFor="hd-date" className="mb-1 block text-sm text-muted">
@@ -127,7 +127,6 @@ export default function HomeDepositEntrySheet({
             />
           </div>
         </div>
-        <AmountKeypad value={amount} onChange={setAmount} />
         {error && (
           <p role="alert" className="text-sm text-expense">
             {error}

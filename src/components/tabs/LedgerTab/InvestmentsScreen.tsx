@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import FullScreenPage from '../../common/FullScreenPage';
 import SkeletonLoader from '../../common/SkeletonLoader';
+import CollapsibleSection from '../../common/CollapsibleSection';
 import InvestmentSheet from './InvestmentSheet';
 import InvestmentDetailScreen from './InvestmentDetailScreen';
 import { formatAmount } from '../../../lib/format';
-import { runningMinor, investmentStatus, profitMinor, sumRepayments, INVESTMENT_STATUS_LABEL } from '../../../lib/investmentCalc';
+import {
+  runningMinor,
+  investmentStatus,
+  profitMinor,
+  sumRepayments,
+  partitionInvestmentsForList,
+  INVESTMENT_STATUS_LABEL,
+} from '../../../lib/investmentCalc';
 import { useInvestments } from '../../../hooks/useData';
 import type { Investment } from '../../../validation/investmentSchema';
 
@@ -35,9 +43,36 @@ export default function InvestmentsScreen({
   const totalRunning = list
     .filter((i) => i.investmentOutcome !== 'written_off')
     .reduce((s, i) => s + runningMinor(i.principalMinor, i.repayments), 0);
+  // ক্রম: Running ওপরে, Closed (রিপেমেন্ট শেষ) নিচে ভাঁজযোগ্য; দুই দলেই সর্বশেষ ইনভেস্টমেন্টের তারিখে নতুন আগে
+  const { open, closed } = partitionInvestmentsForList(list);
   const totalProfit = list
     .filter((i) => investmentStatus(i.principalMinor, i.repayments) === 'closed')
     .reduce((s, i) => s + profitMinor(i.principalMinor, i.repayments), 0);
+
+  const renderRow = (i: Investment) => {
+    const status = investmentStatus(i.principalMinor, i.repayments);
+    const running = runningMinor(i.principalMinor, i.repayments);
+    return (
+      <li key={i.id} className="border-b border-muted/20">
+        <button
+          type="button"
+          onClick={() => setSelected(i)}
+          className="flex min-h-16 w-full flex-col gap-0.5 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          <span className="flex items-center justify-between">
+            <span className="text-fg">{i.investedTo}</span>
+            <span className="font-medium text-fg">{formatAmount(running)}</span>
+          </span>
+          <span className="text-xs text-muted">
+            Principal: {formatAmount(i.principalMinor)}
+          </span>
+          <span className="text-xs text-muted">
+            Repaid so far: {formatAmount(sumRepayments(i.repayments))} · {INVESTMENT_STATUS_LABEL[status]}
+          </span>
+        </button>
+      </li>
+    );
+  };
 
   return (
     <FullScreenPage title={title} onBack={onBack}>
@@ -58,32 +93,14 @@ export default function InvestmentsScreen({
             {list.length === 0 ? (
               <p className="py-10 text-center text-muted">No entries yet.</p>
             ) : (
-              <ul>
-                {list.map((i) => {
-                  const status = investmentStatus(i.principalMinor, i.repayments);
-                  const running = runningMinor(i.principalMinor, i.repayments);
-                  return (
-                    <li key={i.id} className="border-b border-muted/20">
-                      <button
-                        type="button"
-                        onClick={() => setSelected(i)}
-                        className="flex min-h-16 w-full flex-col gap-0.5 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                      >
-                        <span className="flex items-center justify-between">
-                          <span className="text-fg">{i.investedTo}</span>
-                          <span className="font-medium text-fg">{formatAmount(running)}</span>
-                        </span>
-                        <span className="text-xs text-muted">
-                          Principal: {formatAmount(i.principalMinor)}
-                        </span>
-                        <span className="text-xs text-muted">
-                          Repaid so far: {formatAmount(sumRepayments(i.repayments))} · {INVESTMENT_STATUS_LABEL[status]}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              <>
+                {open.length > 0 && <ul className="flex flex-col">{open.map(renderRow)}</ul>}
+                {closed.length > 0 && (
+                  <CollapsibleSection title="Closed (repaid)" count={closed.length}>
+                    <ul className="flex flex-col">{closed.map(renderRow)}</ul>
+                  </CollapsibleSection>
+                )}
+              </>
             )}
 
             <p className="flex justify-between border-t border-muted/20 pt-3 text-sm">

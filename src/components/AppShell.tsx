@@ -4,6 +4,7 @@ import SkeletonLoader from './common/SkeletonLoader';
 import ReminderBanner from './ReminderBanner';
 import OfflineBanner from './OfflineBanner';
 import { useThemeSync } from '../hooks/useThemeSync';
+import { useBackClose } from '../hooks/useBackClose';
 import type { SessionUser } from '../auth/AuthProvider';
 
 // প্রতিটা ট্যাব আলাদা chunk (Dev Rule ১০, Architecture Plan §৭)
@@ -18,6 +19,8 @@ export default function AppShell({ user }: { user: SessionUser }) {
   // reminder ব্যানার থেকে Update Balances খোলা (আগের মাস preselect হতে পারে)
   const [updateRequest, setUpdateRequest] = useState<{ month: string } | null>(null);
   useThemeSync(user.uid);
+  // Home ছাড়া অন্য ট্যাবে ব্যাক = Home-এ ফেরা; Home-এ ব্যাক = অ্যাপ বন্ধ (স্বাভাবিক)
+  useBackClose(() => setTab('home'), tab !== 'home');
   // PWA App-Shortcut (G5): `/?action=add-expense` → Home-এ Add sheet একবার খোলে, তারপর URL পরিষ্কার
   const [autoOpenAdd] = useState(() => new URLSearchParams(window.location.search).get('action') === 'add-expense');
   useEffect(() => {

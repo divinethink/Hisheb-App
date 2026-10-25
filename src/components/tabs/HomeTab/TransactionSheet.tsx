@@ -374,7 +374,7 @@ export default function TransactionSheet({
 
           <div className="flex flex-1 min-h-0 flex-col gap-2">
             {/* owner-request (২০২৬-১০-১৩): Transaction-এ native কীবোর্ড + Amount-এর পাশে "+" বাটন;
-                on-screen AmountKeypad এখানে আর নেই (অন্য ফর্মে অপরিবর্তিত)। */}
+                on-screen AmountKeypad এখানে আর নেই; ২০২৬-১০-২৫ থেকে অন্য সব Amount-ফর্মেও একই native মোড। */}
             {initial && onDelete && (
               <button
                 type="button"

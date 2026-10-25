@@ -44,16 +44,20 @@ export default function AmountInput({
   type,
   largeAmountThresholdMinor = null,
   onChange,
+  autoFocus = false,
 }: {
   value: string;
   /** দিলে native (OS) numeric কীবোর্ড মোড: field editable, amount-এর পাশে "+" বাটন (BDT-এর আগে)।
-   * না দিলে আগের মতো readOnly + AmountKeypad (অন্য সব ফর্ম অপরিবর্তিত)। */
+   * ২০২৬-১০-২৫ থেকে অ্যাপের সব Amount-ফর্ম (Transaction, Debt, Borrowing, Repayment, Investment, Home Deposit, GPF)
+   * এই মোডে। না দিলে readOnly + AmountKeypad (legacy, এখন কোথাও ব্যবহৃত নয়)। */
   onChange?: (v: string) => void;
   showError: boolean;
   /** income→সবুজ "+", expense→লাল "−" প্রিফিক্স (Spendee-স্টাইল)। ঐচ্ছিক — যেসব ফর্মে income/expense ধারণা নেই (Debt/Investment/Home Deposit/GPF) সেখানে বাদ দিলে কোনো প্রিফিক্স দেখাবে না, বিদ্যমান আচরণ অপরিবর্তিত। */
   type?: 'income' | 'expense';
   /** G3: null/undefined হলে ফিচার off (settings.largeAmountWarningThresholdMinor)। */
   largeAmountThresholdMinor?: number | null;
+  /** native মোডে mount-এ amount-ঘরে ফোকাস (নতুন entry-তে কীবোর্ড সাথে সাথে খুলতে)। */
+  autoFocus?: boolean;
 }) {
   const native = onChange !== undefined;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -141,6 +145,7 @@ export default function AmountInput({
           ref={inputRef}
           inputMode="decimal"
           autoComplete="off"
+          autoFocus={autoFocus}
           value={value}
           onChange={(e) => onChange(e.target.value.replace(/,/g, '.').replace(/[^0-9.+]/g, ''))}
           aria-invalid={invalid}
