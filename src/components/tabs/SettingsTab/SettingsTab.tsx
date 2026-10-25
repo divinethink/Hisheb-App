@@ -13,12 +13,14 @@ import {
   ChevronDown,
   Tags,
   Tag,
+  Lock,
   type LucideIcon,
 } from 'lucide-react';
 import Card from '../../common/Card';
 import { useAuth, type SessionUser } from '../../../auth/AuthProvider';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import { useSettings } from '../../../hooks/useData';
+import { useHasPasscode } from '../../../hooks/useAppLock';
 import { updateSettings } from '../../../data/settingsRepo';
 import { useInstallPrompt } from '../../../pwa/install';
 import { minorToInput, parseAmountToMinor } from '../../../lib/money';
@@ -36,6 +38,7 @@ const FixCategoryTypes = lazy(() => import('./FixCategoryTypes'));
 const BackupRestore = lazy(() => import('./BackupRestore'));
 const BulkDeleteScreen = lazy(() => import('./BulkDeleteScreen'));
 const AppearanceScreen = lazy(() => import('./AppearanceScreen'));
+const PasscodeScreen = lazy(() => import('./PasscodeScreen'));
 const ManageCatalog = lazy(() => import('./ManageCatalog'));
 
 // সেকশন-হেডার + row-বাটন — Ledger/Net Worth-এর মতোই একই কার্ড-প্যাটার্ন (UI Polish Step ২)
@@ -84,6 +87,8 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
   const [backupOpen, setBackupOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
+  const [passcodeOpen, setPasscodeOpen] = useState(false);
+  const passcodeOn = useHasPasscode();
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
   const { canInstall, install } = useInstallPrompt();
@@ -134,7 +139,10 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
 
       <SectionLabel>Preferences</SectionLabel>
       <Card className="overflow-hidden">
-        <Row icon={Palette} label="Appearance (Accent + Dark Mode)" onClick={() => setAppearanceOpen(true)} />
+        <Row icon={Palette} label="Appearance (Accent, Dark, Sepia)" onClick={() => setAppearanceOpen(true)} />
+        <div className="border-t border-muted/10">
+          <Row icon={Lock} label={`Passcode lock · ${passcodeOn ? 'On' : 'Off'}`} onClick={() => setPasscodeOpen(true)} tone={passcodeOn ? 'text-primary' : 'text-muted'} />
+        </div>
         {canInstall && (
           <div className="border-t border-muted/10">
             <Row icon={Smartphone} label="Install app on this device" onClick={() => void install()} tone="text-primary" />
@@ -314,6 +322,11 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       {appearanceOpen && (
         <Suspense fallback={<SkeletonLoader />}>
           <AppearanceScreen uid={user.uid} onClose={() => setAppearanceOpen(false)} />
+        </Suspense>
+      )}
+      {passcodeOpen && (
+        <Suspense fallback={<SkeletonLoader />}>
+          <PasscodeScreen onClose={() => setPasscodeOpen(false)} />
         </Suspense>
       )}
       {manageCategoriesOpen && (

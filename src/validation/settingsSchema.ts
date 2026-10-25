@@ -7,7 +7,7 @@ const dateOrNull = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().transform((
 
 export const SettingsSchema = z.object({
   themeColor: z.string().default('blue'),
-  displayMode: z.enum(['light', 'dark', 'system']).default('system'),
+  displayMode: z.enum(['light', 'dark', 'sepia', 'system']).default('system'),
   dateFormat: z.enum(['dmy', 'mdy']).default('dmy'), // date display order (day/month/year vs month/day/year)
   reminderEnabled: z.boolean().default(true),
   appLockEnabled: z.boolean().default(false), // flag only — implement হচ্ছে না

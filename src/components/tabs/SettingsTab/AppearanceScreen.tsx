@@ -6,6 +6,7 @@ import { ACCENTS, normalizeAccent, type DisplayMode } from '../../../lib/theme';
 const MODES: { id: DisplayMode; label: string }[] = [
   { id: 'light', label: 'Light' },
   { id: 'dark', label: 'Dark' },
+  { id: 'sepia', label: 'Sepia' },
   { id: 'system', label: 'System' },
 ];
 
@@ -56,7 +57,7 @@ export default function AppearanceScreen({ uid, onClose }: { uid: string; onClos
         <h2 id="mode-h" className="text-sm font-medium text-fg">
           Display Mode
         </h2>
-        <div role="radiogroup" aria-labelledby="mode-h" className="mt-2 grid grid-cols-3 gap-2">
+        <div role="radiogroup" aria-labelledby="mode-h" className="mt-2 grid grid-cols-4 gap-2">
           {MODES.map((m) => (
             <button
               key={m.id}
@@ -64,7 +65,7 @@ export default function AppearanceScreen({ uid, onClose }: { uid: string; onClos
               role="radio"
               aria-checked={mode === m.id}
               onClick={() => void updateSettings(uid, { displayMode: m.id })}
-              className={`min-h-11 rounded-lg border text-sm ${
+              className={`min-h-11 rounded-lg border text-xs ${
                 mode === m.id ? 'border-primary bg-primary/10 font-semibold text-primary' : 'border-muted/40 text-fg'
               }`}
             >
@@ -73,7 +74,7 @@ export default function AppearanceScreen({ uid, onClose }: { uid: string; onClos
           ))}
         </div>
         <p className="mt-2 text-xs text-muted">
-          Dark mode is easier on the eyes, especially when checking balances at night. “System” follows your device setting.
+          Dark mode is easier on the eyes at night. Sepia is a warm, paper-like tone for long reading. “System” follows your device’s Light/Dark setting.
         </p>
       </section>
 

@@ -34,6 +34,29 @@
 [data-theme='teal'] { --color-primary: 13 148 136; }
 [data-theme='rose'] { --color-primary: 225 29 72; }
 
+/* Sepia mode: কাগজের মতো উষ্ণ, চোখে আরাম — Light-এর ওপর ভিত্তি (accent-রং Light-এরই), শুধু ব্যাকগ্রাউন্ড/টেক্সট উষ্ণ।
+   Contrast: fg ও muted দুটোই card/page-এ AA-র কাছাকাছি বা বেশি। */
+[data-mode='sepia'] {
+  color-scheme: light;
+  --color-canvas: 251 246 233; /* card */
+  --color-surface: 242 233 212;
+  --color-fg: 67 52 34;
+  --color-muted: 117 98 72;
+  --color-income: 21 110 58;
+  --color-expense: 168 36 36;
+  --color-warning: 146 90 8;
+  --color-danger: 180 60 12;
+  --color-page: 238 227 201;
+}
+
+/* Sepia-তে accent একটু গাঢ় — উষ্ণ page-এর ওপর text-primary-এর contrast ≥ ৪.৫ রাখতে */
+[data-mode='sepia'][data-theme='blue'], [data-mode='sepia'] [data-theme='blue'] { --color-primary: 29 78 216; }
+[data-mode='sepia'][data-theme='green'], [data-mode='sepia'] [data-theme='green'] { --color-primary: 21 128 61; }
+[data-mode='sepia'][data-theme='purple'], [data-mode='sepia'] [data-theme='purple'] { --color-primary: 126 34 206; }
+[data-mode='sepia'][data-theme='orange'], [data-mode='sepia'] [data-theme='orange'] { --color-primary: 194 65 12; }
+[data-mode='sepia'][data-theme='teal'], [data-mode='sepia'] [data-theme='teal'] { --color-primary: 15 118 110; }
+[data-mode='sepia'][data-theme='rose'], [data-mode='sepia'] [data-theme='rose'] { --color-primary: 190 18 60; }
+
 /* Dark mode: pure black (#000) না, dark-gray base (UI Mockup §০ eye-comfort)।
    Accent dark-এ হালকা করা — dark canvas-এর ওপর text-primary ও (text-canvas সহ) bg-primary বাটনের contrast ঠিক রাখতে। */
 [data-mode='dark'] {

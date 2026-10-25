@@ -45,7 +45,7 @@ export function initTheme(): void {
     const raw = localStorage.getItem(CACHE_KEY);
     if (raw) {
       const c = JSON.parse(raw) as { mode?: string; accent?: string };
-      if (c.mode === 'light' || c.mode === 'dark' || c.mode === 'system') mode = c.mode;
+      if (c.mode === 'light' || c.mode === 'dark' || c.mode === 'sepia' || c.mode === 'system') mode = c.mode;
       if (typeof c.accent === 'string') accent = c.accent;
     }
   } catch {

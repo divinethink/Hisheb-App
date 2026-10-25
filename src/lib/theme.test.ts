@@ -7,6 +7,8 @@ describe('theme', () => {
     expect(resolveMode('system', false)).toBe('light');
     expect(resolveMode('light', true)).toBe('light');
     expect(resolveMode('dark', false)).toBe('dark');
+    expect(resolveMode('sepia', true)).toBe('sepia'); // sepia স্থির — OS dark হলেও বদলায় না
+    expect(resolveMode('sepia', false)).toBe('sepia');
   });
   it('অজানা accent → blue', () => {
     expect(normalizeAccent('teal')).toBe('teal');

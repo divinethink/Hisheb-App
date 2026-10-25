@@ -3,6 +3,7 @@ import BottomNav, { type TabId } from './BottomNav';
 import SkeletonLoader from './common/SkeletonLoader';
 import ReminderBanner from './ReminderBanner';
 import OfflineBanner from './OfflineBanner';
+import AppLockGate from './AppLockGate';
 import { useThemeSync } from '../hooks/useThemeSync';
 import { useBackClose } from '../hooks/useBackClose';
 import type { SessionUser } from '../auth/AuthProvider';
@@ -27,6 +28,7 @@ export default function AppShell({ user }: { user: SessionUser }) {
     if (autoOpenAdd) window.history.replaceState(null, '', window.location.pathname);
   }, [autoOpenAdd]);
   return (
+    <AppLockGate>
     <div className="flex h-full flex-col bg-page">
       <OfflineBanner />
       {tab === 'home' && (
@@ -49,5 +51,6 @@ export default function AppShell({ user }: { user: SessionUser }) {
       </main>
       <BottomNav active={tab} onChange={setTab} />
     </div>
+    </AppLockGate>
   );
 }
