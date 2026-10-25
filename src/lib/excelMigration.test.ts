@@ -252,3 +252,23 @@ describe('parseMonthlyNetWorthSnapshots', () => {
     expect(res.errors[0]).toContain('Monthly Statement');
   });
 });
+
+import { planBreakdownBackfill, type BreakdownRow } from './excelMigration';
+
+describe('planBreakdownBackfill', () => {
+  const row = (yyyymm: string, total: number): BreakdownRow => ({
+    yyyymm, accounts: [{ name: 'DBBL', balanceMinor: 1 }], receivableMinor: 0, investmentMinor: 0, homeDepositMinor: 0, excelTotalMinor: total,
+  });
+  it('applies only when snapshot exists, has no split, and total matches', () => {
+    const plan = planBreakdownBackfill(
+      [row('2026-01', 100), row('2026-02', 200), row('2026-03', 300), row('2026-04', 400)],
+      [
+        { yyyymm: '2026-01', totalAssetsMinor: 100, hasBreakdown: false },
+        { yyyymm: '2026-02', totalAssetsMinor: 999, hasBreakdown: false },
+        { yyyymm: '2026-03', totalAssetsMinor: 300, hasBreakdown: true },
+      ],
+    );
+    expect(plan.apply.map((r) => r.yyyymm)).toEqual(['2026-01']);
+    expect(plan.skipped.map((s) => s.yyyymm)).toEqual(['2026-02', '2026-03', '2026-04']);
+  });
+});

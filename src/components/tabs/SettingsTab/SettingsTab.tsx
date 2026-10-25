@@ -29,6 +29,7 @@ const ImportExcelInvestments = lazy(() => import('./ImportExcelInvestments'));
 const ImportExcelAccountBalances = lazy(() => import('./ImportExcelAccountBalances'));
 const ImportExcelHistorical = lazy(() => import('./ImportExcelHistorical'));
 const ImportExcelMonthlySnapshots = lazy(() => import('./ImportExcelMonthlySnapshots'));
+const ImportExcelBreakdown = lazy(() => import('./ImportExcelBreakdown'));
 const ImportGpf = lazy(() => import('./ImportGpf'));
 const FixCategoryTypes = lazy(() => import('./FixCategoryTypes'));
 const BackupRestore = lazy(() => import('./BackupRestore'));
@@ -75,6 +76,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
   const [importExcelBalancesOpen, setImportExcelBalancesOpen] = useState(false);
   const [importHistoricalOpen, setImportHistoricalOpen] = useState(false);
   const [importMonthlySnapshotsOpen, setImportMonthlySnapshotsOpen] = useState(false);
+  const [importBreakdownOpen, setImportBreakdownOpen] = useState(false);
   const [importGpfOpen, setImportGpfOpen] = useState(false);
   const [fixCategoryTypesOpen, setFixCategoryTypesOpen] = useState(false);
   const [backupOpen, setBackupOpen] = useState(false);
@@ -275,7 +277,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       <details className="group mt-3 overflow-hidden rounded-2xl border border-muted/10 bg-canvas shadow-sm">
         <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-2.5 text-sm text-muted [&::-webkit-details-marker]:hidden">
           <Upload aria-hidden size={19} className="shrink-0" />
-          <span className="flex-1">Migration (temporary) · 7</span>
+          <span className="flex-1">Migration (temporary) · 8</span>
           <ChevronDown aria-hidden size={18} className="shrink-0 transition-transform group-open:rotate-180" />
         </summary>
         <div className="border-t border-muted/10">
@@ -291,6 +293,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
           </div>
           <div className="border-t border-muted/10">
             <Row icon={TrendingUp} label="Migrate Monthly Net Worth History (Jan 2025–Jul 2026)" onClick={() => setImportMonthlySnapshotsOpen(true)} />
+            <Row icon={TrendingUp} label="Migrate Monthly History Split (Excel)" onClick={() => setImportBreakdownOpen(true)} />
           </div>
           <div className="border-t border-muted/10">
             <Row icon={LandmarkIcon} label="Import GPF Entries (CSV)" onClick={() => setImportGpfOpen(true)} />
@@ -343,6 +346,11 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       {importMonthlySnapshotsOpen && (
         <Suspense fallback={<SkeletonLoader />}>
           <ImportExcelMonthlySnapshots uid={user.uid} onClose={() => setImportMonthlySnapshotsOpen(false)} />
+        </Suspense>
+      )}
+      {importBreakdownOpen && (
+        <Suspense fallback={<SkeletonLoader />}>
+          <ImportExcelBreakdown uid={user.uid} onClose={() => setImportBreakdownOpen(false)} />
         </Suspense>
       )}
       {importGpfOpen && (

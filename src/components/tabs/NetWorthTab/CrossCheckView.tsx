@@ -190,7 +190,9 @@ function Details({ r, onBack, dateFormat }: { r: CrossCheckResult; onBack: () =>
   return (
     <FullScreenPage title="Cross-check Details" onBack={onBack}>
       <p className="pb-2 text-sm text-muted">
-        Window: {shortDate(r.windowStart)} – {shortDate(r.windowEnd)}
+        {r.windowStart > r.windowEnd
+          ? 'Window: no days since the previous snapshot'
+          : `Window: ${shortDate(r.windowStart)} – ${shortDate(r.windowEnd)}`}
         {r.currentIsLive ? ' (live)' : ''}
       </p>
 

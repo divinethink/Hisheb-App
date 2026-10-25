@@ -7,6 +7,7 @@ import CategoryIcon from '../../common/CategoryIcon';
 import AccountSheet from './AccountSheet';
 import UpdateBalancesScreen from './UpdateBalancesScreen';
 import CrossCheckView from './CrossCheckView';
+import MonthlyHistory from './MonthlyHistory';
 import {
   useAccountBalances,
   useAccounts,
@@ -276,6 +277,10 @@ export default function NetWorthTab({
 
               {debts.state.status === 'ready' && investments.state.status === 'ready' && gpf.state.status === 'ready' && (
                 <CrossCheckView {...crossProps} mode="summary" onOpen={() => setCrossOpen(true)} />
+              )}
+
+              {snaps.state.status === 'ready' && (
+                <MonthlyHistory snapshots={snaps.state.data} accountOrder={acc.state.data.map((a) => a.name)} dateFormat={dateFormat} />
               )}
 
               <div className="flex flex-col gap-2 px-4 pt-1">

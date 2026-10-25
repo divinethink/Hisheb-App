@@ -19,6 +19,17 @@ export const AccountBalanceSchema = z.object({
 });
 export type AccountBalance = z.infer<typeof AccountBalanceSchema>;
 
+// Snapshot-এর ভাঙা-হিসাব (Monthly History, owner-approved 2026-10) — ঐচ্ছিক ও additive; "Save & Snapshot" বা Excel\n// backfill লেখে। account নাম denormalized (পরে account rename/archive হলেও ইতিহাস অক্ষত)।
+export const SnapshotBreakdownSchema = z.object({
+  accountsMinor: z.number().int(),
+  receivableMinor: z.number().int(),
+  investmentMinor: z.number().int(),
+  homeDepositMinor: z.number().int(),
+  gpfMinor: z.number().int(),
+  accounts: z.array(z.object({ name: z.string(), balanceMinor: z.number().int() })).optional(),
+});
+export type SnapshotBreakdown = z.infer<typeof SnapshotBreakdownSchema>;
+
 export const NetWorthSnapshotSchema = z.object({
   yyyymm: YyyyMm,
   totalAssetsMinor: z.number().int(),
@@ -26,6 +37,8 @@ export const NetWorthSnapshotSchema = z.object({
   // ঐচ্ছিক, additive (P4 Excel monthly-backfill, DF11) — Jul ২০২৬-এর মতো known Deviation-অমিল থাকা মাস চিহ্নিত
   // করে; না থাকলে/false হলে স্বাভাবিক verified snapshot। rules-এর `is int` ক্লজ অপরিবর্তিত (এই ফিল্ড rules-এ চেক হয় না)।
   unverified: z.boolean().optional(),
+  // .catch(undefined) — অবৈধ breakdown পুরো snapshot doc বাদ দেবে না (Net Worth/Cross-check অক্ষত থাকবে)
+  breakdown: SnapshotBreakdownSchema.optional().catch(undefined),
   createdAt: nullish(TimestampLike),
   updatedAt: nullish(TimestampLike),
 });

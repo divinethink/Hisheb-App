@@ -7,6 +7,7 @@ import {
   NetWorthSnapshotSchema,
   type AccountBalance,
   type NetWorthSnapshot,
+  type SnapshotBreakdown,
 } from '../validation/netWorthSchema';
 
 const balCol = (uid: string) => collection(db, 'users', uid, 'accountBalances');
@@ -88,12 +89,14 @@ export async function setNetWorthSnapshot(
   totalAssetsMinor: number,
   snapshotDate: string,
   unverified?: boolean,
+  breakdown?: SnapshotBreakdown,
 ): Promise<void> {
   await setDoc(doc(snapCol(uid), yyyymm), {
     yyyymm,
     totalAssetsMinor,
     snapshotDate,
     ...(unverified ? { unverified: true } : {}),
+    ...(breakdown ? { breakdown } : {}),
     updatedAt: serverTimestamp(),
   });
 }
@@ -106,6 +109,22 @@ export async function getExistingNetWorthYyyymms(uid: string): Promise<string[]>
   for (const d of snap.docs) {
     const r = NetWorthSnapshotSchema.safeParse(d.data());
     if (r.success) out.push(r.data.yyyymm);
+  }
+  return out;
+}
+
+/** শুধু `breakdown` যোগ (merge) — total/snapshotDate/unverified অক্ষত। Excel backfill-এর জন্য; doc আগে থেকে থাকতে হবে। */
+export async function setNetWorthBreakdown(uid: string, yyyymm: string, breakdown: SnapshotBreakdown): Promise<void> {
+  await setDoc(doc(snapCol(uid), yyyymm), { breakdown, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+/** এক-বারের read — সব বৈধ snapshot (backfill plan-এর জন্য)। */
+export async function getNetWorthSnapshots(uid: string): Promise<NetWorthSnapshot[]> {
+  const snap = await getDocs(snapCol(uid));
+  const out: NetWorthSnapshot[] = [];
+  for (const d of snap.docs) {
+    const r = NetWorthSnapshotSchema.safeParse(d.data());
+    if (r.success) out.push(r.data);
   }
   return out;
 }

@@ -137,7 +137,14 @@ export default function UpdateBalancesScreen({
       for (const p of parsed) {
         await setAccountBalance(uid, p.accountId, month, p.minor!, snapshotDate);
       }
-      await setNetWorthSnapshot(uid, month, newTotal, snapshotDate);
+      await setNetWorthSnapshot(uid, month, newTotal, snapshotDate, undefined, {
+        accountsMinor: accTotal,
+        receivableMinor: receivable,
+        investmentMinor: runningInv,
+        homeDepositMinor: homeDepositNet,
+        gpfMinor: gpfBalance,
+        accounts: accounts.map((a, i) => ({ name: a.name, balanceMinor: parsed[i].minor ?? 0 })),
+      });
       onBack();
     } catch {
       setError('Save failed — please try again.');

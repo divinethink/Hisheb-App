@@ -423,3 +423,103 @@ export function parseMonthlyNetWorthSnapshots(
   rows.sort((a, b) => a.yyyymm.localeCompare(b.yyyymm));
   return { rows, skipped, errors: [] };
 }
+
+// --- Monthly History backfill: Monthly Statement → netWorthSnapshots.breakdown (owner-approved 2026-10) ---
+// প্রতি মাসের পাওনা / বাসায় জমা / Running Investment / ব্যাংক-কলাম পড়ে বিদ্যমান snapshot-এ শুধু `breakdown` যোগ করে।
+// নিরাপত্তা: (১) শুধু আগে থেকে থাকা snapshot-এ, (২) শুধু breakdown না-থাকা মাসে, (৩) Excel-উপাদানের যোগফল ==
+// snapshot-এর বিদ্যমান total হলে (Aug ২০২৬-এর মতো owner-নেওয়া baseline মেলে না, তাই অক্ষত থাকে)। Total কখনো বদলায় না।
+export interface BreakdownRow {
+  yyyymm: string;
+  accounts: { name: string; balanceMinor: number }[];
+  receivableMinor: number;
+  investmentMinor: number;
+  homeDepositMinor: number;
+  excelTotalMinor: number; // উপাদানের যোগফল (GPF ছাড়া — পুরনো Excel-এ GPF নেই)
+}
+
+const LEDGER_HEADERS = {
+  receivable: ['মোট পাওনা'],
+  home: ['বাসায় মোট জমা'],
+  investment: ['running investment'],
+} as const;
+
+export function parseMonthlyBreakdowns(workbook: XLSX.WorkBook): { rows: BreakdownRow[]; errors: string[] } {
+  const sheet = workbook.Sheets['Monthly Statement'];
+  if (!sheet) return { rows: [], errors: ['"Monthly Statement" শীট পাওয়া যায়নি'] };
+  const grid: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+  const rows: BreakdownRow[] = [];
+  let curYear: number | null = null;
+  let cols: { recv: number; home: number; inv: number; accts: { name: string; idx: number }[] } | null = null;
+
+  for (const row of grid) {
+    const first = norm(row?.[0]);
+    const sec = /^(20\d{2}) income/.exec(first);
+    if (sec) {
+      curYear = Number(sec[1]);
+      cols = null;
+      continue;
+    }
+    if (curYear == null) continue;
+    if (first === 'মাস') {
+      const accts: { name: string; idx: number }[] = [];
+      (Object.keys(BALANCE_LABELS) as (keyof typeof BALANCE_LABELS)[]).forEach((k) => {
+        const idx = findCol(row, BALANCE_HEADER_ALIASES[k]);
+        if (idx !== -1) accts.push({ name: BALANCE_LABELS[k], idx });
+      });
+      cols = {
+        recv: findCol(row, LEDGER_HEADERS.receivable),
+        home: findCol(row, LEDGER_HEADERS.home),
+        inv: findCol(row, LEDGER_HEADERS.investment),
+        accts,
+      };
+      continue;
+    }
+    const monthNum = MONTH_NUM[first];
+    if (!monthNum || !cols || cols.recv === -1 || cols.home === -1 || cols.inv === -1) continue;
+
+    const recv = parseTakaToMinorAllowAny(row[cols.recv]);
+    const home = parseTakaToMinorAllowAny(row[cols.home]);
+    const inv = parseTakaToMinorAllowAny(row[cols.inv]);
+    if (recv == null || home == null || inv == null) continue; // ফাঁকা/ভবিষ্যৎ মাস
+    const accounts: { name: string; balanceMinor: number }[] = [];
+    for (const a of cols.accts) {
+      const v = parseTakaToMinorAllowAny(row[a.idx]);
+      if (v != null) accounts.push({ name: a.name, balanceMinor: v });
+    }
+    if (accounts.length === 0) continue;
+    const excelTotalMinor = recv + home + inv + accounts.reduce((s, a) => s + a.balanceMinor, 0);
+    rows.push({
+      yyyymm: `${curYear}-${String(monthNum).padStart(2, '0')}`,
+      accounts,
+      receivableMinor: recv,
+      investmentMinor: inv,
+      homeDepositMinor: home,
+      excelTotalMinor,
+    });
+  }
+  rows.sort((a, b) => a.yyyymm.localeCompare(b.yyyymm));
+  return { rows, errors: [] };
+}
+
+export interface BackfillPlan {
+  apply: BreakdownRow[];
+  skipped: { yyyymm: string; reason: string }[];
+}
+
+/** pure — কোন মাসে breakdown বসবে/বাদ যাবে তা ঠিক করে। existing = Firestore-এর বিদ্যমান snapshot। */
+export function planBreakdownBackfill(
+  rows: readonly BreakdownRow[],
+  existing: readonly { yyyymm: string; totalAssetsMinor: number; hasBreakdown: boolean }[],
+): BackfillPlan {
+  const byMonth = new Map(existing.map((e) => [e.yyyymm, e]));
+  const apply: BreakdownRow[] = [];
+  const skipped: { yyyymm: string; reason: string }[] = [];
+  for (const r of rows) {
+    const e = byMonth.get(r.yyyymm);
+    if (!e) skipped.push({ yyyymm: r.yyyymm, reason: 'snapshot নেই' });
+    else if (e.hasBreakdown) skipped.push({ yyyymm: r.yyyymm, reason: 'আগেই ভাঙা-হিসাব আছে' });
+    else if (e.totalAssetsMinor !== r.excelTotalMinor) skipped.push({ yyyymm: r.yyyymm, reason: 'total মেলেনি (অক্ষত রাখা হলো)' });
+    else apply.push(r);
+  }
+  return { apply, skipped };
+}
