@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allTimeRows, categoryList, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
+import { allTimeRows, categoryList, flowByMonth, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
 
 const tx = (date: string, type: 'income' | 'expense', amountMinor: number, categoryName = 'A'): TxLite => ({ date, type, amountMinor, categoryName });
 const h2025: HistoricalLite = { year: 2025, totalIncomeMinor: 900, totalExpenseMinor: 600, totalDepositMinor: 5000 };
@@ -182,5 +182,24 @@ describe('yearDetailKind + historical double-count', () => {
     expect(row.incomeMinor).toBe(900);
     expect(row.expenseMinor).toBe(600);
     expect(categoryList(live, 'expense').reduce((s, c) => s + c.totalMinor, 0)).toBe(50);
+  });
+});
+
+describe('monthRows + flow (pre-app মাস)', () => {
+  const live = [tx('2025-09-25', 'income', 100, 'Salary'), tx('2025-10-02', 'expense', 40, 'Food')];
+  const flow = new Map([['2025-01', { incomeMinor: 500, expenseMinor: 300 }], ['2025-09', { incomeMinor: 900, expenseMinor: 700 }]]);
+  it('flow থাকা মাসে flow-এর সংখ্যা (লাইভ যোগ হয় না); না থাকলে লাইভ; flow-মাসে লেনদেন না থাকলেও সারি আছে', () => {
+    const rows = monthRows(live, 2025, flow);
+    expect(rows[0]).toMatchObject({ incomeMinor: 500, expenseMinor: 300, savingsMinor: 200, txCount: 0, fromRecord: true });
+    expect(rows[8]).toMatchObject({ incomeMinor: 900, expenseMinor: 700, txCount: 1, fromRecord: true });
+    expect(rows[9]).toMatchObject({ incomeMinor: 0, expenseMinor: 40, fromRecord: false });
+    expect(rows[1]).toMatchObject({ txCount: 0, fromRecord: false });
+  });
+  it('flow ছাড়া আচরণ অপরিবর্তিত', () => {
+    expect(monthRows(live, 2025)[8]).toMatchObject({ incomeMinor: 100, fromRecord: false });
+  });
+  it('flowByMonth শুধু সেই বছরের flow-ওয়ালা snapshot নেয়', () => {
+    const m = flowByMonth([{ yyyymm: '2025-01', flow: { incomeMinor: 1, expenseMinor: 2 } }, { yyyymm: '2025-02' }, { yyyymm: '2026-01', flow: { incomeMinor: 3, expenseMinor: 4 } }], 2025);
+    expect([...m.keys()]).toEqual(['2025-01']);
   });
 });

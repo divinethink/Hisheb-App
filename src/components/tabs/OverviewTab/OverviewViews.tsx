@@ -15,7 +15,8 @@ import {
   bestWorstMonth,
   categoryBreakdown,
   liveQueryStart,
-  monthlyTotals,
+  flowByMonth,
+  monthRows,
   netWorthGrowthAllTime,
   resolveYear,
   runwayMonths,
@@ -230,6 +231,12 @@ export function YearlyView({ uid, historical }: { uid: string; historical: reado
   // Overview Enrichment ধাপ ২: vs আগের বছর তুলনার জন্য আগের বছরের tx (historical doc থাকলে resolveYear-এ ব্যবহৃত হয় না, কিন্তু hook unconditionally কল করা লাগে — MonthlyView-এর prevMonth প্যাটার্নের অনুরূপ)।
   const prevTx = useRangeTransactions(uid, `${year - 1}-01-01`, `${year - 1}-12-31`);
   const isHist = historical.some((h) => h.year === year);
+  // pre-app মাসের আয়/ব্যয় (snapshot.flow) — শুধু historical-doc বছরে; snapshots না এলে লাইভ-ই (graceful)
+  const snaps = useNetWorthSnapshots(uid);
+  const flow = useMemo(
+    () => (isHist && snaps.state.status === 'ready' ? flowByMonth(snaps.state.data, year) : new Map<string, { incomeMinor: number; expenseMinor: number }>()),
+    [isHist, snaps.state, year],
+  );
 
   return (
     <>
@@ -249,6 +256,7 @@ export function YearlyView({ uid, historical }: { uid: string; historical: reado
           txs={tx.state.data}
           year={year}
           isHist={isHist}
+          flow={flow}
         />
       )}
     </>
@@ -261,14 +269,16 @@ function YearlyBody({
   txs,
   year,
   isHist,
+  flow,
 }: {
   row: YearRow;
   prevRow: YearRow;
   txs: readonly TxLite[];
   year: number;
   isHist: boolean;
+  flow: ReadonlyMap<string, { incomeMinor: number; expenseMinor: number }>;
 }) {
-  const months = useMemo(() => monthlyTotals(txs, year), [txs, year]);
+  const months = useMemo(() => monthRows(txs, year, flow), [txs, year, flow]);
   const cats = useMemo(() => categoryBreakdown(txs), [txs]);
   const [selCat, setSelCat] = useState<string | null>(null);
   const savingsPct = savingsRatePct(row.incomeMinor, row.expenseMinor);
@@ -300,15 +310,23 @@ function YearlyBody({
         </Note>
       )}
       {!isHist && txs.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted">No data for this year.</p>}
-      {txs.length > 0 && (
+      {(txs.length > 0 || flow.size > 0) && (
         <>
           <Section title="Income vs expense by month"><IncomeExpenseBars rows={months} /></Section>
-          <Section title="Expense by category">
-            <CategoryDonut items={cats} totalMinor={row.expenseMinor} />
-            <CategoryBars items={cats} onSelect={setSelCat} />
-          </Section>
+          {txs.length > 0 && (
+            <Section title="Expense by category">
+              <CategoryDonut items={cats} totalMinor={row.expenseMinor} />
+              <CategoryBars items={cats} onSelect={setSelCat} />
+            </Section>
+          )}
           {selCat && <CategoryHistorySheet name={selCat} txs={txs} cats={cats} onClose={() => setSelCat(null)} />}
-          <MonthlyBreakdown txs={txs} year={year} isHist={isHist} />
+          <MonthlyBreakdown
+            txs={txs}
+            year={year}
+            isHist={isHist}
+            flow={flow}
+            totals={{ incomeMinor: row.incomeMinor, expenseMinor: row.expenseMinor, savingsMinor: row.savingsMinor }}
+          />
         </>
       )}
     </>

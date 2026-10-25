@@ -15,6 +15,7 @@ import {
   yearDetailKind,
   type CategoryShare,
   type HistoricalLite,
+  type MonthFlow,
   type TxLite,
   type YearDetailKind,
   type YearRow,
@@ -155,37 +156,76 @@ function DetailBody({ id, txs, children }: { id: string; txs: readonly TxLite[];
   );
 }
 
-/** Yearly ভিউ: ১২ মাস। লেনদেনহীন মাস ধূসর "No data" (ট্যাপ হয় না)। */
-export function MonthlyBreakdown({ txs, year, isHist }: { txs: readonly TxLite[]; year: number; isHist: boolean }) {
-  const rows = useMemo(() => monthRows(txs, year), [txs, year]);
+/** Yearly ভিউ: উপরে সাল ও বছরের মোট, তারপর ১২ মাস। লেনদেন ও record দুটোই নেই এমন মাস ধূসর "No data" (ট্যাপ হয় না)।
+ *  flow থাকা (pre-app) মাসের আয়/ব্যয় সংরক্ষিত Excel-record থেকে; খাতওয়ারি তালিকা শুধু লাইভ লেনদেন থেকে। */
+export function MonthlyBreakdown({
+  txs,
+  year,
+  isHist,
+  flow,
+  totals,
+}: {
+  txs: readonly TxLite[];
+  year: number;
+  isHist: boolean;
+  flow: ReadonlyMap<string, MonthFlow>;
+  totals: { incomeMinor: number; expenseMinor: number; savingsMinor: number };
+}) {
+  const rows = useMemo(() => monthRows(txs, year, flow), [txs, year, flow]);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   return (
     <Card as="section" ariaLabel="Monthly breakdown" className="mx-4 mt-3 overflow-hidden pt-4">
-      <h2 className="px-4 pb-1 text-sm font-medium text-fg">Monthly breakdown</h2>
-      {isHist && <p className="px-4 pb-2 text-xs text-muted">Pre-app record year — months show only data recorded in the app.</p>}
+      <h2 className="px-4 pb-1 text-sm font-medium text-fg">Monthly breakdown · {year}</h2>
+      {isHist && <p className="px-4 pb-2 text-xs text-muted">Year totals come from your saved yearly record. Months without saved figures show only data recorded in the app.</p>}
       <ColumnHeads first="Month" />
-      {rows.map((r) =>
-        r.txCount === 0 ? (
-          <div key={r.yyyymm} className={`${ROW_GRID} min-h-11 border-t border-muted/10 px-4 py-1 text-sm text-muted`}>
-            <span className="min-w-0">{monthLabel(r.yyyymm).split(' ')[0]}</span>
-            <span className="col-span-3 text-center text-xs">No data</span>
-            <span />
-          </div>
-        ) : (
+      <div className={`${ROW_GRID} min-h-11 border-t border-muted/10 bg-surface px-4 py-1 text-xs font-semibold`}>
+        <span className="min-w-0 text-sm text-fg">{year} total</span>
+        <span className="text-right text-income">{noBdt(formatAmount(totals.incomeMinor))}</span>
+        <span className="text-right text-expense">{noBdt(formatAmount(totals.expenseMinor))}</span>
+        <span className={`text-right ${totals.savingsMinor < 0 ? 'text-expense' : 'text-income'}`}>{noBdt(formatNet(totals.savingsMinor))}</span>
+        <span />
+      </div>
+      {rows.map((r) => {
+        const label = monthLabel(r.yyyymm).split(' ')[0];
+        if (r.txCount === 0 && !r.fromRecord) {
+          return (
+            <div key={r.yyyymm} className={`${ROW_GRID} min-h-11 border-t border-muted/10 px-4 py-1 text-sm text-muted`}>
+              <span className="min-w-0">{label}</span>
+              <span className="col-span-3 text-center text-xs">No data</span>
+              <span />
+            </div>
+          );
+        }
+        const isOpen = open.has(r.yyyymm);
+        const id = `mb-${r.yyyymm}`;
+        return (
           <div key={r.yyyymm}>
             <SummaryRow
-              label={monthLabel(r.yyyymm).split(' ')[0]}
+              label={label}
+              tag={r.fromRecord && r.txCount === 0 ? 'Pre-app record' : undefined}
               income={r.incomeMinor}
               expense={r.expenseMinor}
               savings={r.savingsMinor}
-              open={open.has(r.yyyymm)}
+              open={isOpen}
               onToggle={() => setOpen((s) => toggled(s, r.yyyymm))}
-              controlsId={`mb-${r.yyyymm}`}
+              controlsId={id}
             />
-            {open.has(r.yyyymm) && <DetailBody id={`mb-${r.yyyymm}`} txs={txsInMonth(txs, r.yyyymm)} />}
+            {isOpen &&
+              (r.txCount === 0 ? (
+                <div id={id} className="border-t border-muted/10 bg-surface px-4 py-3 text-xs text-muted">Pre-app record — category details not available.</div>
+              ) : (
+                <DetailBody id={id} txs={txsInMonth(txs, r.yyyymm)}>
+                  {r.fromRecord && (
+                    <p className="text-xs text-muted">
+                      <span className="mr-2 rounded-full border border-muted/40 px-2 py-0.5 text-[10px]">Partial data</span>
+                      Month totals come from your saved record. These category lists use only entries recorded in the app, so they won’t add up to those totals.
+                    </p>
+                  )}
+                </DetailBody>
+              ))}
           </div>
-        ),
-      )}
+        );
+      })}
     </Card>
   );
 }

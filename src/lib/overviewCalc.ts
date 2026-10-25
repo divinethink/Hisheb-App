@@ -215,17 +215,32 @@ export interface MonthRow {
   incomeMinor: number;
   expenseMinor: number;
   savingsMinor: number;
-  txCount: number; // 0 হলে \"No data\" (ট্যাপ করা যাবে না)
+  txCount: number; // লাইভ লেনদেন-সংখ্যা
+  fromRecord: boolean; // true হলে মাসের আয়/ব্যয় সংরক্ষিত Excel-record (snapshot.flow) থেকে, লাইভ নয়
 }
 
-/** নির্দিষ্ট বছরের ১২ মাস (জানু → ডিসে), এক pass-এ। */
-export function monthRows(txs: readonly TxLite[], year: number): MonthRow[] {
+export interface MonthFlow {
+  incomeMinor: number;
+  expenseMinor: number;
+}
+
+/** snapshots-এর `flow` থেকে নির্দিষ্ট বছরের yyyymm → আয়/ব্যয় (pre-app মাস; শুধু যেগুলোতে আছে)। */
+export function flowByMonth(snapshots: readonly { yyyymm: string; flow?: MonthFlow }[], year: number): Map<string, MonthFlow> {
+  const out = new Map<string, MonthFlow>();
+  for (const s of snapshots) if (s.flow && s.yyyymm.startsWith(`${year}-`)) out.set(s.yyyymm, s.flow);
+  return out;
+}
+
+/** নির্দিষ্ট বছরের ১২ মাস (জানু → ডিসে), এক pass-এ। flow থাকা মাসে আয়/ব্যয় flow থেকে (পুরো মাসের Excel-record,
+ *  লাইভ আংশিক হলেও double-count না); না থাকলে লাইভ। */
+export function monthRows(txs: readonly TxLite[], year: number, flow?: ReadonlyMap<string, MonthFlow>): MonthRow[] {
   const rows: MonthRow[] = Array.from({ length: 12 }, (_, i) => ({
     yyyymm: `${year}-${String(i + 1).padStart(2, '0')}`,
     incomeMinor: 0,
     expenseMinor: 0,
     savingsMinor: 0,
     txCount: 0,
+    fromRecord: false,
   }));
   for (const t of txs) {
     if (Number(t.date.slice(0, 4)) !== year) continue;
@@ -235,7 +250,15 @@ export function monthRows(txs: readonly TxLite[], year: number): MonthRow[] {
     else r.expenseMinor += t.amountMinor;
     r.txCount += 1;
   }
-  for (const r of rows) r.savingsMinor = r.incomeMinor - r.expenseMinor;
+  for (const r of rows) {
+    const f = flow?.get(r.yyyymm);
+    if (f) {
+      r.incomeMinor = f.incomeMinor;
+      r.expenseMinor = f.expenseMinor;
+      r.fromRecord = true;
+    }
+    r.savingsMinor = r.incomeMinor - r.expenseMinor;
+  }
   return rows;
 }
 

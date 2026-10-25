@@ -272,3 +272,47 @@ describe('planBreakdownBackfill', () => {
     expect(plan.skipped.map((s) => s.yyyymm)).toEqual(['2026-02', '2026-03', '2026-04']);
   });
 });
+
+import { parseMonthlyFlow, planFlowBackfill, type MonthlyFlowRow } from './excelMigration';
+
+describe('parseMonthlyFlow', () => {
+  const header = ['মাস', 'Salary', 'মোট আয়', 'মোট  ব্যয়'];
+  const wb = workbookFromRows(
+    [
+      ['2025 Income, Expenditure & Deposit'],
+      header,
+      ['January', 38200, 38200, 58089],
+      ['February', 38200, '38,200', 42976],
+      ['December', 0, 0, 0],
+      ['2026 Income, Expenditure & Deposit'],
+      header,
+      ['January', 41269, 49669, 57243],
+    ],
+    'Monthly Statement',
+  );
+  it('বছর-সেকশন অনুযায়ী মাসের আয়/ব্যয় (পয়সায়); শূন্য মাস বাদ', () => {
+    const { rows, errors } = parseMonthlyFlow(wb);
+    expect(errors).toEqual([]);
+    expect(rows).toEqual([
+      { yyyymm: '2025-01', incomeMinor: 3820000, expenseMinor: 5808900 },
+      { yyyymm: '2025-02', incomeMinor: 3820000, expenseMinor: 4297600 },
+      { yyyymm: '2026-01', incomeMinor: 4966900, expenseMinor: 5724300 },
+    ]);
+  });
+  it('শীট না থাকলে error', () => {
+    expect(parseMonthlyFlow(workbookFromRows([['x']], 'Other')).errors).toHaveLength(1);
+  });
+});
+
+describe('planFlowBackfill', () => {
+  const r = (yyyymm: string): MonthlyFlowRow => ({ yyyymm, incomeMinor: 1, expenseMinor: 1 });
+  it('শুধু historical-doc বছর, snapshot আছে, flow নেই এমন মাস', () => {
+    const plan = planFlowBackfill(
+      [r('2025-01'), r('2025-02'), r('2025-03'), r('2026-01')],
+      [{ yyyymm: '2025-01', hasFlow: false }, { yyyymm: '2025-02', hasFlow: true }, { yyyymm: '2026-01', hasFlow: false }],
+      [2025],
+    );
+    expect(plan.apply.map((x) => x.yyyymm)).toEqual(['2025-01']);
+    expect(plan.skipped.map((x) => x.yyyymm)).toEqual(['2025-02', '2025-03', '2026-01']);
+  });
+});

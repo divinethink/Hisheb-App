@@ -30,6 +30,14 @@ export const SnapshotBreakdownSchema = z.object({
 });
 export type SnapshotBreakdown = z.infer<typeof SnapshotBreakdownSchema>;
 
+// মাসের আয়/ব্যয় (Excel থেকে, শুধু historical-doc বছরের pre-app মাসে — Overview "Monthly breakdown"-এর জন্য)।
+// ঐচ্ছিক ও additive; rules-এ চেক হয় না। total/breakdown অক্ষত।
+export const SnapshotFlowSchema = z.object({
+  incomeMinor: z.number().int().nonnegative(),
+  expenseMinor: z.number().int().nonnegative(),
+});
+export type SnapshotFlow = z.infer<typeof SnapshotFlowSchema>;
+
 export const NetWorthSnapshotSchema = z.object({
   yyyymm: YyyyMm,
   totalAssetsMinor: z.number().int(),
@@ -39,6 +47,7 @@ export const NetWorthSnapshotSchema = z.object({
   unverified: z.boolean().optional(),
   // .catch(undefined) — অবৈধ breakdown পুরো snapshot doc বাদ দেবে না (Net Worth/Cross-check অক্ষত থাকবে)
   breakdown: SnapshotBreakdownSchema.optional().catch(undefined),
+  flow: SnapshotFlowSchema.optional().catch(undefined),
   createdAt: nullish(TimestampLike),
   updatedAt: nullish(TimestampLike),
 });

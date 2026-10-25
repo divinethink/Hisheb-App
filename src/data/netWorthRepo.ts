@@ -8,6 +8,7 @@ import {
   type AccountBalance,
   type NetWorthSnapshot,
   type SnapshotBreakdown,
+  type SnapshotFlow,
 } from '../validation/netWorthSchema';
 
 const balCol = (uid: string) => collection(db, 'users', uid, 'accountBalances');
@@ -116,6 +117,11 @@ export async function getExistingNetWorthYyyymms(uid: string): Promise<string[]>
 /** শুধু `breakdown` যোগ (merge) — total/snapshotDate/unverified অক্ষত। Excel backfill-এর জন্য; doc আগে থেকে থাকতে হবে। */
 export async function setNetWorthBreakdown(uid: string, yyyymm: string, breakdown: SnapshotBreakdown): Promise<void> {
   await setDoc(doc(snapCol(uid), yyyymm), { breakdown, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+/** শুধু `flow` (মাসের আয়/ব্যয়) যোগ (merge) — total/snapshotDate/breakdown অক্ষত। doc আগে থেকে থাকতে হবে। */
+export async function setNetWorthFlow(uid: string, yyyymm: string, flow: SnapshotFlow): Promise<void> {
+  await setDoc(doc(snapCol(uid), yyyymm), { flow, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 /** এক-বারের read — সব বৈধ snapshot (backfill plan-এর জন্য)। */

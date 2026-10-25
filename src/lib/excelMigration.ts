@@ -523,3 +523,71 @@ export function planBreakdownBackfill(
   }
   return { apply, skipped };
 }
+
+// --- Monthly flow backfill: Monthly Statement "মোট আয়"/"মোট ব্যয়" → netWorthSnapshots.flow ---
+// Overview → Yearly → "Monthly breakdown"-এ pre-app মাসের আয়/ব্যয় দেখানোর জন্য। শুধু historical-doc বছরে, শুধু আগে থেকে থাকা
+// snapshot-এ, শুধু flow না-থাকা মাসে। Total/breakdown কখনো বদলায় না।
+export interface MonthlyFlowRow {
+  yyyymm: string;
+  incomeMinor: number;
+  expenseMinor: number;
+}
+
+const FLOW_HEADERS = { income: ['মোট আয়'], expense: ['মোট ব্যয়'] } as const;
+
+export function parseMonthlyFlow(workbook: XLSX.WorkBook): { rows: MonthlyFlowRow[]; errors: string[] } {
+  const sheet = workbook.Sheets['Monthly Statement'];
+  if (!sheet) return { rows: [], errors: ['"Monthly Statement" শীট পাওয়া যায়নি'] };
+  const grid: unknown[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+  const rows: MonthlyFlowRow[] = [];
+  let curYear: number | null = null;
+  let cols: { inc: number; exp: number } | null = null;
+
+  for (const row of grid) {
+    const first = norm(row?.[0]);
+    const sec = /^(20\d{2}) income/.exec(first);
+    if (sec) {
+      curYear = Number(sec[1]);
+      cols = null;
+      continue;
+    }
+    if (curYear == null) continue;
+    if (first === 'মাস') {
+      cols = { inc: findCol(row, FLOW_HEADERS.income), exp: findCol(row, FLOW_HEADERS.expense) };
+      continue;
+    }
+    const monthNum = MONTH_NUM[first];
+    if (!monthNum || !cols || cols.inc === -1 || cols.exp === -1) continue;
+    const income = parseTakaToMinorAllowAny(row[cols.inc]);
+    const expense = parseTakaToMinorAllowAny(row[cols.exp]);
+    if (income == null || expense == null || income < 0 || expense < 0) continue; // ফাঁকা/ভবিষ্যৎ/অবৈধ মাস
+    if (income === 0 && expense === 0) continue;
+    rows.push({ yyyymm: `${curYear}-${String(monthNum).padStart(2, '0')}`, incomeMinor: income, expenseMinor: expense });
+  }
+  rows.sort((a, b) => a.yyyymm.localeCompare(b.yyyymm));
+  return { rows, errors: [] };
+}
+
+export interface FlowPlan {
+  apply: MonthlyFlowRow[];
+  skipped: { yyyymm: string; reason: string }[];
+}
+
+/** pure — years = যে বছরের historicalYearlyTotals doc আছে (সেই বছরের মাসই শুধু; লাইভ বছরে flow বসে না)। */
+export function planFlowBackfill(
+  rows: readonly MonthlyFlowRow[],
+  existing: readonly { yyyymm: string; hasFlow: boolean }[],
+  years: readonly number[],
+): FlowPlan {
+  const byMonth = new Map(existing.map((e) => [e.yyyymm, e]));
+  const apply: MonthlyFlowRow[] = [];
+  const skipped: { yyyymm: string; reason: string }[] = [];
+  for (const r of rows) {
+    const e = byMonth.get(r.yyyymm);
+    if (!years.includes(Number(r.yyyymm.slice(0, 4)))) skipped.push({ yyyymm: r.yyyymm, reason: 'বছরের yearly record নেই (লাইভ ডেটা ব্যবহার হবে)' });
+    else if (!e) skipped.push({ yyyymm: r.yyyymm, reason: 'snapshot নেই' });
+    else if (e.hasFlow) skipped.push({ yyyymm: r.yyyymm, reason: 'আগেই আছে' });
+    else apply.push(r);
+  }
+  return { apply, skipped };
+}
