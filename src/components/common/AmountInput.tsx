@@ -2,13 +2,7 @@ import { useRef } from 'react';
 import { evaluateExpression, hasOperator } from '../../lib/calculator';
 import { parseAmountToMinor } from '../../lib/money';
 
-// Amount ইনপুট (native কীবোর্ড + "+" বাটন)। আগের on-screen AmountKeypad ২০২৬-১০-২৫-এ সরানো হয়েছে।
-// পুরনো নোট: Spendee-স্টাইল layout (owner-request, ২০২৬-০৯-২৬): amount-এর *display* (label+box+expression-
-// preview+error, এই ফাইলের default export) ও on-screen calculator keypad (নিচের `AmountKeypad`)
-// এখন দুটো আলাদা component — TransactionSheet-এ ফর্মের ওপরে AmountInput ও নিচে (Labels-এর পরে,
-// category-grid-এর জায়গায়) AmountKeypad বসে, যাতে top-to-bottom অর্ডার Spendee-র মতো হয়:
-// category icon → amount → date & note → labels → keypad। keypad আর নিজে থেকে open/close হয় না,
-// step==='details' হলেই AmountKeypad সবসময় দৃশ্যমান।
+// Amount ইনপুট — native numeric কীবোর্ড + amount-এর পাশে "+" বাটন (expression: "500+200")। label+box+expression-preview+error এই component-এ।
 export default function AmountInput({
   value,
   showError,
@@ -79,7 +73,7 @@ export default function AmountInput({
               {mainDisplay || '0'}
             </span>
           ) : (
-            // readOnly + inputMode="none" — OS কীবোর্ড খুলবে না; AmountKeypad-ই একমাত্র ইনপুট-উৎস।
+            // onChange না দিলে শুধু-পঠনযোগ্য display (কীবোর্ড খোলে না)।
             <input
               id="amount"
               ref={inputRef}
@@ -109,7 +103,7 @@ export default function AmountInput({
         <span className="shrink-0 text-muted">BDT</span>
       </div>
 
-      {/* সবসময় fixed-height লাইন (ফাঁকা থাকলেও জায়গা ধরে) — expression শুরু/শেষে keypad shake করে না।
+      {/* সবসময় fixed-height লাইন (ফাঁকা থাকলেও জায়গা ধরে) — expression শুরু/শেষে layout shake করে না।
           অসম্পূর্ণ expression-এ error না, শুধু চলমান হিসেব; error শুধু Save-এ (নিচের `invalid`)। */}
       {native ? (
         // মূল editable input: expression থাকলে raw "12+12+12" দেখায়; না থাকলে লেখা লুকানো (বড় field-এ

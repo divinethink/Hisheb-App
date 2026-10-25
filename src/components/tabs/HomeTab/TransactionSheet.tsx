@@ -112,7 +112,7 @@ export default function TransactionSheet({
   );
   const [note, setNote] = useState(initial?.note ?? '');
   // Spendee-স্টাইল category-first flow (owner-request, ২০২৬-০৯-২৬): নতুন transaction-এ প্রথমে
-  // category বাছতে হয়, তারপর amount+keypad ধাপ আসে। Edit mode-এ category আগে থেকেই সেট থাকে
+  // category বাছতে হয়, তারপর amount ধাপ আসে। Edit mode-এ category আগে থেকেই সেট থাকে
   // বলে সরাসরি 'details' ধাপ থেকে শুরু হয়, existing flow ভাঙে না।
   const [step, setStep] = useState<'category' | 'details'>(category ? 'details' : 'category');
   const [submitted, setSubmitted] = useState(false);
@@ -168,8 +168,7 @@ export default function TransactionSheet({
     if (saving) return; // double-tap guard (id-ও stable, তাই duplicate হয় না)
     setSubmitted(true);
     setError('');
-    // Keypad আর নিজে থেকে "commit" হয় না (সবসময় নিচে খোলা থাকে) — তাই Save-এর সময়ই এখানে
-    // এক্সপ্রেশন (থাকলে) চূড়ান্ত সংখ্যায় রূপান্তরিত হয়, owner আলাদা করে "=" না চাপলেও চলে।
+    // Save-এর সময় এক্সপ্রেশন (থাকলে) চূড়ান্ত সংখ্যায় রূপান্তরিত হয়, owner আলাদা করে "=" না চাপলেও চলে।
     const finalAmount = hasOperator(amountStr) ? (evaluateExpression(amountStr) ?? amountStr) : amountStr;
     const minor = parseAmountToMinor(finalAmount);
     if (minor === null || !category || !isValidDate(date)) return;
@@ -265,8 +264,8 @@ export default function TransactionSheet({
       {/* Spendee layout (owner-request, ২০২৬-০৯-২৬): category-ধাপ ও details-ধাপ এখন সম্পূর্ণ
           আলাদা sub-screen — category-ধাপে শুধু Type toggle + category grid দেখায় (Amount/Date/
           Note/Labels এখানে অপ্রাসঙ্গিক ও কার্যকরও না, তাই hide — owner-request, compactness pass)।
-          category বাছার সাথে সাথেই details-ধাপে চলে যায়, তখন pill+Amount+Date/Note+Labels+keypad
-          দেখা যায়। উভয় ধাপই sheet-এর পুরো height (h-full, flex-1 grid/keypad) ব্যবহার করে যাতে
+          category বাছার সাথে সাথেই details-ধাপে চলে যায়, তখন pill+Amount+Date/Note+Labels
+          দেখা যায়। উভয় ধাপই sheet-এর পুরো height (h-full, flex-1 grid) ব্যবহার করে যাতে
           এক-পেজেই যতটা সম্ভব fit করে — grid নিজেই flex-1+internal-scroll, বাইরের header/quick-add
           সবসময় দৃশ্যমান থাকে। */}
       {step === 'category' ? (
@@ -328,8 +327,7 @@ export default function TransactionSheet({
           <AmountInput value={amountStr} onChange={setAmountStr} showError={submitted} type={type} largeAmountThresholdMinor={largeThreshold} />
 
           {/* owner-request (২০২৬-০৯-২৭): Labels ও Date/Note কম্প্যাক্ট + Labels আরো উপরে (Amount-এর
-              ঠিক পরে) — যাতে expression-preview লাইন এলেও নিচের flex-1 AmountKeypad-এর উচ্চতা কম না
-              পড়ে, keypad কখনো squeeze/fold না হয়। heading ছোট (text-xs) ও margin কমানো হয়েছে;
+              ঠিক পরে) — যাতে expression-preview লাইন এলেও ফর্ম কম জায়গায় না চেপে যায়। heading ছোট (text-xs) ও margin কমানো হয়েছে;
               chip/input-এর নিজস্ব min-h-11 টাচ-টার্গেট অপরিবর্তিত (Roadmap §৮ item ৩)। */}
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -374,7 +372,7 @@ export default function TransactionSheet({
 
           <div className="flex flex-1 min-h-0 flex-col gap-2">
             {/* owner-request (২০২৬-১০-১৩): Transaction-এ native কীবোর্ড + Amount-এর পাশে "+" বাটন;
-                on-screen AmountKeypad এখানে আর নেই; ২০২৬-১০-২৫ থেকে অন্য সব Amount-ফর্মেও একই native মোড। */}
+                অন্য সব Amount-ফর্মেও একই native মোড। */}
             {initial && onDelete && (
               <button
                 type="button"

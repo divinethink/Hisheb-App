@@ -1,4 +1,4 @@
-// AmountInput-এর calculator keypad (+, −, ×, ÷)-এর জন্য নিরাপদ expression evaluator।
+// AmountInput-এর "+"-expression (+, −, ×, ÷)-এর জন্য নিরাপদ expression evaluator।
 // কখনো eval()/Function() ব্যবহার হয় না — শুধু নিজস্ব token-parse + arithmetic।
 // পিওর ফাংশন, কোনো React/Firebase import না (lib/ purity, Architecture Plan §৪)।
 

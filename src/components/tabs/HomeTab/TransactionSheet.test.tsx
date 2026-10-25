@@ -87,8 +87,7 @@ describe('TransactionSheet', () => {
   it('saves a valid expense with minor units, stable id, importKey null', async () => {
     const { user, onClose } = setup();
     await user.click(screen.getByRole('button', { name: 'Groceries' }));
-    // custom keypad-এ কোনো "," কী নেই (Spendee-প্যাটার্ন) — owner সরাসরি "1250.5" টাইপ করবেন;
-    // ফলাফল (amountMinor) কমা-সহ আগের ভার্সনের মতোই।
+    // owner সরাসরি "1250.5" টাইপ করবেন; ফলাফল amountMinor।
     await typeAmount(user, '1250.5');
     await user.click(screen.getByRole('button', { name: 'Fruits' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
