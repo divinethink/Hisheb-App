@@ -9,7 +9,9 @@ import { monthLabel } from '../../../lib/date';
 import { categoryColorIndex, formatAmount, formatNet } from '../../../lib/format';
 import {
   categoryList,
+  flowByMonth,
   monthRows,
+  resolveYear,
   txsInMonth,
   txsInYear,
   yearDetailKind,
@@ -36,9 +38,9 @@ function toggled(set: ReadonlySet<string>, key: string): Set<string> {
   return next;
 }
 
-function ColumnHeads({ first }: { first: string }) {
+function ColumnHeads({ first, indent = false }: { first: string; indent?: boolean }) {
   return (
-    <div aria-hidden className={`${ROW_GRID} px-4 pb-1 text-[11px] text-muted`}>
+    <div aria-hidden className={`${ROW_GRID} ${indent ? 'pl-7 pr-4' : 'px-4'} pb-1 pt-2 text-[11px] text-muted`}>
       <span>{first}</span>
       <span className="text-right">Income</span>
       <span className="text-right">Expense</span>
@@ -57,7 +59,9 @@ function SummaryRow({
   open,
   onToggle,
   controlsId,
+  indent = false,
 }: {
+  indent?: boolean;
   label: string;
   tag?: string;
   income: number;
@@ -73,7 +77,7 @@ function SummaryRow({
       aria-expanded={open}
       aria-controls={controlsId}
       onClick={onToggle}
-      className={`${ROW_GRID} min-h-11 w-full border-t border-muted/10 px-4 py-1 text-left text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary`}
+      className={`${ROW_GRID} min-h-11 w-full border-t border-muted/10 ${indent ? 'pl-7 pr-4' : 'px-4'} py-1 text-left text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary`}
     >
       <span className="min-w-0 text-sm font-medium text-fg">
         {label}
@@ -156,40 +160,50 @@ function DetailBody({ id, txs, children }: { id: string; txs: readonly TxLite[];
   );
 }
 
-/** Yearly ভিউ: উপরে সাল ও বছরের মোট, তারপর ১২ মাস। লেনদেন ও record দুটোই নেই এমন মাস ধূসর "No data" (ট্যাপ হয় না)।
- *  flow থাকা (pre-app) মাসের আয়/ব্যয় সংরক্ষিত Excel-record থেকে; খাতওয়ারি তালিকা শুধু লাইভ লেনদেন থেকে। */
-export function MonthlyBreakdown({
-  txs,
+/** একটা বছরের ১২ মাস (collapsible) — বছর খুললে তবেই তার লেনদেন date-range query-তে লোড (lazy)।
+ *  লেনদেন ও record দুটোই নেই এমন মাস ধূসর "No data" (ট্যাপ হয় না)। flow থাকা (pre-app) মাসের আয়/ব্যয় সংরক্ষিত Excel-record থেকে;
+ *  খাতওয়ারি তালিকা শুধু লাইভ লেনদেন থেকে। */
+function YearMonths({
+  uid,
   year,
   isHist,
-  flow,
-  totals,
+  snapshots,
 }: {
-  txs: readonly TxLite[];
+  uid: string;
   year: number;
   isHist: boolean;
-  flow: ReadonlyMap<string, MonthFlow>;
-  totals: { incomeMinor: number; expenseMinor: number; savingsMinor: number };
+  snapshots: readonly { yyyymm: string; flow?: MonthFlow }[] | null;
 }) {
+  const tx = useRangeTransactions(uid, `${year}-01-01`, `${year}-12-31`);
+  const txs = useMemo<readonly TxLite[]>(() => (tx.state.status === 'ready' ? tx.state.data : []), [tx.state]);
+  const flow = useMemo<ReadonlyMap<string, MonthFlow>>(
+    () => (isHist && snapshots ? flowByMonth(snapshots, year) : new Map<string, MonthFlow>()),
+    [isHist, snapshots, year],
+  );
   const rows = useMemo(() => monthRows(txs, year, flow), [txs, year, flow]);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
-  return (
-    <Card as="section" ariaLabel="Monthly breakdown" className="mx-4 mt-3 overflow-hidden pt-4">
-      <h2 className="px-4 pb-1 text-sm font-medium text-fg">Monthly breakdown · {year}</h2>
-      {isHist && <p className="px-4 pb-2 text-xs text-muted">Year totals come from your saved yearly record. Months without saved figures show only data recorded in the app.</p>}
-      <ColumnHeads first="Month" />
-      <div className={`${ROW_GRID} min-h-11 border-t border-muted/10 bg-surface px-4 py-1 text-xs font-semibold`}>
-        <span className="min-w-0 text-sm text-fg">{year} total</span>
-        <span className="text-right text-income">{noBdt(formatAmount(totals.incomeMinor))}</span>
-        <span className="text-right text-expense">{noBdt(formatAmount(totals.expenseMinor))}</span>
-        <span className={`text-right ${totals.savingsMinor < 0 ? 'text-expense' : 'text-income'}`}>{noBdt(formatNet(totals.savingsMinor))}</span>
-        <span />
+
+  if (tx.state.status === 'loading') return <SkeletonLoader rows={3} />;
+  if (tx.state.status === 'error') {
+    return (
+      <div role="alert" className="border-t border-muted/10 px-4 py-3 text-center text-sm text-fg">
+        Couldn’t load this year.
+        <button type="button" onClick={tx.retry} className="ml-2 min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas">Retry</button>
       </div>
+    );
+  }
+  if (txs.length === 0 && flow.size === 0) {
+    return <div className="border-t border-muted/10 bg-surface px-4 py-3 text-xs text-muted">Pre-app record — monthly details not available.</div>;
+  }
+  return (
+    <div className="border-t border-muted/10 bg-surface/50">
+      {isHist && <p className="px-4 pt-2 text-xs text-muted">Year totals come from your saved yearly record. Months without saved figures show only data recorded in the app.</p>}
+      <ColumnHeads first="Month" indent />
       {rows.map((r) => {
         const label = monthLabel(r.yyyymm).split(' ')[0];
         if (r.txCount === 0 && !r.fromRecord) {
           return (
-            <div key={r.yyyymm} className={`${ROW_GRID} min-h-11 border-t border-muted/10 px-4 py-1 text-sm text-muted`}>
+            <div key={r.yyyymm} className={`${ROW_GRID} min-h-11 border-t border-muted/10 pl-7 pr-4 py-1 text-sm text-muted`}>
               <span className="min-w-0">{label}</span>
               <span className="col-span-3 text-center text-xs">No data</span>
               <span />
@@ -201,13 +215,14 @@ export function MonthlyBreakdown({
         return (
           <div key={r.yyyymm}>
             <SummaryRow
+              indent
               label={label}
               tag={r.fromRecord && r.txCount === 0 ? 'Pre-app record' : undefined}
               income={r.incomeMinor}
               expense={r.expenseMinor}
               savings={r.savingsMinor}
               open={isOpen}
-              onToggle={() => setOpen((s) => toggled(s, r.yyyymm))}
+              onToggle={() => setOpen((st) => toggled(st, r.yyyymm))}
               controlsId={id}
             />
             {isOpen &&
@@ -225,6 +240,96 @@ export function MonthlyBreakdown({
               ))}
           </div>
         );
+      })}
+    </div>
+  );
+}
+
+interface YearBlockProps {
+  uid: string;
+  year: number;
+  isHist: boolean;
+  snapshots: readonly { yyyymm: string; flow?: MonthFlow }[] | null;
+  open: boolean;
+  onToggle: () => void;
+}
+
+/** row == null → লোড হচ্ছে। doc-বছরের মোট doc থেকে (C17), নইলে লাইভ লেনদেন থেকে। */
+function YearBlock({ row, ...p }: YearBlockProps & { row: YearRow | null }) {
+  const plain = `${ROW_GRID} min-h-11 border-t border-muted/10 px-4 py-1 text-sm text-muted`;
+  if (!row) {
+    return (
+      <div className={plain}>
+        <span>{p.year}</span>
+        <span className="col-span-3 text-center text-xs">…</span>
+        <span />
+      </div>
+    );
+  }
+  if (!p.isHist && row.incomeMinor === 0 && row.expenseMinor === 0) {
+    return (
+      <div className={plain}>
+        <span>{p.year}</span>
+        <span className="col-span-3 text-center text-xs">No data</span>
+        <span />
+      </div>
+    );
+  }
+  const id = `yb-${p.year}`;
+  return (
+    <div>
+      <SummaryRow
+        label={String(p.year)}
+        tag={p.isHist ? 'Pre-app record' : undefined}
+        income={row.incomeMinor}
+        expense={row.expenseMinor}
+        savings={row.savingsMinor}
+        open={p.open}
+        onToggle={p.onToggle}
+        controlsId={id}
+      />
+      {p.open && (
+        <div id={id}>
+          <YearMonths uid={p.uid} year={p.year} isHist={p.isHist} snapshots={p.snapshots} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistYearItem({ historical, ...p }: YearBlockProps & { historical: readonly HistoricalLite[] }) {
+  return <YearBlock {...p} row={resolveYear(p.year, historical, [])} />;
+}
+
+function LiveYearItem({ historical, ...p }: YearBlockProps & { historical: readonly HistoricalLite[] }) {
+  const tx = useRangeTransactions(p.uid, `${p.year}-01-01`, `${p.year}-12-31`);
+  return <YearBlock {...p} row={tx.state.status === 'ready' ? resolveYear(p.year, historical, tx.state.data) : null} />;
+}
+
+/** Yearly ভিউয়ের নিচে: সব বছর (নতুন → পুরনো), ডিফল্টে সব বন্ধ। বছর ট্যাপ → ১২ মাস → মাস ট্যাপ → খাতওয়ারি। */
+export function YearlyBreakdown({
+  uid,
+  historical,
+  thisYear,
+  snapshots,
+}: {
+  uid: string;
+  historical: readonly HistoricalLite[];
+  thisYear: number;
+  snapshots: readonly { yyyymm: string; flow?: MonthFlow }[] | null;
+}) {
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const minYear = historical.length ? Math.min(thisYear, ...historical.map((h) => h.year)) : thisYear;
+  const years = Array.from({ length: thisYear - minYear + 1 }, (_, i) => thisYear - i);
+  return (
+    <Card as="section" ariaLabel="Yearly breakdown" className="mx-4 mt-3 overflow-hidden pt-4">
+      <h2 className="px-4 text-sm font-medium text-fg">Yearly breakdown</h2>
+      <p className="px-4 pb-2 text-xs text-muted">Tap a year to see its months.</p>
+      <ColumnHeads first="Year" />
+      {years.map((y) => {
+        const isHist = historical.some((h) => h.year === y);
+        const props = { uid, year: y, isHist, snapshots, historical, open: open.has(String(y)), onToggle: () => setOpen((s) => toggled(s, String(y))) };
+        return isHist ? <HistYearItem key={y} {...props} /> : <LiveYearItem key={y} {...props} />;
       })}
     </Card>
   );

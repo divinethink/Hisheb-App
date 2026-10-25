@@ -31,6 +31,12 @@ export function formatNet(minor: number): string {
   return `${minor > 0 ? '+' : '−'}${formatAmount(minor)}`;
 }
 
+/** formatNet-এর ৳ রূপ: "+৳1,62,417" / "−৳16,243" — কমপ্যাক্ট কার্ডে (BDT লেখা ছাড়া) */
+export function formatNetTaka(minor: number): string {
+  if (minor === 0) return formatTaka(0);
+  return `${minor > 0 ? '+' : '−'}${formatTaka(minor)}`;
+}
+
 /** ক্যাটাগরি/মডিউল-নাম থেকে deterministic color-index (0..mod-1) — UI Polish: Home আইকন-বৃত্ত ও
  *  Overview donut/bar একই নামের জন্য সবসময় একই রঙ পায় (কেন্দ্রীভূত single hash, চার্ট-প্যালেট tokens.css-এ)। */
 export function categoryColorIndex(name: string, mod: number): number {

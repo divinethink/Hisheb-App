@@ -4,11 +4,11 @@ import SkeletonLoader from '../../common/SkeletonLoader';
 import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
 import CategoryHistorySheet from './CategoryHistorySheet';
-import { MonthlyBreakdown, YearsCard } from './BreakdownLists';
-import { CategoryBars, CategoryDonut, IncomeExpenseBars, SavingsRateBars, TrendLine } from './Charts';
+import { YearlyBreakdown, YearsCard } from './BreakdownLists';
+import { CategoryBars, CategoryDonut, IncomeExpenseBars, IncomeExpenseLegend, SavingsRateBars, TrendLine } from './Charts';
 import { useMonthTransactions, useNetWorthSnapshots, useRangeTransactions } from '../../../hooks/useData';
 import { currentMonth, monthEndDate, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
-import { formatAmount, formatNet } from '../../../lib/format';
+import { formatAmount, formatNet, formatNetTaka, formatTaka } from '../../../lib/format';
 import {
   allTimeRows,
   avgMonthlyExpense,
@@ -73,17 +73,17 @@ function Totals({
         <div className="flex flex-col items-center gap-1">
           <IconBadge icon={TrendingUp} tone="income" size={32} />
           <p className="text-xs text-muted">Income</p>
-          <p className="text-base font-semibold text-income">{formatAmount(income)}</p>
+          <p className="text-base font-semibold text-income">{formatTaka(income)}</p>
         </div>
         <div className="flex flex-col items-center gap-1">
           <IconBadge icon={TrendingDown} tone="expense" size={32} />
           <p className="text-xs text-muted">Expense</p>
-          <p className="text-base font-semibold text-expense">{formatAmount(expense)}</p>
+          <p className="text-base font-semibold text-expense">{formatTaka(expense)}</p>
         </div>
         <div className="flex flex-col items-center gap-1">
           <IconBadge icon={PiggyBank} tone={savings < 0 ? 'expense' : 'income'} size={32} />
           <p className="text-xs text-muted">Savings</p>
-          <p className={`text-base font-semibold ${savings < 0 ? 'text-expense' : 'text-income'}`}>{formatNet(savings)}</p>
+          <p className={`text-base font-semibold ${savings < 0 ? 'text-expense' : 'text-income'}`}>{formatNetTaka(savings)}</p>
         </div>
       </div>
       {savingsPct != null && (
@@ -100,9 +100,12 @@ function Totals({
   );
 }
 
-const Section = ({ title, children }: { title: string; children: ReactNode }) => (
+const Section = ({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) => (
   <Card as="section" className="mx-4 mt-3 p-4">
-    <h2 className="mb-2 text-sm font-medium text-fg">{title}</h2>
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <h2 className="text-sm font-medium text-fg">{title}</h2>
+      {right}
+    </div>
     {children}
   </Card>
 );
@@ -256,6 +259,10 @@ export function YearlyView({ uid, historical }: { uid: string; historical: reado
           year={year}
           isHist={isHist}
           flow={flow}
+          uid={uid}
+          historical={historical}
+          thisYear={thisYear}
+          snapshots={snaps.state.status === 'ready' ? snaps.state.data : null}
         />
       )}
     </>
@@ -269,7 +276,15 @@ function YearlyBody({
   year,
   isHist,
   flow,
+  uid,
+  historical,
+  thisYear,
+  snapshots,
 }: {
+  uid: string;
+  historical: readonly HistoricalLite[];
+  thisYear: number;
+  snapshots: readonly { yyyymm: string; flow?: { incomeMinor: number; expenseMinor: number } }[] | null;
   row: YearRow;
   prevRow: YearRow;
   txs: readonly TxLite[];
@@ -311,7 +326,7 @@ function YearlyBody({
       {!isHist && txs.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted">No data for this year.</p>}
       {(txs.length > 0 || flow.size > 0) && (
         <>
-          <Section title="Income vs expense by month"><IncomeExpenseBars rows={months} /></Section>
+          <Section title="Income vs expense by month" right={<IncomeExpenseLegend />}><IncomeExpenseBars rows={months} /></Section>
           {txs.length > 0 && (
             <Section title="Expense by category">
               <CategoryDonut items={cats} totalMinor={row.expenseMinor} />
@@ -319,15 +334,9 @@ function YearlyBody({
             </Section>
           )}
           {selCat && <CategoryHistorySheet name={selCat} txs={txs} cats={cats} onClose={() => setSelCat(null)} />}
-          <MonthlyBreakdown
-            txs={txs}
-            year={year}
-            isHist={isHist}
-            flow={flow}
-            totals={{ incomeMinor: row.incomeMinor, expenseMinor: row.expenseMinor, savingsMinor: row.savingsMinor }}
-          />
         </>
       )}
+      <YearlyBreakdown uid={uid} historical={historical} thisYear={thisYear} snapshots={snapshots} />
     </>
   );
 }
@@ -357,17 +366,16 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
       {snaps.state.status === 'ready' && (() => {
         const growth = netWorthGrowthAllTime(snaps.state.data);
         return growth ? (
-          <Card as="section" ariaLabel="Net worth growth" className="mx-4 mt-3 flex items-start gap-3 p-4">
-            <IconBadge icon={Wallet} tone="primary" />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs text-muted">Net Worth ({growth.latestYyyymm})</p>
-              <p className="text-base font-semibold text-fg">{formatAmount(growth.latestMinor)}</p>
-              {growth.deltaPct != null && (
-                <p className={`text-xs ${growth.deltaPct >= 0 ? 'text-income' : 'text-expense'}`}>
-                  vs {growth.earliestYyyymm}: {growth.deltaPct >= 0 ? '+' : ''}{growth.deltaPct.toFixed(1)}%
-                </p>
-              )}
-            </div>
+          <Card as="section" ariaLabel="Net worth growth" className="mx-4 mt-3 flex items-center gap-2 px-3 py-2.5">
+            <IconBadge icon={Wallet} tone="primary" size={28} />
+            <p className="min-w-0 flex-1 truncate text-xs text-muted">Net Worth · {growth.latestYyyymm}</p>
+            <p className="shrink-0 text-base font-semibold text-fg">{formatTaka(growth.latestMinor)}</p>
+            {growth.deltaPct != null && (
+              <p className={`shrink-0 text-xs font-medium ${growth.deltaPct >= 0 ? 'text-income' : 'text-expense'}`} title={`vs ${growth.earliestYyyymm}`}>
+                {growth.deltaPct >= 0 ? '↑' : '↓'}{Math.abs(growth.deltaPct).toFixed(1)}%
+                <span className="sr-only"> vs {growth.earliestYyyymm}</span>
+              </p>
+            )}
           </Card>
         ) : null;
       })()}
