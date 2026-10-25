@@ -77,7 +77,7 @@ export default function NetWorthTab({
 
   const balances = bal.state.status === 'ready' ? bal.state.data : NO_BAL;
   const latestByAccount = useMemo(() => latestBalanceByAccount(balances), [balances]);
-  // item ২: প্রতি account-এর history (yyyymm অনুযায়ী sorted) — mini-sparkline ও "Updated [date]" subtext-এর উৎস।
+  // item ২: প্রতি account-এর history (yyyymm অনুযায়ী sorted) — "Updated [date]" subtext-এর উৎস।
   const historyByAccount = useMemo(() => {
     const map = new Map<string, AccountBalance[]>();
     for (const b of balances) {
@@ -141,6 +141,14 @@ export default function NetWorthTab({
     acc.state.status === 'ready' && acc.state.data.length > 0 && debts.state.status === 'ready' && investments.state.status === 'ready' && gpf.state.status === 'ready' && homeDeposits.state.status === 'ready'
       ? countLedgerChangesAfter(basisDate, { debts: debtList, investments: invList, deposits: depositList, gpf: gpfList })
       : 0;
+  // hero-কার্ডের ভাঙা-হিসাব (Accounts / Investment / Home Deposit / Receivable+GPF) — আগের আলাদা breakdown-কার্ডের জায়গায়
+  const parts = [
+    { label: 'Accounts', value: accTotal, dot: 'bg-primary' },
+    { label: 'Running Investment', value: runningInv, dot: 'bg-sky-400' },
+    { label: 'Home Deposit (Net)', value: homeDepositNet, dot: 'bg-amber-400' },
+    { label: 'Receivable + GPF', value: receivable + gpfBalance, dot: 'bg-violet-400' },
+  ];
+  const barTotal = parts.reduce((t, x) => t + Math.max(0, x.value), 0);
   const crossProps = { uid, liveTotalMinor: totalAssets, basisDate, debts: debtList, investments: invList, gpfEntries: gpfList, balances };
 
   const dateFormat = settings.state.status === 'ready' ? settings.state.data.dateFormat : 'dmy';
@@ -208,22 +216,45 @@ export default function NetWorthTab({
       {/* সর্বমোট Total Assets — সবার আগে, বড় করে (Design Philosophy §০: সংখ্যাই প্রধান)। ট্রেন্ড লাইন
           ইচ্ছাকৃতভাবে এখানে না — Overview → All-Time-এ (owner-approved)। */}
       {acc.state.status === 'ready' && (
-        <Card className="mx-4 mb-3 flex items-start gap-3 p-4">
-          <IconBadge icon={Wallet} tone="primary" size={40} />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted">Total Assets (Gross)</p>
-            <p className="text-3xl font-semibold leading-tight text-fg">{formatAmount(totalAssets)}</p>
-            {heroDiff !== null && heroPct !== null && (
-              <span
-                className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                  heroDiff >= 0 ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'
-                }`}
-              >
-                {heroDiff >= 0 ? <TrendingUp aria-hidden size={12} /> : <TrendingDown aria-hidden size={12} />}
-                {formatNet(heroDiff)} ({heroPct}%) vs last month
-              </span>
-            )}
+        <Card className="mx-4 mb-3 p-4">
+          <div className="flex items-start gap-3">
+            <IconBadge icon={Wallet} tone="primary" size={40} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted">Total Assets (Gross)</p>
+              <p className="text-3xl font-semibold leading-tight text-fg">{formatAmount(totalAssets)}</p>
+              {heroDiff !== null && heroPct !== null && (
+                <span
+                  className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    heroDiff >= 0 ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'
+                  }`}
+                >
+                  {heroDiff >= 0 ? <TrendingUp aria-hidden size={12} /> : <TrendingDown aria-hidden size={12} />}
+                  {formatNet(heroDiff)} ({heroPct}%) vs last month
+                </span>
+              )}
+            </div>
           </div>
+          {acc.state.data.length > 0 && (
+            <div className="mt-4 border-t border-muted/10 pt-3">
+              {barTotal > 0 && (
+                <div className="mb-2 flex h-1.5 w-full overflow-hidden rounded-full bg-muted/10" aria-hidden>
+                  {parts.map((x) => (
+                    <span key={x.label} className={x.dot} style={{ width: `${(Math.max(0, x.value) / barTotal) * 100}%` }} />
+                  ))}
+                </div>
+              )}
+              <dl className="flex flex-col gap-1 text-sm">
+                {parts.map((x) => (
+                  <div key={x.label} className="flex items-center justify-between gap-3">
+                    <dt className="flex items-center gap-2 text-muted">
+                      <span aria-hidden className={`h-2 w-2 rounded-full ${x.dot}`} /> {x.label}
+                    </dt>
+                    <dd className="text-fg">{formatAmount(x.value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
         </Card>
       )}
 
@@ -261,7 +292,6 @@ export default function NetWorthTab({
                   {acc.state.data.map((a) => {
                     const history = historyByAccount.get(a.id) ?? [];
                     const latestEntry = history[history.length - 1];
-                    const sparkPoints = history.slice(-5).map((h) => h.balanceMinor);
                     return (
                       <li key={a.id} className="border-t border-muted/10 first:border-t-0">
                         <button
@@ -277,7 +307,6 @@ export default function NetWorthTab({
                               {latestEntry ? `Updated ${formatDisplayDate(latestEntry.snapshotDate, dateFormat)}` : 'Not updated yet'}
                             </span>
                           </span>
-                          {sparkPoints.length >= 2 && <Sparkline points={sparkPoints} />}
                           <span className="shrink-0 font-medium text-fg">
                             {latestByAccount.has(a.id) ? (
                               formatAmount(latestByAccount.get(a.id)!)
@@ -290,33 +319,6 @@ export default function NetWorthTab({
                     );
                   })}
                 </ul>
-              </Card>
-
-              <Card className="mx-4 mb-3 flex flex-col gap-1 p-4 text-sm">
-                <p className="flex justify-between pb-2">
-                  <span className="text-muted">Accounts Total</span>
-                  <span className="font-medium text-fg">{formatAmount(accTotal)}</span>
-                </p>
-                <p className="flex justify-between">
-                  <span className="text-muted">+ Total Receivable (Ledger)</span>
-                  <span className="text-fg">{formatAmount(receivable)}</span>
-                </p>
-                <p className="flex justify-between">
-                  <span className="text-muted">+ Running Investment</span>
-                  <span className="text-fg">{formatAmount(runningInv)}</span>
-                </p>
-                <p className="flex justify-between">
-                  <span className="text-muted">+ Home Deposit (Net)</span>
-                  <span className="text-fg">{formatAmount(homeDepositNet)}</span>
-                </p>
-                <p className="flex justify-between">
-                  <span className="text-muted">+ GPF Balance</span>
-                  <span className="text-fg">{formatAmount(gpfBalance)}</span>
-                </p>
-                <p className="flex justify-between border-t border-muted/10 pt-2 text-base">
-                  <span className="font-medium text-fg">Total Assets (Gross)</span>
-                  <span className="font-semibold text-fg">{formatAmount(totalAssets)}</span>
-                </p>
               </Card>
 
               <div className="flex flex-col gap-2 px-4 pb-1">
@@ -352,22 +354,5 @@ export default function NetWorthTab({
 
       {sheet && <AccountSheet uid={uid} initial={sheet.initial} onClose={() => setSheet(null)} />}
     </div>
-  );
-}
-
-// item ২: mini sparkline (৩-৫ পয়েন্টের accountBalances history) — inline SVG, কোনো charting-lib না
-// (Architecture Plan §৭-এর "হালকা dependency" নীতি, UI Polish [1_5] §৪)।
-function Sparkline({ points }: { points: number[] }) {
-  const w = 48;
-  const h = 20;
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const range = max - min || 1;
-  const step = w / (points.length - 1);
-  const coords = points.map((p, i) => `${(i * step).toFixed(1)},${(h - ((p - min) / range) * h).toFixed(1)}`).join(' ');
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden className="shrink-0 text-primary">
-      <polyline points={coords} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }
