@@ -12,11 +12,13 @@ import { formatAmount, formatNet, formatNetTaka, formatTaka } from '../../../lib
 import {
   allTimeRows,
   avgMonthlyExpense,
+  avgMonthlySavings,
   bestWorstMonth,
   categoryBreakdown,
   flowByMonth,
   monthRows,
   netWorthGrowthAllTime,
+  netWorthYtd,
   resolveYear,
   runwayMonths,
   savingsInsight,
@@ -112,6 +114,61 @@ const Section = ({ title, children, right }: { title: string; children: ReactNod
 
 const Note = ({ children }: { children: ReactNode }) => <p className="mx-4 mt-2 text-xs text-muted">ℹ️ {children}</p>;
 
+/** Monthly: কয়েকটা কাজের সংখ্যা (Expense by category-র নিচে)। নতুন query নেই — বিদ্যমান ৩-মাসের ডেটা ও snapshot থেকে। */
+function KeyNumbers({
+  avgExpense,
+  avgSavings,
+  runway,
+  ytd,
+  thisExpense,
+}: {
+  avgExpense: number | null;
+  avgSavings: number | null;
+  runway: number | null;
+  ytd: ReturnType<typeof netWorthYtd>;
+  thisExpense: number;
+}) {
+  if (avgExpense == null && avgSavings == null && runway == null && !ytd) return null;
+  const vsAvg = avgExpense && avgExpense > 0 ? ((thisExpense - avgExpense) / avgExpense) * 100 : null;
+  const tile = 'rounded-xl bg-surface p-3';
+  return (
+    <Card as="section" ariaLabel="Key numbers" className="mx-4 mt-3 p-4">
+      <h2 className="mb-2 text-sm font-medium text-fg">Key numbers</h2>
+      <div className="grid grid-cols-2 gap-2">
+        <div className={tile}>
+          <p className="text-xs text-muted">Avg expense / month</p>
+          <p className="text-base font-semibold text-expense">{avgExpense != null ? formatTaka(Math.round(avgExpense)) : '—'}</p>
+          <p className="text-[10px] text-muted">last 3 months</p>
+        </div>
+        <div className={tile}>
+          <p className="text-xs text-muted">Avg savings / month</p>
+          <p className={`text-base font-semibold ${avgSavings != null && avgSavings < 0 ? 'text-expense' : 'text-income'}`}>
+            {avgSavings != null ? formatNetTaka(Math.round(avgSavings)) : '—'}
+          </p>
+          <p className="text-[10px] text-muted">last 3 months</p>
+        </div>
+        <div className={tile}>
+          <p className="text-xs text-muted">Runway</p>
+          <p className="text-base font-semibold text-fg">{runway != null ? `${runway.toFixed(1)} months` : '—'}</p>
+          <p className="text-[10px] text-muted">Total Assets ÷ avg expense</p>
+        </div>
+        <div className={tile}>
+          <p className="text-xs text-muted">Net Worth this year</p>
+          <p className={`text-base font-semibold ${ytd && ytd.deltaMinor < 0 ? 'text-expense' : 'text-income'}`}>{ytd ? formatNetTaka(ytd.deltaMinor) : '—'}</p>
+          <p className="text-[10px] text-muted">
+            {ytd ? `${ytd.deltaPct != null ? `${ytd.deltaPct >= 0 ? '↑' : '↓'}${Math.abs(ytd.deltaPct).toFixed(1)}% · ` : ''}since ${ytd.baseYyyymm}` : 'needs 2 snapshots'}
+          </p>
+        </div>
+      </div>
+      {vsAvg != null && Math.abs(vsAvg) >= 1 && (
+        <p className="mt-2 text-xs text-muted">
+          This month’s expense is <span className={vsAvg > 0 ? 'text-expense' : 'text-income'}>{Math.round(Math.abs(vsAvg))}% {vsAvg > 0 ? 'above' : 'below'}</span> your 3-month average.
+        </p>
+      )}
+    </Card>
+  );
+}
+
 function ErrorBox({ onRetry }: { onRetry: () => void }) {
   return (
     <Card role="alert" className="m-4 p-4 text-center">
@@ -195,6 +252,8 @@ function MonthlyBody({
   const currentSnap = snapshots ? snapshotAtOrBefore(snapshots, month) : null;
   const avgExpense = runwayTxs ? avgMonthlyExpense(runwayTxs, runwayMonthsList) : null;
   const runway = currentSnap && avgExpense != null ? runwayMonths(currentSnap.totalAssetsMinor, avgExpense) : null;
+  const avgSavings = runwayTxs ? avgMonthlySavings(runwayTxs, runwayMonthsList) : null;
+  const ytd = snapshots ? netWorthYtd(snapshots, month) : null;
 
   return (
     <>
@@ -206,11 +265,7 @@ function MonthlyBody({
         <CategoryBars items={cats} onSelect={setSelCat} />
       </Section>
       {selCat && <CategoryHistorySheet name={selCat} txs={txs} cats={cats} onClose={() => setSelCat(null)} />}
-      {runway != null && (
-        <p className="mx-4 mt-3 text-xs text-muted">
-          Runway: Total Assets ÷ avg. monthly expense ≈ {runway.toFixed(1)} months
-        </p>
-      )}
+      <KeyNumbers avgExpense={avgExpense} avgSavings={avgSavings} runway={runway} ytd={ytd} thisExpense={t.expense} />
     </>
   );
 }

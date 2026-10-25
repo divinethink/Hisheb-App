@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allTimeRows, categoryList, flowByMonth, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
+import { allTimeRows, categoryList, flowByMonth, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, avgMonthlySavings, netWorthYtd, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
 
 const tx = (date: string, type: 'income' | 'expense', amountMinor: number, categoryName = 'A'): TxLite => ({ date, type, amountMinor, categoryName });
 const h2025: HistoricalLite = { year: 2025, totalIncomeMinor: 900, totalExpenseMinor: 600, totalDepositMinor: 5000 };
@@ -201,5 +201,23 @@ describe('monthRows + flow (pre-app মাস)', () => {
   it('flowByMonth শুধু সেই বছরের flow-ওয়ালা snapshot নেয়', () => {
     const m = flowByMonth([{ yyyymm: '2025-01', flow: { incomeMinor: 1, expenseMinor: 2 } }, { yyyymm: '2025-02' }, { yyyymm: '2026-01', flow: { incomeMinor: 3, expenseMinor: 4 } }], 2025);
     expect([...m.keys()]).toEqual(['2025-01']);
+  });
+});
+
+describe('Monthly Key numbers helpers', () => {
+  it('avgMonthlySavings — শুধু ডেটা-থাকা মাসের গড় (আয় − ব্যয়)', () => {
+    const txs = [tx('2026-08-01', 'income', 1000), tx('2026-08-02', 'expense', 400), tx('2026-10-01', 'expense', 200)];
+    expect(avgMonthlySavings(txs, ['2026-08', '2026-09', '2026-10'])).toBeCloseTo((600 - 200) / 2);
+    expect(avgMonthlySavings([], ['2026-08'])).toBeNull();
+  });
+  it('netWorthYtd — আগের বছরের শেষ snapshot থেকে', () => {
+    const snaps = [{ yyyymm: '2025-11', totalAssetsMinor: 100 }, { yyyymm: '2025-12', totalAssetsMinor: 200 }, { yyyymm: '2026-06', totalAssetsMinor: 260 }, { yyyymm: '2026-10', totalAssetsMinor: 300 }];
+    expect(netWorthYtd(snaps, '2026-10')).toEqual({ baseYyyymm: '2025-12', currentYyyymm: '2026-10', deltaMinor: 100, deltaPct: 50 });
+  });
+  it('netWorthYtd — আগের বছর না থাকলে এ বছরের প্রথম snapshot; একটাই হলে null', () => {
+    const snaps = [{ yyyymm: '2026-03', totalAssetsMinor: 100 }, { yyyymm: '2026-10', totalAssetsMinor: 150 }];
+    expect(netWorthYtd(snaps, '2026-10')?.baseYyyymm).toBe('2026-03');
+    expect(netWorthYtd([{ yyyymm: '2026-10', totalAssetsMinor: 150 }], '2026-10')).toBeNull();
+    expect(netWorthYtd([], '2026-10')).toBeNull();
   });
 });

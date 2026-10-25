@@ -144,6 +144,43 @@ export function avgMonthlyExpense(txs: readonly TxLite[], months: readonly strin
   return covered === 0 ? null : total / covered;
 }
 
+/** দেওয়া yyyymm-তালিকার মধ্যে যতগুলোতে actual লেনদেন আছে তার গড় মাসিক সঞ্চয় (আয় − ব্যয়); ডেটা-শূন্য মাস বাদ। */
+export function avgMonthlySavings(txs: readonly TxLite[], months: readonly string[]): number | null {
+  let total = 0;
+  let covered = 0;
+  for (const m of months) {
+    const inMonth = txs.filter((t) => t.date.startsWith(m));
+    if (inMonth.length === 0) continue;
+    covered += 1;
+    total += inMonth.reduce((a, t) => a + (t.type === 'income' ? t.amountMinor : -t.amountMinor), 0);
+  }
+  return covered === 0 ? null : total / covered;
+}
+
+export interface NetWorthYtd {
+  baseYyyymm: string;
+  currentYyyymm: string;
+  deltaMinor: number;
+  deltaPct: number | null;
+}
+
+/** এ বছরে Total Assets কতটা বাড়ল/কমল: yyyymm-এর snapshot বনাম আগের বছরের শেষ snapshot
+ *  (না থাকলে এ বছরের প্রথম snapshot)। তুলনার দুটো আলাদা snapshot না থাকলে null — কিছু fabricate করে না। */
+export function netWorthYtd(snapshots: readonly NetWorthSnapshotLite[], yyyymm: string): NetWorthYtd | null {
+  const cur = snapshotAtOrBefore(snapshots, yyyymm);
+  if (!cur) return null;
+  const yearStart = `${yyyymm.slice(0, 4)}-01`;
+  const prior = snapshots.filter((x) => x.yyyymm < yearStart);
+  const inYear = snapshots.filter((x) => x.yyyymm >= yearStart && x.yyyymm <= cur.yyyymm);
+  const pick = (arr: readonly NetWorthSnapshotLite[], latest: boolean) =>
+    arr.reduce<NetWorthSnapshotLite | null>((a, b) => (a === null || (latest ? b.yyyymm > a.yyyymm : b.yyyymm < a.yyyymm) ? b : a), null);
+  const base = pick(prior, true) ?? pick(inYear, false);
+  if (!base || base.yyyymm === cur.yyyymm) return null;
+  const deltaMinor = cur.totalAssetsMinor - base.totalAssetsMinor;
+  const deltaPct = base.totalAssetsMinor !== 0 ? (deltaMinor / Math.abs(base.totalAssetsMinor)) * 100 : null;
+  return { baseYyyymm: base.yyyymm, currentYyyymm: cur.yyyymm, deltaMinor, deltaPct };
+}
+
 /** rule-based এক-লাইন insight (কোনো AI/ML না) — আগের মাসের savings শূন্য/অজানা হলে null। */
 export function savingsInsight(currentSavingsMinor: number, previousSavingsMinor: number | null): string | null {
   if (previousSavingsMinor === null || previousSavingsMinor === 0) return null;
