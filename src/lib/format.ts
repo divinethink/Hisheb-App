@@ -15,6 +15,11 @@ export function formatAmount(minor: number): string {
   return `BDT ${body}`;
 }
 
+/** minor → "৳1,62,417" — জায়গা কম এমন কমপ্যাক্ট UI-তে (formatAmount-এর সংক্ষিপ্ত রূপ) */
+export function formatTaka(minor: number): string {
+  return formatAmount(minor).replace(/^BDT /, '৳');
+}
+
 /** ব্যয়ে "−", আয়ে "+" — রঙের পাশাপাশি চিহ্নও (accessibility) */
 export function formatSigned(minor: number, type: 'income' | 'expense'): string {
   return `${type === 'expense' ? '−' : '+'}${formatAmount(minor)}`;

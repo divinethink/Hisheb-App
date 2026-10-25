@@ -72,8 +72,8 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
             <p className="text-sm text-muted">Total</p>
             <p className="text-lg font-semibold text-fg">{formatAmount(debt.totalAmountMinor)}</p>
           </div>
-          <button type="button" onClick={() => setEditOpen(true)} className="min-h-11 rounded-lg border border-muted/40 px-4 text-sm">
-            Edit
+          <button type="button" aria-label="Edit" onClick={() => setEditOpen(true)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-muted/40 text-muted">
+            <Pencil aria-hidden size={18} />
           </button>
         </div>
 

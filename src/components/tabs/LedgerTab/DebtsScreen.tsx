@@ -5,7 +5,7 @@ import SkeletonLoader from '../../common/SkeletonLoader';
 import CollapsibleSection from '../../common/CollapsibleSection';
 import DebtSheet from './DebtSheet';
 import DebtDetailScreen from './DebtDetailScreen';
-import { formatAmount } from '../../../lib/format';
+import { formatAmount, formatTaka } from '../../../lib/format';
 import { formatDisplayDate } from '../../../lib/date';
 import {
   isSettledByRepayment,
@@ -83,6 +83,7 @@ function isAllWrittenOff(d: Debt): boolean {
   return v.length > 0 && v.every((x) => x.status === 'written_off');
 }
 const paidOf = (list: readonly Debt[]) => list.reduce((s, d) => s + lineViews(d).reduce((a, v) => a + v.paidMinor, 0), 0);
+const totalOf = (list: readonly Debt[]) => list.reduce((s, d) => s + d.totalAmountMinor, 0);
 
 export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () => void }) {
   const debts = useDebts(uid);
@@ -158,19 +159,19 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
 
         {debts.state.status === 'ready' && (
           <>
-            <div className="rounded-2xl bg-primary/10 p-4">
+            <div className="rounded-2xl bg-primary/10 px-4 py-3">
               <p className="text-xs text-muted">{dir === 'owe_me' ? 'Total to receive' : 'Total I owe'}</p>
               <p className="mt-1 text-2xl font-semibold text-fg">{formatAmount(totalOutstanding)}</p>
               {dir === 'owe_me' && (
-                <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
+                <p className="mt-1 flex justify-between gap-2 whitespace-nowrap text-[11px] text-muted">
                   <span>
-                    Active <span className="text-fg">{formatAmount(byStatus.active)}</span>
+                    Active <span className="text-fg">{formatTaka(byStatus.active)}</span>
                   </span>
                   <span>
-                    Doubtful <span className="text-warning">{formatAmount(byStatus.doubtful)}</span>
+                    Doubtful <span className="text-warning">{formatTaka(byStatus.doubtful)}</span>
                   </span>
                   <span>
-                    Written-off <span className="text-expense">{formatAmount(byStatus.written_off)}</span>
+                    Written-off <span className="text-expense">{formatTaka(byStatus.written_off)}</span>
                   </span>
                 </p>
               )}
@@ -182,12 +183,12 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
               <>
                 {open.length > 0 && <div className="flex flex-col gap-2">{open.map(row)}</div>}
                 {settled.length > 0 && (
-                  <CollapsibleSection title="Fully repaid" count={settled.length} summary={`Repaid ${formatAmount(paidOf(settled))}`} defaultOpen>
+                  <CollapsibleSection title="Fully repaid" count={settled.length} summary={`Repaid ${formatTaka(paidOf(settled))}`} defaultOpen>
                     {settled.map(row)}
                   </CollapsibleSection>
                 )}
                 {writtenOff.length > 0 && (
-                  <CollapsibleSection title="Written-off" count={writtenOff.length} summary={`Repaid ${formatAmount(paidOf(writtenOff))}`}>
+                  <CollapsibleSection title="Written-off" count={writtenOff.length} summary={`Repaid ${formatTaka(paidOf(writtenOff))} · Total ${formatTaka(totalOf(writtenOff))}`}>
                     {writtenOff.map(row)}
                   </CollapsibleSection>
                 )}
