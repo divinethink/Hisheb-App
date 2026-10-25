@@ -44,7 +44,10 @@ export default function AmountInput({
   // owner-request (২০২৬-০৯-২৬): main field-এ বড় করে total (evaluated) দেখাবে, ছোট লাইনে raw
   // expression — Spendee-র মতো। expression অসম্পূর্ণ থাকলে (evaluated===null) fallback হিসেবে
   // main field-এ raw value-ই থাকে, দেখানোর মতো total এখনো নেই।
-  const mainDisplay = exprActive && evaluated !== null ? evaluated : value;
+  // শেষে "+" ঝুলে থাকলে (পরের সংখ্যা লেখার আগে) raw expression নয়, এ পর্যন্ত চলমান মোট দেখায় — নইলে প্রতিবার "+" চাপতে
+  // বড় field মোট ↔ লম্বা expression-এ লাফায় ও বাড়তে বাড়তে BDT/"+" বাটন স্ক্রিনের বাইরে ঠেলে দেয়।
+  const running = exprActive && evaluated === null ? evaluateExpression(value.replace(/[+.]+$/, '')) : null;
+  const mainDisplay = exprActive ? evaluated ?? running ?? value : value;
   const parsed = parseAmountToMinor(value);
   // expression অসম্পূর্ণ/অবৈধ (dangling operator, ÷0, non-positive result) অবস্থায় Save চাপলেও
   // যেন silently কিছু না হয়ে স্পষ্ট error দেখা যায়।
@@ -58,7 +61,7 @@ export default function AmountInput({
         Amount
       </label>
       <div className="flex items-center gap-2">
-        <div className="flex min-h-12 flex-1 items-center gap-2 rounded-lg border border-muted/40 bg-surface px-3">
+        <div className="flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-lg border border-muted/40 bg-surface px-3">
           {type && (
             <span className={type === 'income' ? 'text-income' : 'text-expense'} aria-hidden="true">
               {type === 'income' ? '+' : '−'}
@@ -71,7 +74,7 @@ export default function AmountInput({
               aria-hidden="true"
               onMouseDown={keepFocus}
               onClick={() => inputRef.current?.focus()}
-              className={`w-full truncate text-xl ${mainDisplay ? 'text-fg' : 'text-muted'}`}
+              className={`min-w-0 flex-1 truncate text-xl ${mainDisplay ? 'text-fg' : 'text-muted'}`}
             >
               {mainDisplay || '0'}
             </span>
@@ -98,12 +101,12 @@ export default function AmountInput({
             onMouseDown={keepFocus}
             onPointerDown={keepFocus}
             onClick={addPlus}
-            className="flex h-12 w-12 items-center justify-center rounded-lg border border-primary/40 bg-primary/10 text-xl text-primary active:bg-primary/20"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-primary/40 bg-primary/10 text-xl text-primary active:bg-primary/20"
           >
             +
           </button>
         )}
-        <span className="text-muted">BDT</span>
+        <span className="shrink-0 text-muted">BDT</span>
       </div>
 
       {/* সবসময় fixed-height লাইন (ফাঁকা থাকলেও জায়গা ধরে) — expression শুরু/শেষে keypad shake করে না।
