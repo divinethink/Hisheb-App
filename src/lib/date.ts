@@ -75,3 +75,8 @@ export function formatDateForInput(date: string, format: 'dmy' | 'mdy'): string 
   if (!y || !m || !d) return '';
   return format === 'mdy' ? `${m}/${d}/${y}` : `${d}/${m}/${y}`;
 }
+
+/** মেয়াদ-তারিখ আজকের (Asia/Dhaka) আগে কি? বাকি টাকা না থাকলে/তারিখ না থাকলে false — কল-সাইট বাকি-শর্ত নিজে দেয়। */
+export function isOverdue(date: string | null | undefined, today: string = toDhakaDate(new Date())): boolean {
+  return !!date && date < today;
+}

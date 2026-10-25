@@ -5,7 +5,7 @@ import StatStrip from '../../common/StatStrip';
 import InvestmentRepaymentSheet from './InvestmentRepaymentSheet';
 import InvestmentSheet from './InvestmentSheet';
 import { formatAmount } from '../../../lib/format';
-import { formatDisplayDate } from '../../../lib/date';
+import { formatDisplayDate, isOverdue } from '../../../lib/date';
 import { useSettings } from '../../../hooks/useData';
 import { runningMinor, investmentStatus, profitMinor, INVESTMENT_STATUS_LABEL } from '../../../lib/investmentCalc';
 import { setInvestmentOutcome, setInvestmentRepayments, updateInvestment } from '../../../data/investmentRepo';
@@ -67,7 +67,9 @@ export default function InvestmentDetailScreen({ uid, investment, onBack }: { ui
               label: 'Expected date',
               value: (
                 <>
-                  <span>{investment.expectedRepaymentDate ? formatDisplayDate(investment.expectedRepaymentDate, dateFormat) : '— 📅'}</span>
+                  <span className={isOverdue(investment.expectedRepaymentDate) && running > 0 && !written ? 'text-expense' : ''}>
+                    {investment.expectedRepaymentDate ? formatDisplayDate(investment.expectedRepaymentDate, dateFormat) : '— 📅'}
+                  </span>
                   <input
                     type="date"
                     lang="en-GB"

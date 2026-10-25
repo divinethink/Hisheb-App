@@ -7,11 +7,14 @@ export default function FullScreenPage({
   title,
   onBack,
   footer,
+  actions,
   children,
 }: {
   title: string;
   onBack: () => void;
   footer?: ReactNode;
+  /** হেডারের ডানে আইকন-বাটন (যেমন সার্চ) — আলাদা জায়গা নেয় না */
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   const backRef = { current: onBack };
@@ -44,7 +47,8 @@ export default function FullScreenPage({
         >
           <ArrowLeft aria-hidden size={20} />
         </button>
-        <h1 className="text-lg font-semibold">{title}</h1>
+        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{title}</h1>
+        {actions}
       </header>
       <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
       {footer && <div className="flex gap-3 border-t border-muted/20 px-4 py-3">{footer}</div>}

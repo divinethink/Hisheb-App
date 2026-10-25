@@ -7,7 +7,7 @@ import BorrowingSheet from './BorrowingSheet';
 import DebtSheet from './DebtSheet';
 import BorrowingActionSheet, { LINE_STATUS_LABEL } from './BorrowingActionSheet';
 import { formatAmount } from '../../../lib/format';
-import { formatDisplayDate, toDhakaDate } from '../../../lib/date';
+import { formatDisplayDate, isOverdue, toDhakaDate } from '../../../lib/date';
 import { useSettings } from '../../../hooks/useData';
 import { lineViews, repaymentStatus, sumRepayments, REPAYMENT_STATUS_LABEL, type LineView } from '../../../lib/debtCalc';
 import { setRepayments, setBorrowings, updateDebt } from '../../../data/debtRepo';
@@ -86,7 +86,9 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
               label: 'Expected date',
               value: (
                 <>
-                  <span>{debt.expectedRepaymentDate ? formatDisplayDate(debt.expectedRepaymentDate, dateFormat) : '— 📅'}</span>
+                  <span className={isOverdue(debt.expectedRepaymentDate) && outstanding - writtenOff > 0 ? 'text-expense' : ''}>
+                    {debt.expectedRepaymentDate ? formatDisplayDate(debt.expectedRepaymentDate, dateFormat) : '— 📅'}
+                  </span>
                   {/* স্বচ্ছ native date-input কোষ জুড়ে: ট্যাপে picker খোলে, Clear-ও picker থেকেই */}
                   <input
                     type="date"

@@ -2,9 +2,11 @@ import { useState } from 'react';
 import FullScreenPage from '../../common/FullScreenPage';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import CollapsibleSection from '../../common/CollapsibleSection';
+import { SearchToggle, SearchPanel } from '../../common/ListSearch';
 import InvestmentSheet from './InvestmentSheet';
 import InvestmentDetailScreen from './InvestmentDetailScreen';
-import { formatAmount } from '../../../lib/format';
+import { formatAmount, formatTaka } from '../../../lib/format';
+import { formatDisplayDate, isOverdue } from '../../../lib/date';
 import {
   runningMinor,
   investmentStatus,
@@ -13,8 +15,15 @@ import {
   partitionInvestmentsForList,
   INVESTMENT_STATUS_LABEL,
 } from '../../../lib/investmentCalc';
-import { useInvestments } from '../../../hooks/useData';
+import { useInvestments, useSettings } from '../../../hooks/useData';
 import type { Investment } from '../../../validation/investmentSchema';
+
+type InvFilter = 'all' | 'running' | 'doubtful';
+const FILTER_CHIPS = [
+  ['all', 'All'],
+  ['running', 'Running'],
+  ['doubtful', 'Doubtful'],
+] as const;
 
 export default function InvestmentsScreen({
   uid,
@@ -31,6 +40,11 @@ export default function InvestmentsScreen({
   const investments = useInvestments(uid);
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<Investment | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<InvFilter>('all');
+  const settings = useSettings(uid);
+  const dateFormat = settings.state.status === 'ready' ? settings.state.data.dateFormat : 'dmy';
 
   if (investments.state.status === 'ready' && selected) {
     const fresh = investments.state.data.find((i) => i.id === selected.id) ?? selected;
@@ -38,14 +52,22 @@ export default function InvestmentsScreen({
   }
 
   const all = investments.state.status === 'ready' ? investments.state.data : [];
-  const list = ledgerId === undefined ? all : all.filter((i) => i.ledgerId === ledgerId);
+  const scoped = ledgerId === undefined ? all : all.filter((i) => i.ledgerId === ledgerId);
+  // সার্চ/ফিল্টার শুধু তালিকা ছাঁকে; Running Investment/Profit মোট পুরো scoped তালিকা থেকেই (হিসাব অপরিবর্তিত)
+  const q = query.trim().toLowerCase();
+  const searching = searchOpen && (q !== '' || filter !== 'all');
+  const list = !searching
+    ? scoped
+    : scoped.filter(
+        (i) => (!q || i.investedTo.toLowerCase().includes(q)) && (filter === 'all' || (i.investmentOutcome ?? 'running') === filter),
+      );
   // Total Assets aggregate — শুধু written_off বাদ (Audit 2026-09-17, C9)
-  const totalRunning = list
+  const totalRunning = scoped
     .filter((i) => i.investmentOutcome !== 'written_off')
     .reduce((s, i) => s + runningMinor(i.principalMinor, i.repayments), 0);
   // ক্রম: Running ওপরে, Closed (রিপেমেন্ট শেষ) নিচে ভাঁজযোগ্য; দুই দলেই সর্বশেষ ইনভেস্টমেন্টের তারিখে নতুন আগে
   const { open, closed } = partitionInvestmentsForList(list);
-  const totalProfit = list
+  const totalProfit = scoped
     .filter((i) => investmentStatus(i.principalMinor, i.repayments) === 'closed')
     .reduce((s, i) => s + profitMinor(i.principalMinor, i.repayments), 0);
 
@@ -54,6 +76,8 @@ export default function InvestmentsScreen({
     const running = runningMinor(i.principalMinor, i.repayments);
     const repaid = sumRepayments(i.repayments);
     const pct = i.principalMinor > 0 ? Math.min(100, Math.round((repaid / i.principalMinor) * 100)) : 0;
+    // মেয়াদ পেরোনো + বাকি আছে → লাল "Due" (owner-approved ২০২৬-১০-২৫)
+    const overdue = running > 0 && i.investmentOutcome !== 'written_off' && isOverdue(i.expectedRepaymentDate);
     const chipCls = status === 'closed' ? 'bg-income/10 text-income' : 'bg-primary/10 text-primary';
     return (
       <li key={i.id}>
@@ -73,6 +97,9 @@ export default function InvestmentsScreen({
             <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted">
               <span className="truncate">
                 Principal {formatAmount(i.principalMinor)} · Repaid {formatAmount(repaid)}
+                {overdue && i.expectedRepaymentDate && (
+                  <span className="text-expense"> · Due {formatDisplayDate(i.expectedRepaymentDate, dateFormat)}</span>
+                )}
               </span>
               <span className={`shrink-0 rounded-full px-2 py-px ${chipCls}`}>{INVESTMENT_STATUS_LABEL[status]}</span>
             </span>
@@ -93,8 +120,17 @@ export default function InvestmentsScreen({
     ) : undefined;
 
   return (
-    <FullScreenPage title={title} onBack={onBack} footer={footer}>
+    <FullScreenPage
+      title={title}
+      onBack={onBack}
+      footer={footer}
+      actions={<SearchToggle open={searchOpen} onToggle={() => setSearchOpen((o) => !o)} />}
+    >
       <div className="flex flex-col gap-3">
+        {searchOpen && (
+          <SearchPanel query={query} onQuery={setQuery} placeholder="Search name" chips={FILTER_CHIPS} active={filter} onChip={setFilter} />
+        )}
+
         {investments.state.status === 'loading' && <SkeletonLoader />}
 
         {investments.state.status === 'error' && (
@@ -114,12 +150,12 @@ export default function InvestmentsScreen({
             </div>
 
             {list.length === 0 ? (
-              <p className="py-10 text-center text-muted">No entries yet.</p>
+              <p className="py-10 text-center text-muted">{searching ? 'No match.' : 'No entries yet.'}</p>
             ) : (
               <>
                 {open.length > 0 && <ul className="flex flex-col gap-2">{open.map(renderRow)}</ul>}
                 {closed.length > 0 && (
-                  <CollapsibleSection title="Closed (repaid)" count={closed.length} summary={`Profit ${formatAmount(totalProfit)}`}>
+                  <CollapsibleSection key={`c${searching}`} title="Closed (repaid)" count={closed.length} summary={`Profit ${formatTaka(totalProfit)}`} defaultOpen={searching}>
                     <ul className="flex flex-col gap-2">{closed.map(renderRow)}</ul>
                   </CollapsibleSection>
                 )}

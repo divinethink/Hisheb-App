@@ -1,7 +1,7 @@
 // প্রতিটা Borrowing-কার্ডে ট্যাপ করলে খোলা অপশন-শিট (owner-approved ২০২৬-১০-২৫):
 // Mark fully repaid (একবার confirm) · Add repayment · Status · Edit · Delete।
 // কার্ডের ভেতরের বাটন সরে আসায় ধার বাড়লেও বিস্তারিত স্ক্রিন ছোট থাকে। হিসাব/data-layer অপরিবর্তিত।
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronRight, CheckCircle2, Plus, CircleDot, Pencil, Trash2 } from 'lucide-react';
 import BottomSheet from '../../common/BottomSheet';
 import { formatAmount } from '../../../lib/format';
@@ -13,7 +13,7 @@ import type { Debt } from '../../../validation/debtSchema';
 export const LINE_STATUS_LABEL: Record<LineStatus, string> = { active: 'Active', doubtful: 'Doubtful', written_off: 'Written-off' };
 const STATUS_OPTIONS: readonly LineStatus[] = ['active', 'doubtful', 'written_off'];
 
-type Mode = 'menu' | 'status' | 'confirmRepaid' | 'confirmDelete';
+type Mode = 'menu' | 'status' | 'confirmRepaid' | 'confirmDelete' | 'saved';
 
 function Option({ icon, label, hint, tone, onClick }: { icon: ReactNode; label: string; hint?: string; tone?: 'primary' | 'danger'; onClick: () => void }) {
   const color = tone === 'primary' ? 'text-primary' : tone === 'danger' ? 'text-expense' : 'text-fg';
@@ -60,13 +60,26 @@ export default function BorrowingActionSheet({
   const owe = debt.direction === 'owe_me';
   const canRepay = view.outstandingMinor > 0;
 
-  async function run(op: () => Promise<void>) {
+  // শোধ সেভ হলে "Saved ✓" দেখিয়ে একটু পরে বন্ধ (owner-approved ২০২৬-১০-২৫)
+  // onClose প্রতি render-এ নতুন হয় → ref দিয়ে, নাহলে টাইমার বারবার রিসেট হতো
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    if (mode !== 'saved') return;
+    const t = setTimeout(() => closeRef.current(), 900);
+    return () => clearTimeout(t);
+  }, [mode]);
+
+  async function run(op: () => Promise<void>, savedMsg = false) {
     if (busy) return; // double-tap-এ duplicate নয়
     setBusy(true);
     setError('');
     try {
       await op();
-      onClose();
+      if (savedMsg) {
+        setBusy(false);
+        setMode('saved');
+      } else onClose();
     } catch {
       setError('Could not save. Check your connection and try again.');
       setBusy(false);
@@ -74,7 +87,7 @@ export default function BorrowingActionSheet({
   }
 
   const footer =
-    mode === 'menu' ? (
+    mode === 'saved' ? undefined : mode === 'menu' ? (
       <button type="button" onClick={onClose} className="min-h-11 flex-1 rounded-lg border border-muted/40 px-4 text-sm">
         Close
       </button>
@@ -90,6 +103,12 @@ export default function BorrowingActionSheet({
         <p className="text-sm text-muted">
           Paid {formatAmount(view.paidMinor)} · Outstanding {formatAmount(view.outstandingMinor)}
         </p>
+
+        {mode === 'saved' && (
+          <p role="status" className="py-4 text-center text-base font-medium text-income">
+            Saved ✓
+          </p>
+        )}
 
         {mode === 'menu' && (
           <div className="flex flex-col gap-2">
@@ -129,7 +148,7 @@ export default function BorrowingActionSheet({
             <button
               type="button"
               disabled={busy}
-              onClick={() => void run(onMarkRepaid)}
+              onClick={() => void run(onMarkRepaid, true)}
               className="min-h-11 rounded-lg bg-primary px-3 text-sm font-medium text-canvas disabled:opacity-60"
             >
               {busy ? 'Saving…' : `Confirm · ${formatAmount(view.outstandingMinor)} repaid`}

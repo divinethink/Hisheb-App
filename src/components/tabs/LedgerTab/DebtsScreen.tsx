@@ -3,10 +3,11 @@ import { ChevronRight } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import CollapsibleSection from '../../common/CollapsibleSection';
+import { SearchToggle, SearchPanel } from '../../common/ListSearch';
 import DebtSheet from './DebtSheet';
 import DebtDetailScreen from './DebtDetailScreen';
 import { formatAmount, formatTaka } from '../../../lib/format';
-import { formatDisplayDate } from '../../../lib/date';
+import { formatDisplayDate, isOverdue } from '../../../lib/date';
 import {
   isSettledByRepayment,
   latestBorrowingDate,
@@ -18,6 +19,13 @@ import { useDebts, useSettings } from '../../../hooks/useData';
 import type { Debt } from '../../../validation/debtSchema';
 
 type DateFormat = 'dmy' | 'mdy';
+
+type DebtFilter = 'all' | 'active' | 'doubtful';
+const FILTER_CHIPS = [
+  ['all', 'All'],
+  ['active', 'Active'],
+  ['doubtful', 'Doubtful'],
+] as const;
 
 const DIRECTIONS = [
   ['owe_me', 'Owed to Me'],
@@ -34,6 +42,8 @@ function DebtRow({ d, dir, dateFormat, onOpen }: { d: Debt; dir: Debt['direction
   const woCount = dir === 'owe_me' ? views.filter((v) => v.status === 'written_off').length : 0;
   const dbCount = dir === 'owe_me' ? views.filter((v) => v.status === 'doubtful').length : 0;
   const pct = d.totalAmountMinor > 0 ? Math.min(100, Math.round((paid / d.totalAmountMinor) * 100)) : 0;
+  // মেয়াদ পেরোনো + বাকি আছে → তারিখ লাল (owner-approved ২০২৬-১০-২৫)
+  const overdue = out > 0 && isOverdue(d.expectedRepaymentDate);
 
   const chip = settled
     ? { text: 'Fully paid', cls: 'bg-income/10 text-income' }
@@ -66,6 +76,9 @@ function DebtRow({ d, dir, dateFormat, onOpen }: { d: Debt; dir: Debt['direction
           <span className={`shrink-0 rounded-full px-2 py-px ${chip.cls}`}>{chip.text}</span>
           <span className="truncate">
             Total {formatAmount(d.totalAmountMinor)} · {formatDisplayDate(latestBorrowingDate(d), dateFormat)}
+            {overdue && d.expectedRepaymentDate && (
+              <span className="text-expense"> · Due {formatDisplayDate(d.expectedRepaymentDate, dateFormat)}</span>
+            )}
           </span>
         </span>
       </span>
@@ -92,6 +105,9 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
   const [dir, setDir] = useState<Debt['direction']>('owe_me');
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<Debt | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<DebtFilter>('all');
 
   if (debts.state.status === 'ready' && selected) {
     // লাইভ আপডেট রিফ্লেক্ট করতে সবসময় সর্বশেষ ডেটা থেকে খুঁজে ব্যবহার
@@ -100,7 +116,17 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
   }
 
   const all = debts.state.status === 'ready' ? debts.state.data : [];
-  const list = all.filter((d) => d.direction === dir);
+  const dirList = all.filter((d) => d.direction === dir);
+  // সার্চ/ফিল্টার শুধু তালিকা ছাঁকে; Total কার্ড দিকের পুরো তালিকা থেকেই (হিসাব অপরিবর্তিত)
+  const q = query.trim().toLowerCase();
+  const searching = searchOpen && (q !== '' || filter !== 'all');
+  const list = !searching
+    ? dirList
+    : dirList.filter((d) => {
+        if (q && !d.person.toLowerCase().includes(q)) return false;
+        if (filter === 'all') return true;
+        return lineViews(d).some((v) => v.status === filter && v.outstandingMinor > 0);
+      });
   const countOf = (k: Debt['direction']) => all.filter((d) => d.direction === k).length;
   // ক্রম: বাকি/written-off ওপরে, পুরো-শোধ নিচে; দুই দলেই সর্বশেষ ধারের তারিখে নতুন আগে (lib/debtCalc)
   const { open: openAll, settled } = partitionDebtsForList(list);
@@ -110,12 +136,12 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
   // Net Worth-এ যায় শুধু Active + Doubtful (receivableOutstandingMinor অপরিবর্তিত)।
   const byStatus = { active: 0, doubtful: 0, written_off: 0 };
   if (dir === 'owe_me') {
-    for (const d of list) for (const v of lineViews(d)) byStatus[v.status] += v.outstandingMinor;
+    for (const d of dirList) for (const v of lineViews(d)) byStatus[v.status] += v.outstandingMinor;
   }
   const totalOutstanding =
     dir === 'owe_me'
       ? byStatus.active + byStatus.doubtful + byStatus.written_off
-      : list.reduce((s, d) => s + lineViews(d).reduce((a, v) => a + v.outstandingMinor, 0), 0);
+      : dirList.reduce((s, d) => s + lineViews(d).reduce((a, v) => a + v.outstandingMinor, 0), 0);
 
   const footer =
     debts.state.status === 'ready' ? (
@@ -127,7 +153,12 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
   const row = (d: Debt) => <DebtRow key={d.id} d={d} dir={dir} dateFormat={dateFormat} onOpen={() => setSelected(d)} />;
 
   return (
-    <FullScreenPage title="Debts & Receivables" onBack={onBack} footer={footer}>
+    <FullScreenPage
+      title="Debts & Receivables"
+      onBack={onBack}
+      footer={footer}
+      actions={<SearchToggle open={searchOpen} onToggle={() => setSearchOpen((o) => !o)} />}
+    >
       <div className="flex flex-col gap-4">
         <div className="flex rounded-xl bg-surface p-1">
           {DIRECTIONS.map(([d, label]) => (
@@ -145,6 +176,10 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
             </button>
           ))}
         </div>
+
+        {searchOpen && (
+          <SearchPanel query={query} onQuery={setQuery} placeholder="Search name" chips={FILTER_CHIPS} active={filter} onChip={setFilter} />
+        )}
 
         {debts.state.status === 'loading' && <SkeletonLoader />}
 
@@ -178,17 +213,17 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
             </div>
 
             {list.length === 0 ? (
-              <p className="py-10 text-center text-muted">No entries yet.</p>
+              <p className="py-10 text-center text-muted">{searching ? 'No match.' : 'No entries yet.'}</p>
             ) : (
               <>
                 {open.length > 0 && <div className="flex flex-col gap-2">{open.map(row)}</div>}
                 {settled.length > 0 && (
-                  <CollapsibleSection title="Fully repaid" count={settled.length} summary={`Repaid ${formatTaka(paidOf(settled))}`} defaultOpen>
+                  <CollapsibleSection key={`s${searching}`} title="Fully repaid" count={settled.length} summary={`Repaid ${formatTaka(paidOf(settled))}`} defaultOpen>
                     {settled.map(row)}
                   </CollapsibleSection>
                 )}
                 {writtenOff.length > 0 && (
-                  <CollapsibleSection title="Written-off" count={writtenOff.length} summary={`Repaid ${formatTaka(paidOf(writtenOff))} · Total ${formatTaka(totalOf(writtenOff))}`}>
+                  <CollapsibleSection key={`w${searching}`} title="Written-off" count={writtenOff.length} summary={`Repaid ${formatTaka(paidOf(writtenOff))} · Total ${formatTaka(totalOf(writtenOff))}`} defaultOpen={searching}>
                     {writtenOff.map(row)}
                   </CollapsibleSection>
                 )}
