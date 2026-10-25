@@ -24,8 +24,8 @@ const DIRECTIONS = [
   ['i_owe', 'I Owe'],
 ] as const;
 
-// owner-request (২০২৬-১০-২৫): কার্ড-স্টাইল সারি — অবতার (নামের প্রথম অক্ষর), রঙিন স্ট্যাটাস-চিপ, শোধের progress-bar,
-// সর্বশেষ ধারের তারিখ। শুধু presentation; সব হিসাব আগের lib/debtCalc ফাংশন থেকেই (Net Worth লজিক অপরিবর্তিত)।
+// owner-request (২০২৬-১০-২৫): ২ লাইনের কমপ্যাক্ট কার্ড — অবতার, নাম+বাকি, চিপ+Total+তারিখ; শোধের progress কার্ডের নিচের পাতলা দাগ।
+// শুধু presentation; সব হিসাব আগের lib/debtCalc ফাংশন থেকেই (Net Worth লজিক অপরিবর্তিত)।
 function DebtRow({ d, dir, dateFormat, onOpen }: { d: Debt; dir: Debt['direction']; dateFormat: DateFormat; onOpen: () => void }) {
   const views = lineViews(d);
   const paid = views.reduce((s, v) => s + v.paidMinor, 0);
@@ -49,32 +49,40 @@ function DebtRow({ d, dir, dateFormat, onOpen }: { d: Debt; dir: Debt['direction
     <button
       type="button"
       onClick={onOpen}
-      className="flex min-h-16 w-full items-center gap-3 rounded-2xl border border-muted/15 bg-surface p-3 text-left active:bg-muted/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+      className="relative flex min-h-14 w-full items-center gap-3 overflow-hidden rounded-2xl border border-muted/15 bg-surface px-3 py-2 text-left active:bg-muted/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
     >
       <span
         aria-hidden
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-base font-semibold text-primary"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
       >
         {d.person.trim().charAt(0).toUpperCase() || '?'}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline justify-between gap-2">
-          <span className="truncate font-medium text-fg">{d.person}</span>
-          <span className={`shrink-0 font-semibold ${settled ? 'text-muted' : 'text-fg'}`}>{formatAmount(out)}</span>
+          <span className="truncate text-sm font-medium text-fg">{d.person}</span>
+          <span className={`shrink-0 text-sm font-semibold ${settled ? 'text-muted' : 'text-fg'}`}>{formatAmount(out)}</span>
         </span>
-        <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-          <span className={`rounded-full px-2 py-0.5 ${chip.cls}`}>{chip.text}</span>
-          <span>Total {formatAmount(d.totalAmountMinor)}</span>
-          <span>· {formatDisplayDate(latestBorrowingDate(d), dateFormat)}</span>
-        </span>
-        <span className="mt-2 block h-1.5 w-full overflow-hidden rounded-full bg-muted/20">
-          <span className="block h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+        <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted">
+          <span className={`shrink-0 rounded-full px-2 py-px ${chip.cls}`}>{chip.text}</span>
+          <span className="truncate">
+            Total {formatAmount(d.totalAmountMinor)} · {formatDisplayDate(latestBorrowingDate(d), dateFormat)}
+          </span>
         </span>
       </span>
-      <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
+      <ChevronRight aria-hidden size={16} className="shrink-0 text-muted" />
+      <span aria-hidden className="absolute inset-x-0 bottom-0 block h-[3px] bg-muted/15">
+        <span className="block h-full bg-primary" style={{ width: `${pct}%` }} />
+      </span>
     </button>
   );
 }
+
+// সব লাইন written-off (এবং পুরো-শোধ নয়) → নিচের ভাঁজযোগ্য Written-off অংশে (owner-request ২০২৬-১০-২৫)
+function isAllWrittenOff(d: Debt): boolean {
+  const v = lineViews(d);
+  return v.length > 0 && v.every((x) => x.status === 'written_off');
+}
+const paidOf = (list: readonly Debt[]) => list.reduce((s, d) => s + lineViews(d).reduce((a, v) => a + v.paidMinor, 0), 0);
 
 export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () => void }) {
   const debts = useDebts(uid);
@@ -94,10 +102,18 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
   const list = all.filter((d) => d.direction === dir);
   const countOf = (k: Debt['direction']) => all.filter((d) => d.direction === k).length;
   // ক্রম: বাকি/written-off ওপরে, পুরো-শোধ নিচে; দুই দলেই সর্বশেষ ধারের তারিখে নতুন আগে (lib/debtCalc)
-  const { open, settled } = partitionDebtsForList(list);
+  const { open: openAll, settled } = partitionDebtsForList(list);
+  const writtenOff = dir === 'owe_me' ? openAll.filter(isAllWrittenOff) : [];
+  const open = openAll.filter((d) => !writtenOff.includes(d));
+  // owe_me: Total = Active + Doubtful + Written-off (বাকি অংশের যোগফল); নিচে তিনটা আলাদা (owner-request ২০২৬-১০-২৫)।
+  // Net Worth-এ যায় শুধু Active + Doubtful (receivableOutstandingMinor অপরিবর্তিত)।
+  const byStatus = { active: 0, doubtful: 0, written_off: 0 };
+  if (dir === 'owe_me') {
+    for (const d of list) for (const v of lineViews(d)) byStatus[v.status] += v.outstandingMinor;
+  }
   const totalOutstanding =
     dir === 'owe_me'
-      ? list.reduce((s, d) => s + receivableOutstandingMinor(d), 0) // written-off লাইন বাদ
+      ? byStatus.active + byStatus.doubtful + byStatus.written_off
       : list.reduce((s, d) => s + lineViews(d).reduce((a, v) => a + v.outstandingMinor, 0), 0);
 
   const footer =
@@ -143,8 +159,21 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
         {debts.state.status === 'ready' && (
           <>
             <div className="rounded-2xl bg-primary/10 p-4">
-              <p className="text-xs text-muted">{dir === 'owe_me' ? 'Total to receive (Net Worth)' : 'Total I owe'}</p>
+              <p className="text-xs text-muted">{dir === 'owe_me' ? 'Total to receive' : 'Total I owe'}</p>
               <p className="mt-1 text-2xl font-semibold text-fg">{formatAmount(totalOutstanding)}</p>
+              {dir === 'owe_me' && (
+                <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
+                  <span>
+                    Active <span className="text-fg">{formatAmount(byStatus.active)}</span>
+                  </span>
+                  <span>
+                    Doubtful <span className="text-warning">{formatAmount(byStatus.doubtful)}</span>
+                  </span>
+                  <span>
+                    Written-off <span className="text-expense">{formatAmount(byStatus.written_off)}</span>
+                  </span>
+                </p>
+              )}
             </div>
 
             {list.length === 0 ? (
@@ -153,8 +182,13 @@ export default function DebtsScreen({ uid, onBack }: { uid: string; onBack: () =
               <>
                 {open.length > 0 && <div className="flex flex-col gap-2">{open.map(row)}</div>}
                 {settled.length > 0 && (
-                  <CollapsibleSection title="Fully repaid" count={settled.length} defaultOpen>
+                  <CollapsibleSection title="Fully repaid" count={settled.length} summary={`Repaid ${formatAmount(paidOf(settled))}`} defaultOpen>
                     {settled.map(row)}
+                  </CollapsibleSection>
+                )}
+                {writtenOff.length > 0 && (
+                  <CollapsibleSection title="Written-off" count={writtenOff.length} summary={`Repaid ${formatAmount(paidOf(writtenOff))}`}>
+                    {writtenOff.map(row)}
                   </CollapsibleSection>
                 )}
               </>

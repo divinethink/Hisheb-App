@@ -52,31 +52,49 @@ export default function InvestmentsScreen({
   const renderRow = (i: Investment) => {
     const status = investmentStatus(i.principalMinor, i.repayments);
     const running = runningMinor(i.principalMinor, i.repayments);
+    const repaid = sumRepayments(i.repayments);
+    const pct = i.principalMinor > 0 ? Math.min(100, Math.round((repaid / i.principalMinor) * 100)) : 0;
+    const chipCls = status === 'closed' ? 'bg-income/10 text-income' : 'bg-primary/10 text-primary';
     return (
-      <li key={i.id} className="border-b border-muted/20">
+      <li key={i.id}>
         <button
           type="button"
           onClick={() => setSelected(i)}
-          className="flex min-h-16 w-full flex-col gap-0.5 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          className="relative flex min-h-14 w-full items-center gap-3 overflow-hidden rounded-2xl border border-muted/15 bg-surface px-3 py-2 text-left active:bg-muted/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
         >
-          <span className="flex items-center justify-between">
-            <span className="text-fg">{i.investedTo}</span>
-            <span className="font-medium text-fg">{formatAmount(running)}</span>
+          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
+            {i.investedTo.trim().charAt(0).toUpperCase() || '?'}
           </span>
-          <span className="text-xs text-muted">
-            Principal: {formatAmount(i.principalMinor)}
+          <span className="min-w-0 flex-1">
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="truncate text-sm font-medium text-fg">{i.investedTo}</span>
+              <span className="shrink-0 text-sm font-semibold text-fg">{formatAmount(running)}</span>
+            </span>
+            <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted">
+              <span className="truncate">
+                Principal {formatAmount(i.principalMinor)} · Repaid {formatAmount(repaid)}
+              </span>
+              <span className={`shrink-0 rounded-full px-2 py-px ${chipCls}`}>{INVESTMENT_STATUS_LABEL[status]}</span>
+            </span>
           </span>
-          <span className="text-xs text-muted">
-            Repaid so far: {formatAmount(sumRepayments(i.repayments))} · {INVESTMENT_STATUS_LABEL[status]}
+          <span aria-hidden className="absolute inset-x-0 bottom-0 block h-[3px] bg-muted/15">
+            <span className="block h-full bg-primary" style={{ width: `${pct}%` }} />
           </span>
         </button>
       </li>
     );
   };
 
+  const footer =
+    investments.state.status === 'ready' ? (
+      <button type="button" onClick={() => setAddOpen(true)} className="min-h-12 flex-1 rounded-xl bg-primary text-sm font-medium text-canvas">
+        + Add New
+      </button>
+    ) : undefined;
+
   return (
-    <FullScreenPage title={title} onBack={onBack}>
-      <div className="flex flex-col gap-4">
+    <FullScreenPage title={title} onBack={onBack} footer={footer}>
+      <div className="flex flex-col gap-3">
         {investments.state.status === 'loading' && <SkeletonLoader />}
 
         {investments.state.status === 'error' && (
@@ -90,31 +108,23 @@ export default function InvestmentsScreen({
 
         {investments.state.status === 'ready' && (
           <>
+            <div className="rounded-2xl bg-primary/10 p-4">
+              <p className="text-xs text-muted">Running Investment</p>
+              <p className="mt-1 text-2xl font-semibold text-fg">{formatAmount(totalRunning)}</p>
+            </div>
+
             {list.length === 0 ? (
               <p className="py-10 text-center text-muted">No entries yet.</p>
             ) : (
               <>
-                {open.length > 0 && <ul className="flex flex-col">{open.map(renderRow)}</ul>}
+                {open.length > 0 && <ul className="flex flex-col gap-2">{open.map(renderRow)}</ul>}
                 {closed.length > 0 && (
-                  <CollapsibleSection title="Closed (repaid)" count={closed.length}>
-                    <ul className="flex flex-col">{closed.map(renderRow)}</ul>
+                  <CollapsibleSection title="Closed (repaid)" count={closed.length} summary={`Profit ${formatAmount(totalProfit)}`}>
+                    <ul className="flex flex-col gap-2">{closed.map(renderRow)}</ul>
                   </CollapsibleSection>
                 )}
               </>
             )}
-
-            <p className="flex justify-between border-t border-muted/20 pt-3 text-sm">
-              <span className="text-muted">Running Investment</span>
-              <span className="font-medium text-fg">{formatAmount(totalRunning)}</span>
-            </p>
-            <p className="flex justify-between text-sm">
-              <span className="text-muted">Total Profit (from closed, personal record)</span>
-              <span className="font-medium text-fg">{formatAmount(totalProfit)}</span>
-            </p>
-
-            <button type="button" onClick={() => setAddOpen(true)} className="min-h-11 rounded-lg bg-primary text-sm font-medium text-canvas">
-              + Add New
-            </button>
           </>
         )}
       </div>

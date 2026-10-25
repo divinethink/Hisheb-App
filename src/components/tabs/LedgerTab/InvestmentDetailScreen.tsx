@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Pencil } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
+import StatStrip from '../../common/StatStrip';
 import InvestmentRepaymentSheet from './InvestmentRepaymentSheet';
 import InvestmentSheet from './InvestmentSheet';
 import { formatAmount } from '../../../lib/format';
@@ -36,9 +37,18 @@ export default function InvestmentDetailScreen({ uid, investment, onBack }: { ui
 
   if (editOpen) return <InvestmentSheet uid={uid} initial={investment} onClose={() => setEditOpen(false)} />;
 
+  const repaid = investment.repayments.reduce((s, r) => s + r.amountMinor, 0);
+  const written = investment.investmentOutcome === 'written_off';
+
+  const footer = (
+    <button type="button" onClick={() => setAddOpen(true)} className="min-h-12 flex-1 rounded-xl border border-dashed border-muted/60 text-sm text-fg">
+      + Add Repayment
+    </button>
+  );
+
   return (
-    <FullScreenPage title={investment.investedTo} onBack={onBack}>
-      <div className="flex flex-col gap-5">
+    <FullScreenPage title={investment.investedTo} onBack={onBack} footer={footer}>
+      <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted">Principal{investment.duration ? ` · ${investment.duration}` : ''}</p>
@@ -49,9 +59,28 @@ export default function InvestmentDetailScreen({ uid, investment, onBack }: { ui
           </button>
         </div>
 
-        <p className="text-sm text-muted">
-          Status: <span className="text-fg">{INVESTMENT_STATUS_LABEL[status]}</span>
-        </p>
+        {/* এক সারির কার্ড (owner-approved ২০২৬-১০-২৫) */}
+        <StatStrip
+          items={[
+            { label: 'Status', value: INVESTMENT_STATUS_LABEL[status] },
+            {
+              label: 'Expected date',
+              value: (
+                <>
+                  <span>{investment.expectedRepaymentDate ? formatDisplayDate(investment.expectedRepaymentDate, dateFormat) : '— 📅'}</span>
+                  <input
+                    type="date"
+                    lang="en-GB"
+                    aria-label="Expected Repayment Date (optional)"
+                    value={investment.expectedRepaymentDate ?? ''}
+                    onChange={(e) => void updateInvestment(uid, investment.id, { expectedRepaymentDate: e.target.value || null })}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </>
+              ),
+            },
+          ]}
+        />
 
         <div>
           <p className="mb-1 text-sm text-muted">Outcome</p>
@@ -71,32 +100,23 @@ export default function InvestmentDetailScreen({ uid, investment, onBack }: { ui
         </div>
 
         <div>
-          <label htmlFor="inv-exp-date" className="mb-1 block text-sm text-muted">
-            Expected Repayment Date (optional)
-          </label>
-          <input
-            id="inv-exp-date"
-            type="date"
-            lang="en-GB"
-            value={investment.expectedRepaymentDate ?? ''}
-            onChange={(e) => void updateInvestment(uid, investment.id, { expectedRepaymentDate: e.target.value || null })}
-            className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-          />
-        </div>
-
-        <div>
-          <p className="mb-2 text-sm text-muted">Repayment History</p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-sm text-muted">Repayment History</p>
+            <button type="button" onClick={() => setAddOpen(true)} className="min-h-8 rounded-full bg-primary/10 px-3 text-xs font-medium text-primary">
+              + Add
+            </button>
+          </div>
           {investment.repayments.length === 0 ? (
             <p className="text-sm text-muted">No repayments yet.</p>
           ) : (
-            <ul className="flex flex-col gap-1">
+            <ul className="flex flex-col gap-2">
               {investment.repayments.map((r, i) => (
-                <li key={`${r.date}-${i}`} className="flex items-center justify-between border-b border-muted/20 py-2">
+                <li key={`${r.date}-${i}`} className="flex min-h-12 items-center justify-between rounded-xl border border-muted/15 bg-surface px-3 py-1.5">
                   <span className="flex flex-col text-sm text-fg">
                     {formatDisplayDate(r.date, dateFormat)}
                     {r.note && <span className="text-xs text-muted">{r.note}</span>}
                   </span>
-                  <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-2">
                     <span className="text-fg">{formatAmount(r.amountMinor)}</span>
                     {deleteIdx === i ? (
                       <span className="flex items-center gap-1">
@@ -122,30 +142,24 @@ export default function InvestmentDetailScreen({ uid, investment, onBack }: { ui
               ))}
             </ul>
           )}
-          <p className="mt-3 flex justify-between text-sm">
-            <span className="text-muted">Running (Remaining Principal)</span>
-            <span className="font-medium text-fg">{formatAmount(running)}</span>
-          </p>
-          {investment.investmentOutcome === 'written_off' ? (
-            running > 0 && (
-              <p className="mt-1 flex justify-between text-sm">
-                <span className="text-muted">Realized Loss (personal record)</span>
-                <span className="font-medium text-fg">{formatAmount(running)}</span>
-              </p>
-            )
-          ) : (
-            status === 'closed' && (
-              <p className="mt-1 flex justify-between text-sm">
-                <span className="text-muted">Profit</span>
-                <span className="font-medium text-fg">{formatAmount(profit)}</span>
-              </p>
-            )
-          )}
         </div>
 
-        <button type="button" onClick={() => setAddOpen(true)} className="min-h-11 rounded-lg border border-dashed border-muted/60 text-sm text-muted">
-          + Add Repayment
-        </button>
+        {/* এক সারির সারাংশ: Principal · Repaid · Running (closed হলে Running-এর জায়গায় Profit) */}
+        <StatStrip
+          items={[
+            { label: 'Principal', value: formatAmount(investment.principalMinor) },
+            { label: 'Repaid', value: formatAmount(repaid) },
+            !written && status === 'closed'
+              ? { label: 'Profit', value: formatAmount(profit) }
+              : { label: 'Running', value: formatAmount(running) },
+          ]}
+        />
+        {written && running > 0 && (
+          <p className="flex justify-between text-sm">
+            <span className="text-muted">Realized Loss (personal record)</span>
+            <span className="font-medium text-fg">{formatAmount(running)}</span>
+          </p>
+        )}
       </div>
 
       {addOpen && <InvestmentRepaymentSheet uid={uid} investment={investment} onClose={() => setAddOpen(false)} />}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { X, Pencil } from 'lucide-react';
+import { X, Pencil, ChevronRight } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
+import StatStrip from '../../common/StatStrip';
 import RepaymentSheet from './RepaymentSheet';
 import BorrowingSheet from './BorrowingSheet';
 import DebtSheet from './DebtSheet';
@@ -19,14 +20,9 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
   const [deleteIdx, setDeleteIdx] = useState<number | null>(null);
   const [editRepaymentIdx, setEditRepaymentIdx] = useState<number | null>(null);
   const [addBorrowOpen, setAddBorrowOpen] = useState(false);
-  const [deleteBorrowIdx, setDeleteBorrowIdx] = useState<number | null>(null);
   const [editBorrowIdx, setEditBorrowIdx] = useState<number | null>(null);
   const [actionIdx, setActionIdx] = useState<number | null>(null);
   const [repayPreset, setRepayPreset] = useState<string | undefined>(undefined);
-  // এক-ট্যাপ "Mark fully repaid": প্রথম ট্যাপে নিশ্চিতকরণ (ভুল ট্যাপ ঠেকাতে), দ্বিতীয় ট্যাপে সেভ; busy গার্ড = double-tap-এ duplicate নয়
-  const [confirmRepaidIdx, setConfirmRepaidIdx] = useState<number | null>(null);
-  const [repaying, setRepaying] = useState(false);
-  const [repayError, setRepayError] = useState('');
   const settings = useSettings(uid);
   const dateFormat = settings.state.status === 'ready' ? settings.state.data.dateFormat : 'dmy';
 
@@ -49,41 +45,28 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
 
   // অন্তত একটা borrowing থাকা বাধ্যতামূলক — নাহলে totalAmountMinor 0 হয়ে rules-এর posInt() reject করবে
   async function removeBorrowing(idx: number) {
-    if (debt.borrowings.length <= 1) {
-      setDeleteBorrowIdx(null);
-      return;
-    }
+    if (debt.borrowings.length <= 1) return;
     const next = debt.borrowings.filter((_, i) => i !== idx);
-    await settleOrPending(setBorrowings(uid, debt.id, next), 3000).catch(() => {});
-    setDeleteBorrowIdx(null);
+    await settleOrPending(setBorrowings(uid, debt.id, next), 3000);
   }
 
+  // পুরো বাকি শোধ; confirm ও busy-গার্ড অপশন-শিটে। ব্যর্থ হলে throw → শিট error দেখায়
   async function markRepaid(v: LineView) {
-    if (repaying || v.outstandingMinor <= 0) return;
-    setRepaying(true);
-    setRepayError('');
-    try {
-      const link = v.line.id ? { borrowingId: v.line.id } : {};
-      await settleOrPending(
-        setRepayments(uid, debt.id, [
-          ...debt.repayments,
-          { date: toDhakaDate(new Date()), amountMinor: v.outstandingMinor, note: '', ...link },
-        ]),
-        3000,
-      );
-      setConfirmRepaidIdx(null);
-    } catch {
-      setRepayError('Could not save. Check your connection and try again.');
-    } finally {
-      setRepaying(false);
-    }
+    if (v.outstandingMinor <= 0) return;
+    const link = v.line.id ? { borrowingId: v.line.id } : {};
+    await settleOrPending(
+      setRepayments(uid, debt.id, [...debt.repayments, { date: toDhakaDate(new Date()), amountMinor: v.outstandingMinor, note: '', ...link }]),
+      3000,
+    );
   }
 
   if (editOpen) return <DebtSheet uid={uid} initial={debt} onClose={() => setEditOpen(false)} />;
 
+  const pctOf = (v: LineView) => (v.line.amountMinor > 0 ? Math.min(100, Math.round((v.paidMinor / v.line.amountMinor) * 100)) : 0);
+
   return (
     <FullScreenPage title={debt.person} onBack={onBack}>
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted">Total</p>
@@ -94,135 +77,67 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
           </button>
         </div>
 
-        <p className="text-sm text-muted">
-          Repayment Status: <span className="text-fg">{REPAYMENT_STATUS_LABEL[status]}</span>
-        </p>
-
-        {owe && (
-          <p className="text-sm text-muted">
-            Receivable: <span className="text-fg">{statusSummary || 'All Active'}</span>
-          </p>
-        )}
-
-        <div>
-          <label htmlFor="exp-date" className="mb-1 block text-sm text-muted">
-            Expected Repayment Date (optional)
-          </label>
-          <input
-            id="exp-date"
-            type="date"
-            lang="en-GB"
-            value={debt.expectedRepaymentDate ?? ''}
-            onChange={(e) => void updateDebt(uid, debt.id, { expectedRepaymentDate: e.target.value || null })}
-            className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-          />
-        </div>
+        {/* এক সারির কার্ড (owner-approved ২০২৬-১০-২৫): Status · Receivable · Expected date */}
+        <StatStrip
+          items={[
+            { label: 'Repayment', value: REPAYMENT_STATUS_LABEL[status] },
+            ...(owe ? [{ label: 'Receivable', value: statusSummary || 'All Active', tone: writtenOff > 0 ? ('danger' as const) : ('default' as const) }] : []),
+            {
+              label: 'Expected date',
+              value: (
+                <>
+                  <span>{debt.expectedRepaymentDate ? formatDisplayDate(debt.expectedRepaymentDate, dateFormat) : '— 📅'}</span>
+                  {/* স্বচ্ছ native date-input কোষ জুড়ে: ট্যাপে picker খোলে, Clear-ও picker থেকেই */}
+                  <input
+                    type="date"
+                    lang="en-GB"
+                    aria-label="Expected Repayment Date (optional)"
+                    value={debt.expectedRepaymentDate ?? ''}
+                    onChange={(e) => void updateDebt(uid, debt.id, { expectedRepaymentDate: e.target.value || null })}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </>
+              ),
+            },
+          ]}
+        />
 
         <div>
           <p className="mb-2 text-sm text-muted">Borrowing History</p>
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-col gap-2">
             {debt.borrowings.map((b, i) => {
               const v = views[i];
+              if (!v) return null;
               return (
-              <li key={`${b.id ?? b.date}-${i}`} className="border-b border-muted/20 py-2">
-              <div className="flex items-center justify-between">
-                <span className="flex flex-col text-sm text-fg">
-                  {formatDisplayDate(b.date, dateFormat)}
-                  {b.note && <span className="text-xs text-muted">{b.note}</span>}
-                </span>
-                <span className="flex items-center gap-3">
-                  <span className="text-fg">{formatAmount(b.amountMinor)}</span>
-                  {deleteBorrowIdx === i ? (
-                    <span className="flex items-center gap-1">
-                      <button type="button" onClick={() => void removeBorrowing(i)} className="min-h-8 rounded border border-expense px-2 text-xs text-expense">
-                        Delete
-                      </button>
-                      <button type="button" onClick={() => setDeleteBorrowIdx(null)} className="min-h-8 rounded border border-muted/40 px-2 text-xs text-muted">
-                        Cancel
-                      </button>
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1">
-                      <button type="button" aria-label="Edit borrowing" onClick={() => setEditBorrowIdx(i)} className="flex h-8 w-8 items-center justify-center text-muted">
-                        <Pencil aria-hidden size={16} />
-                      </button>
-                      {debt.borrowings.length > 1 && (
-                        <button type="button" aria-label="Delete borrowing" onClick={() => setDeleteBorrowIdx(i)} className="flex h-8 w-8 items-center justify-center text-muted">
-                          <X aria-hidden size={16} />
-                        </button>
-                      )}
-                    </span>
-                  )}
-                </span>
-              </div>
-              {v && (
-                <div className={`mt-1 flex flex-col gap-2 px-1 ${v.excluded ? 'opacity-80' : ''}`}>
-                  <span className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="rounded-full bg-surface px-2 py-0.5 text-muted">{REPAYMENT_STATUS_LABEL[v.payStatus]}</span>
-                    {owe && v.status !== 'active' && (
-                      <span className="rounded-full bg-surface px-2 py-0.5 text-expense">{LINE_STATUS_LABEL[v.status]}</span>
-                    )}
-                    <span className="text-muted">
-                      {formatAmount(v.paidMinor)} / {formatAmount(b.amountMinor)}
-                    </span>
-                    {owe && (
-                      <button
-                        type="button"
-                        onClick={() => setActionIdx(i)}
-                        aria-label="Change borrowing status"
-                        className="ml-auto flex min-h-8 items-center text-primary"
-                      >
-                        Status ›
-                      </button>
-                    )}
-                  </span>
-                  <span className="h-1.5 w-full overflow-hidden rounded-full bg-muted/20">
-                    <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.round((v.paidMinor / b.amountMinor) * 100))}%` }} />
-                  </span>
-                  {v.outstandingMinor > 0 &&
-                    (confirmRepaidIdx === i ? (
-                      <span className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={repaying}
-                          onClick={() => void markRepaid(v)}
-                          className="min-h-11 flex-1 rounded-lg bg-primary px-3 text-sm font-medium text-canvas disabled:opacity-60"
-                        >
-                          {repaying ? 'Saving…' : `Confirm · ${formatAmount(v.outstandingMinor)} repaid`}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={repaying}
-                          onClick={() => setConfirmRepaidIdx(null)}
-                          className="min-h-11 rounded-lg border border-muted/40 px-4 text-sm text-muted disabled:opacity-60"
-                        >
-                          Cancel
-                        </button>
+                <li key={`${b.id ?? b.date}-${i}`}>
+                  <button
+                    type="button"
+                    onClick={() => setActionIdx(i)}
+                    aria-label={`Borrowing ${formatDisplayDate(b.date, dateFormat)} options`}
+                    className={`relative flex min-h-14 w-full items-center gap-2 overflow-hidden rounded-2xl border border-muted/15 bg-surface px-3 py-2 text-left active:bg-muted/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${v.excluded ? 'opacity-80' : ''}`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2 text-sm text-fg">
+                        <span>{formatDisplayDate(b.date, dateFormat)}</span>
+                        <span className="font-medium">{formatAmount(b.amountMinor)}</span>
                       </span>
-                    ) : (
-                      <span className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setConfirmRepaidIdx(i)}
-                          className="min-h-11 flex-1 rounded-lg border border-primary/40 bg-primary/10 px-3 text-sm font-medium text-primary"
-                        >
-                          ✅ Mark fully repaid
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRepayPreset(b.id);
-                            setAddOpen(true);
-                          }}
-                          className="min-h-11 flex-1 rounded-lg border border-muted/40 px-3 text-sm"
-                        >
-                          + Add repayment
-                        </button>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+                        <span className="rounded-full bg-muted/10 px-2 py-px text-muted">{REPAYMENT_STATUS_LABEL[v.payStatus]}</span>
+                        {owe && v.status !== 'active' && (
+                          <span className="rounded-full bg-expense/10 px-2 py-px text-expense">{LINE_STATUS_LABEL[v.status]}</span>
+                        )}
+                        <span className="text-muted">
+                          {formatAmount(v.paidMinor)} / {formatAmount(b.amountMinor)}
+                        </span>
+                        {b.note && <span className="truncate text-muted">· {b.note}</span>}
                       </span>
-                    ))}
-                </div>
-              )}
-              </li>
+                    </span>
+                    <ChevronRight aria-hidden size={16} className="shrink-0 text-muted" />
+                    <span aria-hidden className="absolute inset-x-0 bottom-0 block h-[3px] bg-muted/15">
+                      <span className="block h-full bg-primary" style={{ width: `${pctOf(v)}%` }} />
+                    </span>
+                  </button>
+                </li>
               );
             })}
           </ul>
@@ -248,9 +163,9 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
           {debt.repayments.length === 0 ? (
             <p className="text-sm text-muted">No repayments yet.</p>
           ) : (
-            <ul className="flex flex-col gap-1">
+            <ul className="flex flex-col gap-2">
               {debt.repayments.map((r, i) => (
-                <li key={`${r.date}-${i}`} className="flex items-center justify-between border-b border-muted/20 py-2">
+                <li key={`${r.date}-${i}`} className="flex min-h-12 items-center justify-between rounded-xl border border-muted/15 bg-surface px-3 py-1.5">
                   <span className="flex flex-col text-sm text-fg">
                     {formatDisplayDate(r.date, dateFormat)}
                     {r.borrowingId && debt.borrowings.length > 1 && (
@@ -260,7 +175,7 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
                     )}
                     {r.note && <span className="text-xs text-muted">{r.note}</span>}
                   </span>
-                  <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-2">
                     <span className="text-fg">{formatAmount(r.amountMinor)}</span>
                     {deleteIdx === i ? (
                       <span className="flex items-center gap-1">
@@ -286,31 +201,22 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
               ))}
             </ul>
           )}
-          <p className="mt-3 flex justify-between text-sm">
-            <span className="text-muted">Outstanding</span>
-            <span className="font-medium text-fg">{formatAmount(outstanding)}</span>
-          </p>
-          {owe && writtenOff > 0 && (
-            <>
-              <p className="mt-1 flex justify-between text-sm">
-                <span className="text-muted">Written-off</span>
-                <span className="text-fg">− {formatAmount(writtenOff)}</span>
-              </p>
-              <p className="mt-1 flex justify-between text-sm">
-                <span className="text-muted">Receivable (Net Worth)</span>
-                <span className="font-medium text-fg">{formatAmount(outstanding - writtenOff)}</span>
-              </p>
-            </>
-          )}
-          {sumRepayments(debt.repayments) > debt.totalAmountMinor && (
-            <p className="mt-1 text-sm text-muted">Total paid exceeds the original amount — please confirm.</p>
-          )}
         </div>
 
-        {repayError && (
-          <p role="alert" className="text-sm text-expense">
-            {repayError}
-          </p>
+        {/* এক সারির সারাংশ কার্ড: Outstanding · Written-off · Receivable (Net Worth) */}
+        <StatStrip
+          items={[
+            { label: 'Outstanding', value: formatAmount(outstanding) },
+            ...(owe && writtenOff > 0
+              ? [
+                  { label: 'Written-off', value: `− ${formatAmount(writtenOff)}` },
+                  { label: 'Receivable (NW)', value: formatAmount(outstanding - writtenOff) },
+                ]
+              : []),
+          ]}
+        />
+        {sumRepayments(debt.repayments) > debt.totalAmountMinor && (
+          <p className="text-sm text-muted">Total paid exceeds the original amount — please confirm.</p>
         )}
       </div>
 
@@ -331,6 +237,17 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
           debt={debt}
           view={views[actionIdx]}
           onClose={() => setActionIdx(null)}
+          onMarkRepaid={() => markRepaid(views[actionIdx])}
+          onAddRepayment={() => {
+            setRepayPreset(debt.borrowings[actionIdx]?.id);
+            setActionIdx(null);
+            setAddOpen(true);
+          }}
+          onEdit={() => {
+            setEditBorrowIdx(actionIdx);
+            setActionIdx(null);
+          }}
+          onDelete={debt.borrowings.length > 1 ? () => removeBorrowing(actionIdx) : undefined}
         />
       )}
       {editRepaymentIdx !== null && (

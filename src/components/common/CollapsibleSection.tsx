@@ -8,11 +8,14 @@ import { ChevronDown } from 'lucide-react';
 export default function CollapsibleSection({
   title,
   count,
+  summary,
   defaultOpen = false,
   children,
 }: {
   title: string;
   count: number;
+  /** হেডারের ডানে ছোট সারাংশ (যেমন মোট শোধ) */
+  summary?: ReactNode;
   defaultOpen?: boolean;
   children: ReactNode;
 }) {
@@ -31,7 +34,10 @@ export default function CollapsibleSection({
           {title}
           <span className="rounded-full bg-muted/10 px-2 py-0.5 text-xs">{count}</span>
         </span>
-        <ChevronDown aria-hidden size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        <span className="flex items-center gap-2">
+          {summary && <span className="text-xs">{summary}</span>}
+          <ChevronDown aria-hidden size={18} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </span>
       </button>
       {open && (
         <div id={panelId} className="mt-1 flex flex-col gap-2">
