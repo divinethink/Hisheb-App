@@ -73,10 +73,17 @@ export interface MonthDetail {
   deltaPct: number | null; // ১ দশমিক; আগের total ০ হলে null
   breakdown: SnapshotBreakdown | null; // না থাকলে "Total only" — ভাঙা সংখ্যা বানানো হয় না
   accounts: { name: string; balanceMinor: number }[]; // বর্তমান account-ক্রম আগে, বাকি পরে
+  accountsDerived: boolean; // true = snapshot-এ নয়, সেই মাসের accountBalances থেকে
+  otherMinor: number | null; // derived হলে: total − accounts (ledger ও অন্যান্য, ভাঙা-হিসাব সেভ নেই)
 }
 
 /** নির্দিষ্ট মাসের snapshot-বিবরণ; snapshot না থাকলে null ("No snapshot")। */
-export function monthDetail(snaps: readonly NetWorthSnapshot[], yyyymm: string, accountOrder: readonly string[] = []): MonthDetail | null {
+export function monthDetail(
+  snaps: readonly NetWorthSnapshot[],
+  yyyymm: string,
+  accountOrder: readonly string[] = [],
+  derivedAccounts: readonly { name: string; balanceMinor: number }[] = [],
+): MonthDetail | null {
   const m = groupHistoryByYear(snaps).flatMap((y) => y.months).find((x) => x.yyyymm === yyyymm);
   if (!m) return null;
   const prev = m.prevYyyymm ? snaps.find((s) => s.yyyymm === m.prevYyyymm) : undefined;
@@ -86,7 +93,10 @@ export function monthDetail(snaps: readonly NetWorthSnapshot[], yyyymm: string, 
     const i = accountOrder.indexOf(n);
     return i === -1 ? Number.MAX_SAFE_INTEGER : i;
   };
-  const accounts = [...(m.snapshot.breakdown?.accounts ?? [])].sort((a, b) => idx(a.name) - idx(b.name));
+  // breakdown-এ account না থাকলে সেই মাসের accountBalances থেকে (শুধু দেখানোর জন্য, কিছু লেখা হয় না)
+  const saved = m.snapshot.breakdown?.accounts ?? [];
+  const useDerived = saved.length === 0 && derivedAccounts.length > 0;
+  const accounts = [...(useDerived ? derivedAccounts : saved)].sort((a, b) => idx(a.name) - idx(b.name));
   return {
     yyyymm,
     totalMinor: m.snapshot.totalAssetsMinor,
@@ -97,7 +107,28 @@ export function monthDetail(snaps: readonly NetWorthSnapshot[], yyyymm: string, 
     deltaPct,
     breakdown: m.snapshot.breakdown ?? null,
     accounts,
+    accountsDerived: useDerived,
+    otherMinor: useDerived ? m.snapshot.totalAssetsMinor - accounts.reduce((t, a) => t + a.balanceMinor, 0) : null,
   };
+}
+
+/** accountBalances → মাস অনুযায়ী { name, balanceMinor } তালিকা (account-ক্রমে)। archived/মুছে-যাওয়া account বাদ। */
+export function accountsByMonth(
+  balances: readonly { accountId: string; yyyymm: string; balanceMinor: number }[],
+  accounts: readonly { id: string; name: string }[],
+): Map<string, { name: string; balanceMinor: number }[]> {
+  const nameOf = new Map(accounts.map((a) => [a.id, a.name]));
+  const out = new Map<string, { name: string; balanceMinor: number }[]>();
+  for (const b of balances) {
+    const name = nameOf.get(b.accountId);
+    if (name === undefined) continue;
+    const arr = out.get(b.yyyymm);
+    if (arr) arr.push({ name, balanceMinor: b.balanceMinor });
+    else out.set(b.yyyymm, [{ name, balanceMinor: b.balanceMinor }]);
+  }
+  const rank = new Map(accounts.map((a, i) => [a.name, i]));
+  for (const arr of out.values()) arr.sort((x, y) => (rank.get(x.name) ?? 0) - (rank.get(y.name) ?? 0));
+  return out;
 }
 
 /** সবচেয়ে পুরনো snapshot-মাস ("‹" কতদূর যাবে); snapshot না থাকলে null। */

@@ -12,13 +12,15 @@ export default function MonthlyHistory({
   snapshots,
   accountOrder,
   dateFormat,
+  derivedByMonth,
 }: {
   snapshots: NetWorthSnapshot[];
   accountOrder: string[];
+  derivedByMonth: Map<string, { name: string; balanceMinor: number }[]>;
   dateFormat: 'dmy' | 'mdy';
 }) {
   const years = useMemo(() => groupHistoryByYear(snapshots), [snapshots]);
-  const [open, setOpen] = useState<Set<string>>(() => new Set(years.length ? [years[0].year] : []));
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
   const [expanded, setExpanded] = useState<string | null>(null);
   const [table, setTable] = useState(false);
 
@@ -76,6 +78,7 @@ export default function MonthlyHistory({
                       expanded={expanded === m.yyyymm}
                       onToggle={() => setExpanded((cur) => (cur === m.yyyymm ? null : m.yyyymm))}
                       dateFormat={dateFormat}
+                      derived={derivedByMonth.get(m.yyyymm)}
                     />
                   ))}
                 </ul>
@@ -97,21 +100,37 @@ function Delta({ m }: { m: HistoryMonth }) {
   );
 }
 
-function MonthCard({ m, expanded, onToggle, dateFormat }: { m: HistoryMonth; expanded: boolean; onToggle: () => void; dateFormat: 'dmy' | 'mdy' }) {
+function MonthCard({
+  m,
+  expanded,
+  onToggle,
+  dateFormat,
+  derived,
+}: {
+  m: HistoryMonth;
+  expanded: boolean;
+  onToggle: () => void;
+  dateFormat: 'dmy' | 'mdy';
+  derived?: { name: string; balanceMinor: number }[];
+}) {
   const b = m.snapshot.breakdown;
+  // breakdown না থাকলে সেই মাসের accountBalances থেকে account-ভিত্তিক ভাঙা (derived; কিছু লেখা হয় না)
+  const hasDerived = !b && !!derived && derived.length > 0;
+  const expandable = !!b || hasDerived;
+  const derivedOther = hasDerived ? m.snapshot.totalAssetsMinor - derived.reduce((t, a) => t + a.balanceMinor, 0) : 0;
   return (
     <li className="rounded-xl bg-surface">
       <button
         type="button"
-        onClick={b ? onToggle : undefined}
-        aria-expanded={b ? expanded : undefined}
+        onClick={expandable ? onToggle : undefined}
+        aria-expanded={expandable ? expanded : undefined}
         className="flex min-h-14 w-full items-center justify-between gap-3 px-3 py-2 text-left"
       >
         <span className="min-w-0">
           <span className="block font-medium text-fg">{monthName(m.yyyymm)}</span>
           <span className="block text-xs text-muted">
             updated {formatDisplayDate(m.snapshot.snapshotDate, dateFormat)}
-            {!b && <span className="ml-1 rounded bg-muted/15 px-1.5 py-0.5 text-[11px]">no ledger split</span>}
+            {!b && <span className="ml-1 whitespace-nowrap rounded bg-muted/15 px-1.5 py-0.5 text-[11px]">no ledger split</span>}
             {m.snapshot.unverified && <span className="ml-1 rounded bg-muted/15 px-1.5 py-0.5 text-[11px]">unverified</span>}
           </span>
         </span>
@@ -120,6 +139,14 @@ function MonthCard({ m, expanded, onToggle, dateFormat }: { m: HistoryMonth; exp
           <Delta m={m} />
         </span>
       </button>
+      {hasDerived && expanded && (
+        <dl className="flex flex-col gap-1 border-t border-muted/10 px-3 py-2 text-sm">
+          {derived.map((a) => (
+            <Line key={a.name} label={a.name} value={a.balanceMinor} />
+          ))}
+          <Line label="Ledger & others" value={derivedOther} />
+        </dl>
+      )}
       {b && expanded && (
         <dl className="flex flex-col gap-1 border-t border-muted/10 px-3 py-2 text-sm">
           {(b.accounts ?? []).map((a) => (

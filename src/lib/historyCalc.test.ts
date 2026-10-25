@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accountBalanceOf, accountColumns, earliestSnapshotMonth, groupHistoryByYear, monthDetail, monthName } from './historyCalc';
+import { accountsByMonth, accountBalanceOf, accountColumns, earliestSnapshotMonth, groupHistoryByYear, monthDetail, monthName } from './historyCalc';
 import type { NetWorthSnapshot } from '../validation/netWorthSchema';
 
 const snap = (yyyymm: string, total: number, breakdown?: NetWorthSnapshot['breakdown']): NetWorthSnapshot => ({
@@ -71,5 +71,24 @@ describe('monthDetail / earliestSnapshotMonth', () => {
   it('earliestSnapshotMonth', () => {
     expect(earliestSnapshotMonth(snaps)).toBe('2026-04');
     expect(earliestSnapshotMonth([])).toBeNull();
+  });
+});
+
+describe('derived accounts (breakdown-হীন মাস)', () => {
+  const accs = [{ id: 'a1', name: 'DBBL' }, { id: 'a2', name: 'SIBL' }];
+  const bals = [
+    { accountId: 'a2', yyyymm: '2026-08', balanceMinor: 300 },
+    { accountId: 'a1', yyyymm: '2026-08', balanceMinor: 100 },
+    { accountId: 'gone', yyyymm: '2026-08', balanceMinor: 999 },
+  ];
+  it('accountsByMonth: account-ক্রমে, অজানা account বাদ', () => {
+    expect(accountsByMonth(bals, accs).get('2026-08')).toEqual([{ name: 'DBBL', balanceMinor: 100 }, { name: 'SIBL', balanceMinor: 300 }]);
+  });
+  it('monthDetail: breakdown না থাকলে derived accounts + otherMinor', () => {
+    const snap = { yyyymm: '2026-08', totalAssetsMinor: 1000, snapshotDate: '2026-08-31' } as NetWorthSnapshot;
+    const d = monthDetail([snap], '2026-08', ['DBBL', 'SIBL'], accountsByMonth(bals, accs).get('2026-08'));
+    expect(d?.accountsDerived).toBe(true);
+    expect(d?.otherMinor).toBe(600);
+    expect(d?.breakdown).toBeNull();
   });
 });

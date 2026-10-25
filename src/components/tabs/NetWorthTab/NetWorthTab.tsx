@@ -24,7 +24,7 @@ import { countLedgerChangesAfter, depositNetAsOfMinor, receivableAsOfMinor, runn
 import { pickSnapshotPair } from '../../../lib/crossCheck';
 import { gpfBalanceAsOfMinor } from '../../../lib/gpfCalc';
 import { currentMonth, formatDisplayDate, shiftMonth, toDhakaDate } from '../../../lib/date';
-import { earliestSnapshotMonth, monthDetail } from '../../../lib/historyCalc';
+import { accountsByMonth, earliestSnapshotMonth, monthDetail } from '../../../lib/historyCalc';
 import { formatAmount, formatNet } from '../../../lib/format';
 import type { Account } from '../../../validation/accountSchema';
 import type { AccountBalance } from '../../../validation/netWorthSchema';
@@ -88,6 +88,12 @@ export default function NetWorthTab({
     for (const arr of map.values()) arr.sort((a, b) => a.yyyymm.localeCompare(b.yyyymm));
     return map;
   }, [balances]);
+
+  // breakdown-হীন মাসে (যেমন Aug/Sep ২০২৬) account-ভিত্তিক ভাঙা দেখানোর জন্য accountBalances থেকে derive — শুধু পড়া
+  const derivedByMonth = useMemo(
+    () => accountsByMonth(balances, acc.state.status === 'ready' ? acc.state.data : []),
+    [balances, acc.state],
+  );
 
   // gpf লোড না হওয়া পর্যন্ত snapshot-স্ক্রিন খোলে না — নইলে GPF ছাড়া ভুল Total Assets snapshot হয়ে যেত
   if (updateOpen && acc.state.status === 'ready' && gpf.state.status === 'ready') {
@@ -175,7 +181,7 @@ export default function NetWorthTab({
           </Card>
         )}
         {snaps.state.status === 'ready' && (
-          <PastMonthView month={viewMonth} dateFormat={dateFormat} detail={monthDetail(snaps.state.data, viewMonth, acc.state.status === 'ready' ? acc.state.data.map((a) => a.name) : [])} />
+          <PastMonthView month={viewMonth} dateFormat={dateFormat} detail={monthDetail(snaps.state.data, viewMonth, acc.state.status === 'ready' ? acc.state.data.map((a) => a.name) : [], derivedByMonth.get(viewMonth) ?? [])} />
         )}
       </div>
     );
@@ -265,8 +271,8 @@ export default function NetWorthTab({
                         >
                           <CategoryIcon name={a.name} />
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-fg">{a.name}</span>
-                            <span className="block truncate text-xs text-muted">
+                            <span className="line-clamp-2 break-words text-fg">{a.name}</span>
+                            <span className="block text-xs text-muted">
                               {a.holder ? `${a.holder} · ` : ''}
                               {latestEntry ? `Updated ${formatDisplayDate(latestEntry.snapshotDate, dateFormat)}` : 'Not updated yet'}
                             </span>
@@ -313,15 +319,7 @@ export default function NetWorthTab({
                 </p>
               </Card>
 
-              {debts.state.status === 'ready' && investments.state.status === 'ready' && gpf.state.status === 'ready' && (
-                <CrossCheckView {...crossProps} mode="summary" onOpen={() => setCrossOpen(true)} />
-              )}
-
-              {snaps.state.status === 'ready' && (
-                <MonthlyHistory snapshots={snaps.state.data} accountOrder={acc.state.data.map((a) => a.name)} dateFormat={dateFormat} />
-              )}
-
-              <div className="flex flex-col gap-2 px-4 pt-1">
+              <div className="flex flex-col gap-2 px-4 pb-1">
                 <button
                   type="button"
                   onClick={() => setSheet({ initial: null })}
@@ -338,6 +336,15 @@ export default function NetWorthTab({
                   Update This Month’s Balance
                 </button>
               </div>
+
+              {debts.state.status === 'ready' && investments.state.status === 'ready' && gpf.state.status === 'ready' && (
+                <CrossCheckView {...crossProps} mode="summary" onOpen={() => setCrossOpen(true)} />
+              )}
+
+              {snaps.state.status === 'ready' && (
+                <MonthlyHistory snapshots={snaps.state.data} accountOrder={acc.state.data.map((a) => a.name)} dateFormat={dateFormat} derivedByMonth={derivedByMonth} />
+              )}
+
             </>
           )}
         </>

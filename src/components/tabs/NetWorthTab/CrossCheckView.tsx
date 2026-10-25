@@ -157,7 +157,7 @@ function Loaded({
     // UI Polish [1_5] §২ item ৪: icon-badge স্টাইল, matched-state-এও সমান visual treatment।
     const matched = result.status === 'matched';
     return (
-      <div className="px-4 pt-4">
+      <div className="px-4 pb-3 pt-1">
         <button
           type="button"
           onClick={onOpen}

@@ -83,6 +83,15 @@ export default function PastMonthView({ month, detail, dateFormat }: { month: st
                 <span className="shrink-0 font-medium text-fg">{formatAmount(a.balanceMinor)}</span>
               </li>
             ))}
+            {detail.accountsDerived && detail.otherMinor !== null && (
+              <li className="flex min-h-14 items-center gap-3 border-t border-muted/10 bg-surface px-4 py-2">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-fg">Ledger &amp; others</span>
+                  <span className="block text-xs text-muted">Total − accounts (split not saved)</span>
+                </span>
+                <span className="shrink-0 font-medium text-fg">{formatAmount(detail.otherMinor)}</span>
+              </li>
+            )}
           </ul>
         </Card>
       )}
@@ -103,7 +112,7 @@ export default function PastMonthView({ month, detail, dateFormat }: { month: st
           </p>
         </Card>
       ) : (
-        <p className="mx-4 mb-3 text-xs text-muted">Total only — no split saved for this month.</p>
+        <p className="mx-4 mb-3 text-xs text-muted">{detail.accountsDerived ? 'Account balances are from your monthly updates; ledger split was not saved.' : 'Total only — no split saved for this month.'}</p>
       )}
       <p className="mx-4 mb-3 text-xs text-muted">Past month — read-only. To update balances, go back to the current month.</p>
     </>
