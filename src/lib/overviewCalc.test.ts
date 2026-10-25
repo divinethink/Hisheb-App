@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allTimeRows, avgMonthlyExpense, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
+import { allTimeRows, categoryList, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
 
 const tx = (date: string, type: 'income' | 'expense', amountMinor: number, categoryName = 'A'): TxLite => ({ date, type, amountMinor, categoryName });
 const h2025: HistoricalLite = { year: 2025, totalIncomeMinor: 900, totalExpenseMinor: 600, totalDepositMinor: 5000 };
@@ -126,5 +126,61 @@ describe('Overview Enrichment ধাপ ৩ (All-Time)', () => {
       { yyyymm: '2026-08', totalAssetsMinor: 200 },
     ]);
     expect(g).toEqual({ earliestYyyymm: '2026-08', earliestMinor: 200, latestYyyymm: '2026-09', latestMinor: 220, deltaPct: 10 });
+  });
+});
+
+describe('monthRows', () => {
+  const txs = [tx('2026-03-05', 'income', 1000, 'Salary'), tx('2026-03-09', 'expense', 400, 'Rent'), tx('2026-03-20', 'expense', 100, 'Food'), tx('2026-05-01', 'expense', 50, 'Food'), tx('2025-03-01', 'income', 9999)];
+  it('১২টা সারি জানু→ডিসে; অন্য বছর বাদ; লেনদেনহীন মাসে txCount ০', () => {
+    const rows = monthRows(txs, 2026);
+    expect(rows).toHaveLength(12);
+    expect(rows[0].yyyymm).toBe('2026-01');
+    expect(rows[0].txCount).toBe(0);
+    expect(rows[2]).toMatchObject({ incomeMinor: 1000, expenseMinor: 500, savingsMinor: 500, txCount: 3 });
+    expect(rows[4]).toMatchObject({ incomeMinor: 0, expenseMinor: 50, savingsMinor: -50 });
+  });
+  it('১২ মাসের যোগফল বছরের মোটের সাথে মেলে', () => {
+    const rows = monthRows(txs, 2026);
+    const year = resolveYear(2026, [], txs);
+    expect(rows.reduce((s, r) => s + r.incomeMinor, 0)).toBe(year.incomeMinor);
+    expect(rows.reduce((s, r) => s + r.expenseMinor, 0)).toBe(year.expenseMinor);
+  });
+  it('txsInMonth/txsInYear ঠিক সময়ের লেনদেনই দেয়', () => {
+    expect(txsInMonth(txs, '2026-03')).toHaveLength(3);
+    expect(txsInYear(txs, 2025)).toHaveLength(1);
+  });
+});
+
+describe('categoryList', () => {
+  const txs = [tx('2026-03-01', 'expense', 500, 'A'), tx('2026-03-02', 'expense', 300, 'B'), tx('2026-03-03', 'expense', 100, 'C'), tx('2026-03-04', 'expense', 50, 'D'), tx('2026-03-05', 'income', 900, 'Salary')];
+  it('সব category, বড় → ছোট, Others নেই; যোগফল মোট ব্যয়ের সমান, শতাংশ ১', () => {
+    const list = categoryList(txs, 'expense');
+    expect(list.map((c) => c.name)).toEqual(['A', 'B', 'C', 'D']);
+    expect(list.reduce((s, c) => s + c.totalMinor, 0)).toBe(950);
+    expect(list.reduce((s, c) => s + c.share, 0)).toBeCloseTo(1);
+  });
+  it('৮টার বেশি category-তেও Others বান্ডিল হয় না; income আলাদা', () => {
+    const many = Array.from({ length: 12 }, (_, i) => tx('2026-03-01', 'expense', 10 + i, `C${i}`));
+    expect(categoryList(many, 'expense')).toHaveLength(12);
+    expect(categoryList(txs, 'income').map((c) => c.name)).toEqual(['Salary']);
+  });
+  it('লেনদেন না থাকলে খালি', () => {
+    expect(categoryList([], 'income')).toEqual([]);
+  });
+});
+
+describe('yearDetailKind + historical double-count', () => {
+  it('লাইভ নেই → none; historical+লাইভ → partial; শুধু লাইভ → full', () => {
+    expect(yearDetailKind(true, 0)).toBe('none');
+    expect(yearDetailKind(true, 12)).toBe('partial');
+    expect(yearDetailKind(false, 12)).toBe('full');
+    expect(yearDetailKind(false, 0)).toBe('none');
+  });
+  it('historical বছরের মোট doc থেকেই; আংশিক লাইভ যোগ হয় না, খাতওয়ারি তালিকা মোটের সাথে মেলে না', () => {
+    const live = [tx('2025-10-01', 'income', 100, 'Salary'), tx('2025-10-02', 'expense', 50, 'Food')];
+    const row = allTimeRows([h2025], live).find((r) => r.year === 2025)!;
+    expect(row.incomeMinor).toBe(900);
+    expect(row.expenseMinor).toBe(600);
+    expect(categoryList(live, 'expense').reduce((s, c) => s + c.totalMinor, 0)).toBe(50);
   });
 });

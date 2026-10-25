@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import BottomSheet from '../../common/BottomSheet';
-import { formatAmount } from '../../../lib/format';
+import { formatAmount, formatSigned } from '../../../lib/format';
 import { formatDisplayDate } from '../../../lib/date';
 import type { CategoryShare, TxLite } from '../../../lib/overviewCalc';
 
@@ -10,17 +10,20 @@ export default function CategoryHistorySheet({
   name,
   txs,
   cats,
+  type = 'expense',
   onClose,
 }: {
   name: string;
   txs: readonly TxLite[];
-  cats: readonly CategoryShare[];
+  /** top-N + "Others" তালিকা থাকলে "Others" সারি বাকি সব category দেখায়; না দিলে নাম হুবহু মেলে (Monthly/Years তালিকা — Others বান্ডিল নেই)। */
+  cats?: readonly CategoryShare[];
+  type?: 'income' | 'expense';
   onClose: () => void;
 }) {
   const { groups, total } = useMemo(() => {
-    const topNames = new Set(cats.filter((c) => c.name !== 'Others').map((c) => c.name));
+    const topNames = new Set((cats ?? []).filter((c) => c.name !== 'Others').map((c) => c.name));
     const rows = txs
-      .filter((t) => t.type === 'expense' && (name === 'Others' ? !topNames.has(t.categoryName) : t.categoryName === name))
+      .filter((t) => t.type === type && (cats && name === 'Others' ? !topNames.has(t.categoryName) : t.categoryName === name))
       .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     const byDate = new Map<string, { sum: number; items: TxLite[] }>();
     let sum = 0;
@@ -32,7 +35,7 @@ export default function CategoryHistorySheet({
       sum += t.amountMinor;
     }
     return { groups: [...byDate.entries()], total: sum };
-  }, [name, txs, cats]);
+  }, [name, txs, cats, type]);
 
   return (
     <BottomSheet
@@ -68,7 +71,7 @@ export default function CategoryHistorySheet({
                     </span>
                   )}
                 </span>
-                <span className="ml-2 shrink-0 text-expense">−{formatAmount(t.amountMinor)}</span>
+                <span className={`ml-2 shrink-0 ${type === 'income' ? 'text-income' : 'text-expense'}`}>{formatSigned(t.amountMinor, type)}</span>
               </div>
             ))}
           </li>

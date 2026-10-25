@@ -207,3 +207,55 @@ export function netWorthGrowthAllTime(snapshots: readonly NetWorthSnapshotLite[]
   const deltaPct = first.valueMinor !== 0 ? ((last.valueMinor - first.valueMinor) / Math.abs(first.valueMinor)) * 100 : null;
   return { earliestYyyymm: first.yyyymm, earliestMinor: first.valueMinor, latestYyyymm: last.yyyymm, latestMinor: last.valueMinor, deltaPct };
 }
+
+// ---- Overview "Monthly breakdown" ও "Years" collapsible তালিকা — নতুন query/schema নেই, লোড-হওয়া txs থেকে derive ----
+
+export interface MonthRow {
+  yyyymm: string;
+  incomeMinor: number;
+  expenseMinor: number;
+  savingsMinor: number;
+  txCount: number; // 0 হলে \"No data\" (ট্যাপ করা যাবে না)
+}
+
+/** নির্দিষ্ট বছরের ১২ মাস (জানু → ডিসে), এক pass-এ। */
+export function monthRows(txs: readonly TxLite[], year: number): MonthRow[] {
+  const rows: MonthRow[] = Array.from({ length: 12 }, (_, i) => ({
+    yyyymm: `${year}-${String(i + 1).padStart(2, '0')}`,
+    incomeMinor: 0,
+    expenseMinor: 0,
+    savingsMinor: 0,
+    txCount: 0,
+  }));
+  for (const t of txs) {
+    if (Number(t.date.slice(0, 4)) !== year) continue;
+    const r = rows[Number(t.date.slice(5, 7)) - 1];
+    if (!r) continue;
+    if (t.type === 'income') r.incomeMinor += t.amountMinor;
+    else r.expenseMinor += t.amountMinor;
+    r.txCount += 1;
+  }
+  for (const r of rows) r.savingsMinor = r.incomeMinor - r.expenseMinor;
+  return rows;
+}
+
+export function txsInMonth<T extends TxLite>(txs: readonly T[], yyyymm: string): T[] {
+  return txs.filter((t) => t.date.startsWith(yyyymm));
+}
+
+export function txsInYear<T extends TxLite>(txs: readonly T[], year: number): T[] {
+  return txs.filter((t) => t.date.startsWith(`${year}-`));
+}
+
+/** সব category (\"Others\" বান্ডিল ছাড়া), বড় → ছোট। */
+export function categoryList(txs: readonly TxLite[], type: 'income' | 'expense'): CategoryShare[] {
+  return categoryBreakdown(txs, type, Number.MAX_SAFE_INTEGER);
+}
+
+export type YearDetailKind = 'full' | 'partial' | 'none';
+
+/** খোলা বছরে কী দেখানো হবে: লাইভ লেনদেন নেই → none; historical doc + আংশিক লাইভ → partial; নাহলে full। */
+export function yearDetailKind(isHistorical: boolean, liveTxCount: number): YearDetailKind {
+  if (liveTxCount === 0) return 'none';
+  return isHistorical ? 'partial' : 'full';
+}

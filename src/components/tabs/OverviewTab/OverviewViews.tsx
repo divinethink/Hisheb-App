@@ -4,6 +4,7 @@ import SkeletonLoader from '../../common/SkeletonLoader';
 import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
 import CategoryHistorySheet from './CategoryHistorySheet';
+import { MonthlyBreakdown, YearsCard } from './BreakdownLists';
 import { CategoryBars, CategoryDonut, IncomeExpenseBars, SavingsRateBars, TrendLine } from './Charts';
 import { useMonthTransactions, useNetWorthSnapshots, useRangeTransactions } from '../../../hooks/useData';
 import { currentMonth, monthEndDate, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
@@ -307,6 +308,7 @@ function YearlyBody({
             <CategoryBars items={cats} onSelect={setSelCat} />
           </Section>
           {selCat && <CategoryHistorySheet name={selCat} txs={txs} cats={cats} onClose={() => setSelCat(null)} />}
+          <MonthlyBreakdown txs={txs} year={year} isHist={isHist} />
         </>
       )}
     </>
@@ -348,26 +350,7 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
           </Card>
         ) : null;
       })()}
-      <Section title="By year">
-        {rows.length === 0 ? (
-          <p className="text-sm text-muted">No data yet.</p>
-        ) : (
-          <ul>
-            {rows.map((r) => (
-              <li key={r.year} className="border-b border-muted/20 py-2 text-sm">
-                <p className="flex justify-between">
-                  <span className="font-medium text-fg">{r.year}{r.source === 'historical' && <span className="ml-2 text-xs font-normal text-muted">Pre-app record</span>}</span>
-                  <span className={r.savingsMinor < 0 ? 'text-expense' : 'text-income'}>{formatNet(r.savingsMinor)}</span>
-                </p>
-                <p className="flex justify-between text-xs text-muted">
-                  <span>Income {formatAmount(r.incomeMinor)}</span>
-                  <span>Expense {formatAmount(r.expenseMinor)}</span>
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+      <YearsCard uid={uid} rows={rows} historical={historical} liveTxs={tx.state.data} />
       <Section title="Net Worth Trend (Total Assets)">
         {snaps.state.status === 'ready' ? <TrendLine points={trendSeries(snaps.state.data)} /> : snaps.state.status === 'error' ? <p role="alert" className="text-sm text-muted">Couldn’t load snapshots.</p> : <SkeletonLoader />}
       </Section>
