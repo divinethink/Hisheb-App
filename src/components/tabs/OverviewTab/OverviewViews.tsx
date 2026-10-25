@@ -14,7 +14,6 @@ import {
   avgMonthlyExpense,
   bestWorstMonth,
   categoryBreakdown,
-  liveQueryStart,
   flowByMonth,
   monthRows,
   netWorthGrowthAllTime,
@@ -335,9 +334,13 @@ function YearlyBody({
 
 export function AllTimeView({ uid, historical }: { uid: string; historical: readonly HistoricalLite[] }) {
   const thisYear = toDhakaDate(new Date()).slice(0, 4);
-  // yearly-summary আগে: doc-বছরগুলো doc থেকে, শুধু বাকি বছরের লাইভ tx আনা হয় (পুরো collection স্ক্যান না)
-  const tx = useRangeTransactions(uid, liveQueryStart(historical), `${thisYear}-12-31`);
+  // সব বছরের লেনদেন একবার (খাতওয়ারি চার্টের জন্য, Yearly-র মতোই সবসময় খোলা)। বছরের মোট আগের মতোই doc-precedence (C17)।
+  const tx = useRangeTransactions(uid, '2000-01-01', `${thisYear}-12-31`);
   const snaps = useNetWorthSnapshots(uid);
+  const allTxs = useMemo<readonly TxLite[]>(() => (tx.state.status === 'ready' ? tx.state.data : []), [tx.state]);
+  const cats = useMemo(() => categoryBreakdown(allTxs), [allTxs]);
+  const catTotal = useMemo(() => allTxs.reduce((a, t) => (t.type === 'expense' ? a + t.amountMinor : a), 0), [allTxs]);
+  const [selCat, setSelCat] = useState<string | null>(null);
 
   if (tx.state.status === 'loading') return <SkeletonLoader />;
   if (tx.state.status === 'error') return <ErrorBox onRetry={tx.retry} />;
@@ -368,6 +371,14 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
           </Card>
         ) : null;
       })()}
+      {allTxs.length > 0 && (
+        <Section title="Expense by category">
+          <CategoryDonut items={cats} totalMinor={catTotal} />
+          <CategoryBars items={cats} onSelect={setSelCat} />
+          <p className="mt-2 text-xs text-muted">All years, entries recorded in the app only — pre-app years may not add up to the yearly totals.</p>
+        </Section>
+      )}
+      {selCat && <CategoryHistorySheet name={selCat} txs={allTxs} cats={cats} onClose={() => setSelCat(null)} />}
       <YearsCard uid={uid} rows={rows} historical={historical} liveTxs={tx.state.data} />
       <Section title="Net Worth Trend (Total Assets)">
         {snaps.state.status === 'ready' ? <TrendLine points={trendSeries(snaps.state.data)} /> : snaps.state.status === 'error' ? <p role="alert" className="text-sm text-muted">Couldn’t load snapshots.</p> : <SkeletonLoader />}
