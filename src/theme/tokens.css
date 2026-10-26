@@ -138,16 +138,16 @@
 }
 [data-theme='ledger'] {
   color-scheme: light;
-  --color-primary: 28 100 112;
-  --color-canvas: 253 250 240;
-  --color-surface: 232 241 236;
-  --color-fg: 28 34 44;
-  --color-muted: 92 94 90;
+  --color-primary: 24 94 106;
+  --color-canvas: 253 248 233;
+  --color-surface: 243 232 205;
+  --color-fg: 44 36 24;
+  --color-muted: 104 88 62;
   --color-income: 20 110 66;
   --color-expense: 172 30 30;
   --color-warning: 146 90 8;
   --color-danger: 180 60 12;
-  --color-page: 222 235 231;
+  --color-page: 236 224 194;
   --chart-1: 28 100 112;
   --chart-2: 176 80 30;
   --chart-3: 90 120 40;
@@ -159,16 +159,16 @@
 }
 [data-theme='terracotta-cream'] {
   color-scheme: light;
-  --color-primary: 160 68 38;
-  --color-canvas: 252 245 238;
-  --color-surface: 246 226 214;
-  --color-fg: 58 36 26;
-  --color-muted: 116 90 76;
-  --color-income: 44 108 62;
-  --color-expense: 180 36 36;
+  --color-primary: 120 44 20;
+  --color-canvas: 253 246 239;
+  --color-surface: 242 208 186;
+  --color-fg: 48 28 18;
+  --color-muted: 92 58 42;
+  --color-income: 28 86 46;
+  --color-expense: 150 24 24;
   --color-warning: 146 90 8;
   --color-danger: 190 60 12;
-  --color-page: 240 216 202;
+  --color-page: 232 182 158;
   --chart-1: 160 68 38;
   --chart-2: 160 106 20;
   --chart-3: 90 130 80;

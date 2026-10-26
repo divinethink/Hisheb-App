@@ -22,8 +22,8 @@ export type ThemeId = 'treasury' | 'bull' | 'ledger' | 'terracotta-cream' | 'nor
 export const THEMES: readonly { id: ThemeId; label: string; tone: 'light' | 'dark'; hint: string }[] = [
   { id: 'treasury', label: 'Treasury', tone: 'light', hint: 'Green, cream & gold' },
   { id: 'bull', label: 'Bull Market', tone: 'dark', hint: 'Black with neon green' },
-  { id: 'ledger', label: 'Ledger Paper', tone: 'light', hint: 'Teal-grey, ink text' },
-  { id: 'terracotta-cream', label: 'Terracotta Cream', tone: 'light', hint: 'Warm clay & cream' },
+  { id: 'ledger', label: 'Ledger Paper', tone: 'light', hint: 'Sepia paper, ink text' },
+  { id: 'terracotta-cream', label: 'Terracotta Cream', tone: 'light', hint: 'Warm clay' },
   { id: 'nord-frost', label: 'Nord Frost', tone: 'light', hint: 'Calm blue-grey' },
 ];
 
