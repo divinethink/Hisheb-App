@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, ChevronLeft, ChevronRight, Plus, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
+import { Bell, Plus, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
 import Logo from '../../common/Logo';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
 import CategoryIcon, { categoryTint } from '../../common/CategoryIcon';
-import BudgetProgressBar from '../../common/BudgetProgressBar';
 import TransactionSheet from './TransactionSheet';
 import HomeSearch from './HomeSearch';
+import MonthTargetCard from './MonthTargetCard';
 import { SearchToggle } from '../../common/ListSearch';
 import { useBackClose } from '../../../hooks/useBackClose';
 import { getTransactionsByMonth, restoreTransaction, softDeleteTransaction } from '../../../data/transactionRepo';
@@ -21,15 +21,6 @@ import type { Category, Label } from '../../../validation/catalogSchemas';
 
 const NO_CATS: Category[] = [];
 const NO_LABELS: Label[] = [];
-
-// UI Polish [1_5] §১ item ৩: Budget-progress-bar-এর ৪-স্তর রঙের সাথে মিলিয়ে টেক্সট-টোন
-// (BudgetProgressBar.tsx-এর levelColorClass-এর হুবহু থ্রেশহোল্ড, শুধু bg-এর বদলে text-)।
-function budgetToneClass(pct: number): string {
-  if (pct >= 100) return 'text-expense';
-  if (pct >= 90) return 'text-danger';
-  if (pct >= 80) return 'text-warning';
-  return 'text-muted';
-}
 
 // item ১: "vs last month" — শতাংশ পরিবর্তন, আগের মাস ০/অজানা হলে দেখানো হয় না (বিভ্রান্তিকর %-এড়াতে)।
 function trendText(current: number, previous: number | null): string | null {
@@ -53,6 +44,31 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
   const [searchOpen, setSearchOpen] = useState(false); // সব-মাস সার্চ
   useBackClose(() => setSearchOpen(false), searchOpen); // ব্যাক = সার্চ বন্ধ (অ্যাপ নয়)
   const [chipFilter, setChipFilter] = useState<string | null>(null); // item ৪: quick-chip ট্যাপে category-filter
+
+  // মাস-strip + swipe (Spendee-স্টাইল, Owner-approved 2026-10-27): চলতি মাসের পরের ১ মাস পর্যন্ত (আগাম এন্ট্রির জন্য)
+  const maxMonth = useMemo(() => shiftMonth(now, 1), [now]);
+  const goMonth = (delta: number) => {
+    const next = shiftMonth(month, delta);
+    if (next > maxMonth) return;
+    setMonth(next);
+    setChipFilter(null);
+  };
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  function onTouchStart(e: TouchEvent) {
+    const t = e.touches[0];
+    const noSwipe = (e.target as HTMLElement).closest('[data-no-swipe]');
+    touchStart.current = noSwipe || !t ? null : { x: t.clientX, y: t.clientY };
+  }
+  function onTouchEnd(e: TouchEvent) {
+    const st = touchStart.current;
+    touchStart.current = null;
+    const t = e.changedTouches[0];
+    if (!st || !t || searchOpen) return;
+    const dx = t.clientX - st.x;
+    const dy = t.clientY - st.y;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
+    goMonth(dx < 0 ? 1 : -1);
+  }
 
   // item ১: আগের মাসের টোটাল — শুধু "vs last month" তুলনার জন্য, one-shot read (existing
   // getTransactionsByMonth reuse, live subscription না — কম-খরচে, রিপোর্ট-স্ক্রিনেও একই ফাংশন ব্যবহৃত)।
@@ -94,7 +110,6 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
   const catList = cats.state.status === 'ready' ? cats.state.data : NO_CATS;
   const catById = useMemo(() => new Map(catList.map((c) => [c.id, c])), [catList]);
   const budgetMinor = settings.state.status === 'ready' ? settings.state.data.overallMonthlyBudgetMinor : null;
-  const budgetPct = budgetMinor && budgetMinor > 0 && totals ? (totals.expenseMinor / budgetMinor) * 100 : 0;
 
   // item ৪/৭: এই মাসের top expense-category (quick-chips + নিচের insight card, দুটোতেই reuse)
   const topCategories = useMemo(() => {
@@ -121,7 +136,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
 
   return (
     <div className="relative h-full">
-      <div className="h-full overflow-y-auto pb-24">
+      <div className="h-full overflow-y-auto pb-24" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         <header className="flex items-center justify-between px-4 pb-2 pt-3">
           <h1 className="flex items-center gap-2 text-lg font-semibold text-fg"><Logo size={28} />হিসাব-নিকাশ</h1>
           {/* item ৬ (UI Polish): cloud sync-status icon সরানো হলো — OfflineBanner (AppShell, সব
@@ -140,28 +155,26 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
           />
         )}
         {!searchOpen && (<>
-        <div className="mx-4 flex items-center gap-3 py-2">
-          <div className="flex shrink-0 items-center gap-0.5">
-            <button
-              type="button"
-              aria-label="Previous month"
-              onClick={() => setMonth(shiftMonth(month, -1))}
-              className="flex h-9 w-9 items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-            >
-              <ChevronLeft aria-hidden size={18} />
-            </button>
-            <span className="text-sm font-medium text-fg">{monthLabel(month)}</span>
-            <button
-              type="button"
-              aria-label="Next month"
-              onClick={() => setMonth(shiftMonth(month, 1))}
-              disabled={month >= now}
-              className="flex h-9 w-9 items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-            >
-              <ChevronRight aria-hidden size={18} />
-            </button>
-          </div>
-        </div>
+        <nav aria-label="Month" className="flex items-center justify-center gap-1.5 overflow-hidden px-2 py-2">
+          {[-1, 0, 1].map((d) => {
+            const m = shiftMonth(month, d);
+            if (m > maxMonth) return null;
+            const active = d === 0;
+            return (
+              <button
+                key={m}
+                type="button"
+                aria-current={active ? 'true' : undefined}
+                onClick={() => goMonth(d)}
+                className={`min-h-11 shrink-0 whitespace-nowrap rounded-full px-3.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
+                  active ? 'bg-primary/10 text-sm font-medium text-primary' : 'text-xs text-muted'
+                }`}
+              >
+                {monthLabel(m)}
+              </button>
+            );
+          })}
+        </nav>
 
         {tx.state.status === 'loading' && <SkeletonLoader />}
 
@@ -203,25 +216,14 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
             </Card>
 
             {budgetMinor != null && budgetMinor > 0 && (
-              <Card as="section" ariaLabel="Monthly target" className="mx-4 mt-2 p-3">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm text-muted">Monthly target</span>
-                  <span className="text-xs font-medium text-fg">{Math.round(budgetPct)}% used</span>
-                </div>
-                <BudgetProgressBar spentMinor={totals.expenseMinor} budgetMinor={budgetMinor} />
-                <p className={`mt-1 text-xs ${budgetToneClass(budgetPct)}`}>
-                  {totals.expenseMinor > budgetMinor
-                    ? `${formatAmount(totals.expenseMinor - budgetMinor)} over target`
-                    : `${formatAmount(budgetMinor - totals.expenseMinor)} left this month`}
-                </p>
-              </Card>
+              <MonthTargetCard spentMinor={totals.expenseMinor} budgetMinor={budgetMinor} month={month} today={today} />
             )}
 
             {topCategories.length > 1 && (
               <div className="mt-3">
                 <p className="px-4 text-xs font-medium text-muted">Top categories this month</p>
                 <div className="relative mt-1.5">
-                  <div className="flex gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div data-no-swipe className="flex gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {topCategories.map((c) => {
                       const active = chipFilter === c.categoryId;
                       const tint = categoryTint(c.name, c.color);

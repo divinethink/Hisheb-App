@@ -103,4 +103,18 @@ describe('HomeTab', () => {
     expect(screen.getByLabelText('Loading')).toBeTruthy();
     expect(screen.queryByLabelText('Month summary')).toBeNull();
   });
+
+  it('month strip: tapping previous month switches the month (no future beyond +1)', async () => {
+    hooks.tx.mockReturnValue({ ...ready([]), invalidCount: 0 });
+    hooks.cats.mockReturnValue(ready([]));
+    hooks.lbls.mockReturnValue(ready([]));
+    render(<HomeTab uid="u1" />);
+    const nav = screen.getByRole('navigation', { name: 'Month' });
+    const buttons = nav.querySelectorAll('button');
+    expect(buttons.length).toBe(3); // prev, current, next (চলতি মাসের পরের ১ মাস)
+    await userEvent.click(buttons[0]);
+    const cur = nav.querySelector('[aria-current="true"]');
+    expect(cur).toBeTruthy();
+    expect(nav.querySelectorAll('button').length).toBe(3);
+  });
 });

@@ -22,3 +22,43 @@ export function budgetPace(budgetMinor: number, spentMinor: number, month: strin
   const expectedSpentMinor = Math.round((budgetMinor * elapsed) / totalDays);
   return { expectedSpentMinor, paceStatus: spentMinor > expectedSpentMinor ? 'ahead' : 'on-track' };
 }
+
+export interface MonthSpendStats {
+  /** আজ পর্যন্ত কত দিন গেছে (চলতি মাসে আজকেরটা সহ; অতীত মাসে পুরো মাস; ভবিষ্যৎ মাসে ০) */
+  elapsedDays: number;
+  daysLeft: number;
+  /** ব্যয় ÷ elapsedDays (elapsedDays=০ হলে ০) */
+  avgPerDayMinor: number;
+  /** এখনকার গতিতে মাস-শেষের আনুমানিক ব্যয় — শুধু চলতি মাসে */
+  forecastMinor: number | null;
+  /** বাকি বাজেট ÷ বাকি দিন — শুধু চলতি মাসে, বাজেটের মধ্যে থাকলে, daysLeft > 0 হলে */
+  safePerDayMinor: number | null;
+}
+
+/** Home "Monthly target" কার্ডের Avg/Safe/Forecast — pure, কোনো store/query নেই (শুধু বিদ্যমান মাসের ব্যয় থেকে)। */
+export function monthSpendStats(spentMinor: number, budgetMinor: number, month: string, todayDhaka: string): MonthSpendStats {
+  const totalDays = daysInMonth(month);
+  const nowMonth = todayDhaka.slice(0, 7);
+  if (month > nowMonth) {
+    return { elapsedDays: 0, daysLeft: totalDays, avgPerDayMinor: 0, forecastMinor: null, safePerDayMinor: null };
+  }
+  if (month < nowMonth) {
+    return {
+      elapsedDays: totalDays,
+      daysLeft: 0,
+      avgPerDayMinor: Math.round(spentMinor / totalDays),
+      forecastMinor: null,
+      safePerDayMinor: null,
+    };
+  }
+  const elapsed = Math.min(Math.max(dayOfMonth(todayDhaka), 1), totalDays);
+  const daysLeft = totalDays - elapsed;
+  const remaining = budgetMinor - spentMinor;
+  return {
+    elapsedDays: elapsed,
+    daysLeft,
+    avgPerDayMinor: Math.round(spentMinor / elapsed),
+    forecastMinor: Math.round((spentMinor / elapsed) * totalDays),
+    safePerDayMinor: remaining > 0 && daysLeft > 0 ? Math.round(remaining / daysLeft) : null,
+  };
+}
