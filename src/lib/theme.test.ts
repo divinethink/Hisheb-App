@@ -15,12 +15,13 @@ describe('theme', () => {
     expect(normalizeAccent('pink')).toBe('blue');
     expect(normalizeAccent(null)).toBe('blue');
   });
-  it('পূর্ণ থিম-id চেনা যায়, tone আছে, সাত থিম', () => {
-    expect(THEMES).toHaveLength(7);
+  it('পূর্ণ থিম-id চেনা যায়, tone আছে, পাঁচ থিম', () => {
+    expect(THEMES).toHaveLength(5);
     expect(normalizeAccent('bull')).toBe('bull');
-    expect(findTheme('gold')?.tone).toBe('dark');
+    expect(findTheme('bull')?.tone).toBe('dark');
+    expect(findTheme('gold')).toBeNull(); // বাদ-দেওয়া থিম → সাধারণ accent-fallback
     expect(findTheme('treasury')?.tone).toBe('light');
     expect(findTheme('blue')).toBeNull();
-    expect(new Set(THEMES.map((t) => t.id)).size).toBe(7);
+    expect(new Set(THEMES.map((t) => t.id)).size).toBe(5);
   });
 });

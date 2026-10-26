@@ -17,16 +17,14 @@ export const ACCENTS: readonly { id: AccentId; label: string }[] = [
 ];
 
 /** পূর্ণ-প্যালেট থিম (settings.themeColor-এ থিম-id সংরক্ষিত — schema বদল নেই)। থিম নিজেই Light/Dark ঠিক করে (`tone`)। */
-export type ThemeId = 'treasury' | 'bull' | 'ledger' | 'gold' | 'terracotta-cream' | 'nord-frost' | 'slate';
+export type ThemeId = 'treasury' | 'bull' | 'ledger' | 'terracotta-cream' | 'nord-frost';
 
 export const THEMES: readonly { id: ThemeId; label: string; tone: 'light' | 'dark'; hint: string }[] = [
   { id: 'treasury', label: 'Treasury', tone: 'light', hint: 'Green, cream & gold' },
   { id: 'bull', label: 'Bull Market', tone: 'dark', hint: 'Black with neon green' },
-  { id: 'ledger', label: 'Ledger Paper', tone: 'light', hint: 'Cream paper, ink text' },
-  { id: 'gold', label: 'Gold Reserve', tone: 'dark', hint: 'Navy & gold' },
+  { id: 'ledger', label: 'Ledger Paper', tone: 'light', hint: 'Teal-grey, ink text' },
   { id: 'terracotta-cream', label: 'Terracotta Cream', tone: 'light', hint: 'Warm clay & cream' },
   { id: 'nord-frost', label: 'Nord Frost', tone: 'light', hint: 'Calm blue-grey' },
-  { id: 'slate', label: 'Slate Pro', tone: 'light', hint: 'Grey & blue, report style' },
 ];
 
 export function findTheme(v: string | null | undefined) {

@@ -31,7 +31,7 @@ export default function AppearanceScreen({ uid, onClose }: { uid: string; onClos
           Themes
         </h2>
         <p className="mt-1 text-xs text-muted">A theme changes the whole palette — and sets its own Light/Dark.</p>
-        <div role="radiogroup" aria-labelledby="theme-h" className="mt-2 grid grid-cols-2 gap-3">
+        <div role="radiogroup" aria-labelledby="theme-h" className="mt-2 grid grid-cols-2 gap-2">
           {THEMES.map((t) => {
             const on = themeId === t.id;
             return (
@@ -42,44 +42,23 @@ export default function AppearanceScreen({ uid, onClose }: { uid: string; onClos
                 aria-checked={on}
                 aria-label={`${t.label} (${t.tone})`}
                 onClick={() => void updateSettings(uid, { themeColor: t.id })}
-                className={`rounded-xl border-2 p-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                className={`flex min-h-14 items-center gap-2 rounded-xl border-2 px-2 py-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                   on ? 'border-primary' : 'border-muted/30'
                 }`}
               >
-                {/* data-theme element-scoped: preview সেই থিমের নিজস্ব রঙে (hard-coded hex নেই) */}
-                <div data-theme={t.id} className="rounded-lg bg-page p-2 text-fg" aria-hidden="true">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded-full bg-primary" />
-                    <span className="h-1.5 w-12 rounded bg-fg/70" />
-                  </div>
-                  <div className="mt-2 rounded-md bg-canvas p-1.5">
-                    <div className="flex justify-between text-[10px] font-semibold">
-                      <span className="text-income">+৳42,008</span>
-                      <span className="text-expense">−৳60</span>
-                    </div>
-                    <div className="mt-1.5 h-1.5 rounded-full bg-muted/25">
-                      <div className="h-1.5 w-2/3 rounded-full bg-primary" />
-                    </div>
-                    <div className="mt-1.5 flex gap-1">
-                      <span className="h-1.5 w-4 rounded-full bg-chart1" />
-                      <span className="h-1.5 w-4 rounded-full bg-chart2" />
-                      <span className="h-1.5 w-4 rounded-full bg-chart3" />
-                      <span className="h-1.5 w-4 rounded-full bg-chart4" />
-                    </div>
-                  </div>
-                  <div className="mt-2 flex justify-end">
-                    <span className="h-4 w-4 rounded-full bg-primary" />
-                  </div>
-                </div>
-                <div className="px-1 pb-0.5 pt-1.5">
-                  <div className={`text-sm ${on ? 'font-semibold text-primary' : 'font-medium text-fg'}`}>
+                {/* data-theme element-scoped: তিন রঙের ফোঁটা (পেজ/কার্ড/মূল রং) সেই থিমের নিজস্ব রঙে */}
+                <span data-theme={t.id} className="flex shrink-0 -space-x-1.5" aria-hidden="true">
+                  <span className="h-6 w-6 rounded-full border border-muted/30 bg-page" />
+                  <span className="h-6 w-6 rounded-full border border-muted/30 bg-canvas" />
+                  <span className="h-6 w-6 rounded-full bg-primary" />
+                </span>
+                <span className="min-w-0">
+                  <span className={`block truncate text-sm ${on ? 'font-semibold text-primary' : 'font-medium text-fg'}`}>
                     {on ? '✓ ' : ''}
                     {t.label}
-                  </div>
-                  <div className="text-[11px] text-muted">
-                    {t.tone === 'dark' ? 'Dark' : 'Light'} · {t.hint}
-                  </div>
-                </div>
+                  </span>
+                  <span className="block text-[11px] text-muted">{t.tone === 'dark' ? 'Dark' : 'Light'}</span>
+                </span>
               </button>
             );
           })}
