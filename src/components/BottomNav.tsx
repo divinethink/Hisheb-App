@@ -15,8 +15,9 @@ export default function BottomNav({ active, onChange }: { active: TabId; onChang
   return (
     <nav
       aria-label="Main"
-      className="grid shrink-0 grid-cols-5 border-t border-muted/10 bg-canvas"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      className="grid shrink-0 grid-cols-5 border-t border-muted/10"
+      // থিম ঐচ্ছিক --nav-* টোকেন বসালে সেটা, নইলে আগের canvas/muted/primary (অন্য থিমে চেহারা অপরিবর্তিত)
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)', background: 'rgb(var(--nav-bg, var(--color-canvas)))' }}
     >
       {TABS.map(({ id, label, Icon }) => {
         const on = id === active;
@@ -26,11 +27,15 @@ export default function BottomNav({ active, onChange }: { active: TabId; onChang
             type="button"
             aria-current={on ? 'page' : undefined}
             onClick={() => onChange(id)}
+            style={{ color: on ? 'rgb(var(--nav-fg-active, var(--color-primary)))' : 'rgb(var(--nav-fg, var(--color-muted)))' }}
             className={`flex min-h-14 flex-col items-center justify-center gap-0.5 py-1.5 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
-              on ? 'font-semibold text-primary' : 'text-muted'
+              on ? 'font-semibold' : ''
             }`}
           >
-            <span className={`flex items-center justify-center rounded-full px-3.5 py-1 ${on ? 'bg-primary/10' : ''}`}>
+            <span
+              className="flex items-center justify-center rounded-full px-3.5 py-1"
+              style={on ? { background: 'rgb(var(--nav-pill, var(--color-primary) / 0.1))' } : undefined}
+            >
               <Icon aria-hidden size={21} strokeWidth={on ? 2.4 : 1.75} />
             </span>
             {label}

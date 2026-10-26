@@ -230,16 +230,18 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
                           key={c.categoryId}
                           type="button"
                           onClick={() => setChipFilter((cur) => (cur === c.categoryId ? null : c.categoryId))}
-                          style={active ? undefined : { background: tint.bg }}
+                          style={active ? undefined : { background: `var(--chip-bg, ${tint.bg})` }}
                           className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs ${
                             active ? 'border-primary bg-primary/10 text-primary' : 'border-transparent text-fg'
                           }`}
                         >
                           <CategoryIcon name={c.name} icon={c.icon} color={c.color} size={20} />
-                          <span className="max-w-[6rem] truncate" style={active ? undefined : { color: tint.fg }}>
+                          <span className="max-w-[6rem] truncate" style={active ? undefined : { color: `var(--chip-fg, ${tint.fg})` }}>
                             {c.name}
                           </span>
-                          <span className="font-medium text-fg">{formatAmount(c.amountMinor)}</span>
+                          <span className="font-medium text-fg" style={active ? undefined : { color: 'var(--chip-fg, rgb(var(--color-fg)))' }}>
+                            {formatAmount(c.amountMinor)}
+                          </span>
                         </button>
                       );
                     })}

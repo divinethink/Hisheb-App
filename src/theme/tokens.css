@@ -93,6 +93,7 @@
 
 /* ── পূর্ণ-প্যালেট থিম (ফাইলের শেষে — সমান specificity-তে mode-নিয়মের ওপর জেতে)।
    প্রতিটা থিম পুরো প্যালেট বদলায়: page/card/লেখা/আয়-ব্যয়/warning/chart। থিম নিজেই Light/Dark (applyTheme data-mode বসায়)।
+   ঐচ্ছিক টোকেন (থিম চাইলে বসায়; না থাকলে আগের চেহারাই): --nav-bg/--nav-fg/--nav-fg-active/--nav-pill (Bottom Nav), --chip-bg/--chip-fg (Home top-category chip)।
    [data-theme] যেকোনো element-এ কাজ করে — Appearance স্ক্রিনের preview-card এই element-scoped রূপই ব্যবহার করে। ── */
 [data-theme='treasury'] {
   color-scheme: light;
@@ -159,16 +160,16 @@
 }
 [data-theme='terracotta-cream'] {
   color-scheme: light;
-  --color-primary: 120 44 20;
-  --color-canvas: 253 246 239;
-  --color-surface: 242 208 186;
-  --color-fg: 48 28 18;
-  --color-muted: 92 58 42;
-  --color-income: 28 86 46;
-  --color-expense: 150 24 24;
+  --color-primary: 170 72 38;
+  --color-canvas: 255 250 245;
+  --color-surface: 246 220 203;
+  --color-fg: 58 34 24;
+  --color-muted: 122 84 68;
+  --color-income: 46 107 67;
+  --color-expense: 168 42 42;
   --color-warning: 146 90 8;
   --color-danger: 190 60 12;
-  --color-page: 232 182 158;
+  --color-page: 248 239 230;
   --chart-1: 160 68 38;
   --chart-2: 160 106 20;
   --chart-3: 90 130 80;
@@ -177,6 +178,12 @@
   --chart-6: 120 90 60;
   --chart-7: 190 100 60;
   --chart-8: 60 120 120;
+  --nav-bg: 170 72 38;
+  --nav-fg: 255 244 236;
+  --nav-fg-active: 255 255 255;
+  --nav-pill: 255 255 255 / 0.22;
+  --chip-bg: rgb(170 72 38);
+  --chip-fg: rgb(255 255 255);
 }
 [data-theme='nord-frost'] {
   color-scheme: light;
