@@ -1,7 +1,7 @@
 // Pure theme logic (platform-independent, DOM-মুক্ত) — Architecture Plan §৬, UI Mockup §৮.৫।
 export type DisplayMode = 'light' | 'dark' | 'sepia' | 'system';
 export type ResolvedMode = 'light' | 'dark' | 'sepia';
-export type AccentId = 'blue' | 'green' | 'purple' | 'orange' | 'teal' | 'rose';
+export type AccentId = 'blue' | 'green' | 'purple' | 'orange' | 'teal' | 'rose' | 'terracotta' | 'nord' | 'olive' | 'mocha';
 
 export const ACCENTS: readonly { id: AccentId; label: string }[] = [
   { id: 'blue', label: 'Blue' },
@@ -10,6 +10,10 @@ export const ACCENTS: readonly { id: AccentId; label: string }[] = [
   { id: 'orange', label: 'Orange' },
   { id: 'teal', label: 'Teal' },
   { id: 'rose', label: 'Rose' },
+  { id: 'terracotta', label: 'Terracotta' },
+  { id: 'nord', label: 'Nord' },
+  { id: 'olive', label: 'Olive' },
+  { id: 'mocha', label: 'Mocha' },
 ];
 
 export function resolveMode(mode: DisplayMode, systemPrefersDark: boolean): ResolvedMode {

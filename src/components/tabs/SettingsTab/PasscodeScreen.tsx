@@ -116,15 +116,16 @@ export default function PasscodeScreen({ onClose }: { onClose: () => void }) {
                   <LockKeyhole aria-hidden size={19} className="text-primary" />
                   <span className="flex-1">Lock now</span>
                 </button>
-                {bioSupported && (
-                  <button type="button" role="switch" aria-checked={bioOn} disabled={busy} className={`${rowCls} border-t border-muted/10 disabled:opacity-60`} onClick={() => void toggleBio()}>
-                    <Fingerprint aria-hidden size={19} className="text-primary" />
-                    <span className="flex-1">Fingerprint / face unlock</span>
-                    <span aria-hidden className={`relative inline-block h-6 w-10 rounded-full ${bioOn ? 'bg-primary' : 'bg-muted/30'}`}>
-                      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-canvas shadow transition-all ${bioOn ? 'left-[18px]' : 'left-0.5'}`} />
-                    </span>
-                  </button>
-                )}
+                <button type="button" role="switch" aria-checked={bioOn} disabled={busy || !bioSupported} className={`${rowCls} border-t border-muted/10 disabled:opacity-60`} onClick={() => void toggleBio()}>
+                  <Fingerprint aria-hidden size={19} className="text-primary" />
+                  <span className="flex-1">
+                    Fingerprint / face unlock
+                    {!bioSupported && <span className="block text-xs text-muted">Not available on this device or browser</span>}
+                  </span>
+                  <span aria-hidden className={`relative inline-block h-6 w-10 rounded-full ${bioOn ? 'bg-primary' : 'bg-muted/30'}`}>
+                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-canvas shadow transition-all ${bioOn ? 'left-[18px]' : 'left-0.5'}`} />
+                  </span>
+                </button>
                 <button type="button" className={`${rowCls} border-t border-muted/10`} onClick={() => { setNotice(null); go({ k: 'verify', then: 'change' }); }}>
                   <KeyRound aria-hidden size={19} className="text-muted" />
                   <span className="flex-1">Change passcode</span>
@@ -136,6 +137,7 @@ export default function PasscodeScreen({ onClose }: { onClose: () => void }) {
               </>
             )}
           </Card>
+          {!has && <p className="mt-3 text-xs text-muted">Fingerprint / face unlock appears here after you set a passcode.</p>}
         </>
       )}
       {step.k === 'verify' && (

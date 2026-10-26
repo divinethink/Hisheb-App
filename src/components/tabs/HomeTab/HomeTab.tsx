@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Bell, ChevronLeft, ChevronRight, Plus, Search, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
+import Logo from '../../common/Logo';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
@@ -117,7 +118,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
     <div className="relative h-full">
       <div className="h-full overflow-y-auto pb-24">
         <header className="flex items-center justify-between px-4 pb-2 pt-3">
-          <h1 className="text-lg font-semibold text-fg">হিসাব-নিকাশ</h1>
+          <h1 className="flex items-center gap-2 text-lg font-semibold text-fg"><Logo size={28} />হিসাব-নিকাশ</h1>
           {/* item ৬ (UI Polish): cloud sync-status icon সরানো হলো — OfflineBanner (AppShell, সব
               ট্যাবে global) ইতিমধ্যে এই একই তথ্য টেক্সটসহ দেখায়, তাই এখানে duplicate ছিল।
               Search/Bell আপাতত header-এ visual placement মাত্র (mockup-parity) — কোনো নতুন

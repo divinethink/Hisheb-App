@@ -33,6 +33,10 @@
 [data-theme='orange'] { --color-primary: 234 88 12; }
 [data-theme='teal'] { --color-primary: 13 148 136; }
 [data-theme='rose'] { --color-primary: 225 29 72; }
+[data-theme='terracotta'] { --color-primary: 184 80 52; }
+[data-theme='nord'] { --color-primary: 67 103 145; }
+[data-theme='olive'] { --color-primary: 101 120 52; }
+[data-theme='mocha'] { --color-primary: 133 92 65; }
 
 /* Sepia mode: কাগজের মতো উষ্ণ, চোখে আরাম — Light-এর ওপর ভিত্তি (accent-রং Light-এরই), শুধু ব্যাকগ্রাউন্ড/টেক্সট উষ্ণ।
    Contrast: fg ও muted দুটোই card/page-এ AA-র কাছাকাছি বা বেশি। */
@@ -56,6 +60,10 @@
 [data-mode='sepia'][data-theme='orange'], [data-mode='sepia'] [data-theme='orange'] { --color-primary: 194 65 12; }
 [data-mode='sepia'][data-theme='teal'], [data-mode='sepia'] [data-theme='teal'] { --color-primary: 15 118 110; }
 [data-mode='sepia'][data-theme='rose'], [data-mode='sepia'] [data-theme='rose'] { --color-primary: 190 18 60; }
+[data-mode='sepia'][data-theme='terracotta'], [data-mode='sepia'] [data-theme='terracotta'] { --color-primary: 160 66 40; }
+[data-mode='sepia'][data-theme='nord'], [data-mode='sepia'] [data-theme='nord'] { --color-primary: 52 84 122; }
+[data-mode='sepia'][data-theme='olive'], [data-mode='sepia'] [data-theme='olive'] { --color-primary: 80 98 38; }
+[data-mode='sepia'][data-theme='mocha'], [data-mode='sepia'] [data-theme='mocha'] { --color-primary: 110 72 48; }
 
 /* Dark mode: pure black (#000) না, dark-gray base (UI Mockup §০ eye-comfort)।
    Accent dark-এ হালকা করা — dark canvas-এর ওপর text-primary ও (text-canvas সহ) bg-primary বাটনের contrast ঠিক রাখতে। */
@@ -78,3 +86,7 @@
 [data-mode='dark'][data-theme='orange'], [data-mode='dark'] [data-theme='orange'] { --color-primary: 251 146 60; }
 [data-mode='dark'][data-theme='teal'], [data-mode='dark'] [data-theme='teal'] { --color-primary: 45 212 191; }
 [data-mode='dark'][data-theme='rose'], [data-mode='dark'] [data-theme='rose'] { --color-primary: 251 113 133; }
+[data-mode='dark'][data-theme='terracotta'], [data-mode='dark'] [data-theme='terracotta'] { --color-primary: 232 140 108; }
+[data-mode='dark'][data-theme='nord'], [data-mode='dark'] [data-theme='nord'] { --color-primary: 136 170 208; }
+[data-mode='dark'][data-theme='olive'], [data-mode='dark'] [data-theme='olive'] { --color-primary: 168 188 100; }
+[data-mode='dark'][data-theme='mocha'], [data-mode='dark'] [data-theme='mocha'] { --color-primary: 205 160 125; }
