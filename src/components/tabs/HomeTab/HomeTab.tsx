@@ -279,54 +279,54 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
                 </button>
               </div>
             ) : (
-              <div className="mt-4 flex flex-col gap-3 px-4">
+              <div className="mt-4 flex flex-col gap-1 px-4">
                 {groups.map((g) => (
-                  <Card as="section" key={g.date} ariaLabel={dateLabel(g.date, today)} className="overflow-hidden">
-                    <h2 className="flex justify-between px-4 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted">
+                  <section key={g.date} aria-label={dateLabel(g.date, today)} className="mb-2">
+                    <h2 className="flex justify-between px-2 pb-1 pt-1 text-xs font-medium text-muted">
                       <span>{dateLabel(g.date, today)}</span>
-                      <span>{formatNet(g.netMinor)}</span>
+                      {g.txs.length > 1 && <span>{formatNet(g.netMinor)}</span>}
                     </h2>
-                    <ul>
-                      {g.txs.map((t) => (
-                        <li key={t.id} className="relative border-t border-muted/10 first:border-t-0">
-                          <span
-                            aria-hidden
-                            className={`absolute inset-y-0 left-0 w-[3px] ${t.type === 'expense' ? 'bg-expense' : 'bg-income'}`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setSheet({ initial: t })}
-                            className="flex min-h-16 w-full items-center gap-3 py-2.5 pl-5 pr-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                          >
-                            <CategoryIcon
-                              name={t.categoryName}
-                              icon={catById.get(t.categoryId)?.icon ?? getCategoryIcon(t.categoryName, t.type)}
-                              color={catById.get(t.categoryId)?.color}
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-fg">{t.categoryName}</span>
-                              {t.note && <span className="block truncate text-xs text-muted">{t.note}</span>}
-                              {t.labelNames.length > 0 && (
-                                <span className="mt-0.5 flex gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                                  {t.labelNames.map((name) => (
-                                    <span
-                                      key={name}
-                                      className="shrink-0 rounded-full bg-muted/15 px-2 py-0.5 text-[11px] leading-4 text-muted"
-                                    >
-                                      {name}
-                                    </span>
-                                  ))}
-                                </span>
-                              )}
-                            </span>
-                            <span className={`shrink-0 self-start font-medium ${t.type === 'expense' ? 'text-expense' : 'text-income'}`}>
-                              {formatSigned(t.amountMinor, t.type)}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
+                    <Card className="overflow-hidden">
+                      <ul>
+                        {g.txs.map((t) => (
+                          <li key={t.id} className="border-t border-muted/10 first:border-t-0">
+                            <button
+                              type="button"
+                              onClick={() => setSheet({ initial: t })}
+                              className="flex min-h-12 w-full items-center gap-3 py-1.5 pl-3 pr-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                            >
+                              <CategoryIcon
+                                vivid
+                                size={32}
+                                name={t.categoryName}
+                                icon={catById.get(t.categoryId)?.icon ?? getCategoryIcon(t.categoryName, t.type)}
+                                color={catById.get(t.categoryId)?.color}
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm text-fg">{t.categoryName}</span>
+                                {t.note && <span className="block truncate text-xs text-muted">{t.note}</span>}
+                                {t.labelNames.length > 0 && (
+                                  <span className="mt-0.5 flex gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                                    {t.labelNames.map((name) => (
+                                      <span
+                                        key={name}
+                                        className="shrink-0 rounded-full bg-muted/15 px-2 py-0.5 text-[11px] leading-4 text-muted"
+                                      >
+                                        {name}
+                                      </span>
+                                    ))}
+                                  </span>
+                                )}
+                              </span>
+                              <span className={`shrink-0 self-start text-sm font-medium ${t.type === 'expense' ? 'text-expense' : 'text-income'}`}>
+                                {formatSigned(t.amountMinor, t.type)}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  </section>
                 ))}
               </div>
             )}

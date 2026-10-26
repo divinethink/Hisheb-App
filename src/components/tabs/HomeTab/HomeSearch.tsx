@@ -80,6 +80,7 @@ export default function HomeSearch({
                     className="flex min-h-14 w-full items-center gap-3 py-2 pl-5 pr-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                   >
                     <CategoryIcon
+                      vivid
                       name={t.categoryName}
                       icon={catById.get(t.categoryId)?.icon ?? getCategoryIcon(t.categoryName, t.type)}
                       color={catById.get(t.categoryId)?.color}
