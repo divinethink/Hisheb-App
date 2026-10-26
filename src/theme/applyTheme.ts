@@ -1,7 +1,7 @@
 // DOM-সাইড theme প্রয়োগ (lib/ না — DOM ধরে)। Accent ও Mode স্বতন্ত্র attribute (Architecture Plan §৬)।
 // localStorage-এ শুধু non-critical UI-পছন্দ (mode+accent) cache — প্রথম paint-এর আগে ঠিক রঙ বসাতে (dark-user-এর light-flash এড়াতে)।
 // আসল সোর্স Firestore `settings`; critical ডেটা কখনো localStorage-এ না (Architecture Plan §৯ item ৩)।
-import { normalizeAccent, resolveMode, type DisplayMode } from '../lib/theme';
+import { findTheme, normalizeAccent, resolveMode, type DisplayMode } from '../lib/theme';
 
 const CACHE_KEY = 'hn.theme.v1';
 let current: { mode: DisplayMode; accent: string } = { mode: 'system', accent: 'blue' };
@@ -10,7 +10,9 @@ let mq: MediaQueryList | null = null;
 function paint() {
   const root = document.documentElement;
   const dark = mq?.matches ?? false;
-  root.dataset.mode = resolveMode(current.mode, dark);
+  // পূর্ণ থিম হলে থিমই Light/Dark ঠিক করে (Display Mode উপেক্ষিত); নইলে আগের মতো mode + accent
+  const full = findTheme(current.accent);
+  root.dataset.mode = full ? full.tone : resolveMode(current.mode, dark);
   root.dataset.theme = normalizeAccent(current.accent);
   // browser chrome রং = canvas token (hard-coded hex না)
   const rgb = getComputedStyle(root).getPropertyValue('--color-canvas').trim().split(/\s+/);

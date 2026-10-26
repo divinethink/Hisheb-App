@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeAccent, resolveMode } from './theme';
+import { THEMES, findTheme, normalizeAccent, resolveMode } from './theme';
 
 describe('theme', () => {
   it('system OS-সেটিং অনুসরণ করে, explicit মোড অগ্রাধিকার পায়', () => {
@@ -14,5 +14,13 @@ describe('theme', () => {
     expect(normalizeAccent('teal')).toBe('teal');
     expect(normalizeAccent('pink')).toBe('blue');
     expect(normalizeAccent(null)).toBe('blue');
+  });
+  it('পূর্ণ থিম-id চেনা যায়, tone আছে, সাত থিম', () => {
+    expect(THEMES).toHaveLength(7);
+    expect(normalizeAccent('bull')).toBe('bull');
+    expect(findTheme('gold')?.tone).toBe('dark');
+    expect(findTheme('treasury')?.tone).toBe('light');
+    expect(findTheme('blue')).toBeNull();
+    expect(new Set(THEMES.map((t) => t.id)).size).toBe(7);
   });
 });

@@ -28,6 +28,7 @@ import { useHasPasscode } from '../../../hooks/useAppLock';
 import { updateSettings } from '../../../data/settingsRepo';
 import { useInstallPrompt } from '../../../pwa/install';
 import { formatTaka } from '../../../lib/format';
+import { findTheme } from '../../../lib/theme';
 
 // papaparse/xlsx ভারী বলে দরকার হওয়ার আগ পর্যন্ত লোড হয় না (dynamic import, Roadmap §৮ item ১)
 const ImportCsv = lazy(() => import('./ImportCsv'));
@@ -106,7 +107,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
   const budget = s?.overallMonthlyBudgetMinor ?? null;
   const threshold = s?.largeAmountWarningThresholdMinor ?? null;
   const remindersOn = s?.reminderEnabled ?? true;
-  const modeLabel = MODE_LABEL[s?.displayMode ?? 'system'];
+  const modeLabel = findTheme(s?.themeColor)?.label ?? MODE_LABEL[s?.displayMode ?? 'system'];
   const name = user.displayName ?? 'Your Google account';
   const initial = (user.displayName ?? user.email ?? '?').trim().charAt(0).toUpperCase();
 
