@@ -46,6 +46,14 @@ describe('appLock store', () => {
     expect(a.lockoutRemainingMs(t0 + 31_000)).toBe(0);
   });
 
+  it('PIN মুছলে বায়োমেট্রিকও মোছে (PIN ছাড়া বায়োমেট্রিক-আনলক নেই)', async () => {
+    const a = await fresh();
+    await a.setPasscode('1234');
+    localStorage.setItem('hn.biometric.v1', 'abc');
+    a.clearPasscode();
+    expect(localStorage.getItem('hn.biometric.v1')).toBeNull();
+  });
+
   it('PIN বন্ধ করলে আর লক নেই', async () => {
     const a = await fresh();
     await a.setPasscode('1234');

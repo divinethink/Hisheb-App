@@ -1,5 +1,6 @@
 // App Lock স্টোর — শুধু এই ডিভাইসে (localStorage): PIN-এর salt+hash ও ভুল-চেষ্টার গণনা। PIN/ডেটা Firestore-এ যায় না।
 // (localStorage-এ আর্থিক ডেটা না — Architecture Plan §৯ item ৩; এখানে শুধু একমুখী hash।)
+import { disableBiometric, hasBiometric, verifyBiometric } from './biometric';
 import { hashPin, isValidPin, newSaltB64, PBKDF2_ITERATIONS, safeEqual } from '../lib/passcode';
 
 const KEY = 'hn.applock.v1';
@@ -88,6 +89,7 @@ export function clearPasscode(): void {
   } catch {
     /* ignore */
   }
+  disableBiometric(); // PIN ছাড়া বায়োমেট্রিক-আনলক থাকে না
   locked = false;
   emit();
 }
@@ -123,4 +125,15 @@ export async function unlock(pin: string, now: number = Date.now()): Promise<Try
     emit();
   }
   return r;
+}
+
+/** লক-স্ক্রিন থেকে: বায়োমেট্রিক সেট থাকলে ফোনের যাচাই; সফল হলে লক খোলে (ব্যর্থ হলে PIN) */
+export async function unlockWithBiometric(): Promise<boolean> {
+  if (!hasPasscode() || !hasBiometric()) return false;
+  const ok = await verifyBiometric();
+  if (ok) {
+    locked = false;
+    emit();
+  }
+  return ok;
 }

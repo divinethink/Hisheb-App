@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Lock, LockKeyhole, ShieldOff, KeyRound } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Lock, LockKeyhole, ShieldOff, KeyRound, Fingerprint } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import PinPad from '../../common/PinPad';
 import Card from '../../common/Card';
 import { useHasPasscode } from '../../../hooks/useAppLock';
+import { biometricSupported, disableBiometric, enableBiometric, hasBiometric } from '../../../pwa/biometric';
 import { clearPasscode, lockNow, lockoutRemainingMs, setPasscode, tryPasscode } from '../../../pwa/appLock';
 
 type Step = { k: 'home' } | { k: 'verify'; then: 'change' | 'off' } | { k: 'new' } | { k: 'confirm'; first: string };
@@ -15,6 +16,33 @@ export default function PasscodeScreen({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bioSupported, setBioSupported] = useState(false);
+  const [bioOn, setBioOn] = useState(() => hasBiometric());
+  useEffect(() => {
+    let alive = true;
+    void biometricSupported().then((ok) => alive && setBioSupported(ok));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function toggleBio() {
+    if (busy) return;
+    setNotice(null);
+    if (bioOn) {
+      disableBiometric();
+      setBioOn(false);
+      return;
+    }
+    setBusy(true);
+    try {
+      const ok = await enableBiometric();
+      setBioOn(ok);
+      setNotice(ok ? 'Fingerprint unlock is on. Your passcode still works as a backup.' : 'Couldn’t set up fingerprint on this device. You can keep using the passcode.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const go = (s: Step) => {
     setError(null);
@@ -29,6 +57,7 @@ export default function PasscodeScreen({ onClose }: { onClose: () => void }) {
       if (r === 'ok') {
         if (then === 'off') {
           clearPasscode();
+          setBioOn(false);
           setNotice('Passcode turned off.');
           go({ k: 'home' });
         } else {
@@ -87,6 +116,15 @@ export default function PasscodeScreen({ onClose }: { onClose: () => void }) {
                   <LockKeyhole aria-hidden size={19} className="text-primary" />
                   <span className="flex-1">Lock now</span>
                 </button>
+                {bioSupported && (
+                  <button type="button" role="switch" aria-checked={bioOn} disabled={busy} className={`${rowCls} border-t border-muted/10 disabled:opacity-60`} onClick={() => void toggleBio()}>
+                    <Fingerprint aria-hidden size={19} className="text-primary" />
+                    <span className="flex-1">Fingerprint / face unlock</span>
+                    <span aria-hidden className={`relative inline-block h-6 w-10 rounded-full ${bioOn ? 'bg-primary' : 'bg-muted/30'}`}>
+                      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-canvas shadow transition-all ${bioOn ? 'left-[18px]' : 'left-0.5'}`} />
+                    </span>
+                  </button>
+                )}
                 <button type="button" className={`${rowCls} border-t border-muted/10`} onClick={() => { setNotice(null); go({ k: 'verify', then: 'change' }); }}>
                   <KeyRound aria-hidden size={19} className="text-muted" />
                   <span className="flex-1">Change passcode</span>

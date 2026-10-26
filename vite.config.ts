@@ -17,8 +17,8 @@ export default defineConfig({
         name: 'হিসাব-নিকাশ',
         short_name: 'হিসাব-নিকাশ',
         description: 'Personal finance tracker',
-        theme_color: '#2563eb',
-        background_color: '#ffffff',
+        theme_color: '#14532d',
+        background_color: '#14532d',
         display: 'standalone',
         start_url: '/',
         icons: [

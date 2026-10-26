@@ -1,15 +1,23 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Lock } from 'lucide-react';
+import { Fingerprint } from 'lucide-react';
+import Logo from './common/Logo';
 import PinPad from './common/PinPad';
 import { useAuth } from '../auth/AuthProvider';
 import { useAppLocked, useAutoLock } from '../hooks/useAppLock';
-import { clearPasscode, lockoutRemainingMs, unlock } from '../pwa/appLock';
+import { clearPasscode, lockoutRemainingMs, unlock, unlockWithBiometric } from '../pwa/appLock';
+import { hasBiometric } from '../pwa/biometric';
 
 function LockScreen() {
   const { signOut } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(() => Math.ceil(lockoutRemainingMs() / 1000));
   const [confirmOut, setConfirmOut] = useState(false);
+  const bio = hasBiometric();
+
+  // বায়োমেট্রিক সেট থাকলে লক-স্ক্রিন দেখানোর সাথে একবার নিজে থেকে প্রম্পট; বাতিল হলে PIN-প্যাড থাকে
+  useEffect(() => {
+    if (bio) void unlockWithBiometric();
+  }, [bio]);
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -32,7 +40,7 @@ function LockScreen() {
       className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-canvas px-6 text-fg"
       style={{ paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <Lock aria-hidden size={28} className="mb-3 text-primary" />
+      <Logo size={56} className="mb-4" />
       <PinPad
         title="Enter passcode"
         subtitle={wait > 0 ? `Too many attempts. Try again in ${wait}s.` : undefined}
@@ -40,6 +48,15 @@ function LockScreen() {
         disabled={wait > 0}
         onComplete={(pin) => void submit(pin)}
       />
+      {bio && (
+        <button
+          type="button"
+          onClick={() => void unlockWithBiometric()}
+          className="mt-5 flex min-h-11 items-center gap-2 rounded-full border border-muted/30 px-4 text-sm text-fg"
+        >
+          <Fingerprint aria-hidden size={18} className="text-primary" /> Use fingerprint
+        </button>
+      )}
       {!confirmOut ? (
         <button type="button" onClick={() => setConfirmOut(true)} className="mt-6 min-h-11 text-sm text-muted underline">
           Forgot passcode?

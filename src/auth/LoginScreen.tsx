@@ -1,9 +1,11 @@
 import { useAuth } from './AuthProvider';
+import Logo from '../components/common/Logo';
 
 export default function LoginScreen({ restricted = false, error }: { restricted?: boolean; error?: string }) {
   const { signIn } = useAuth();
   return (
     <main className="flex h-full flex-col items-center justify-center gap-6 bg-canvas px-6 text-center">
+      <Logo size={88} />
       <h1 className="text-2xl font-semibold text-fg">হিসাব-নিকাশ</h1>
       {restricted && (
         <p role="alert" className="max-w-xs text-sm text-fg">
