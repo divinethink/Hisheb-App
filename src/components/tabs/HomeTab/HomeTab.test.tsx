@@ -53,7 +53,7 @@ describe('HomeTab', () => {
     render(<HomeTab uid="u1" />);
     expect(screen.getAllByText('BDT 1,62,417').length).toBeGreaterThan(0);
     expect(screen.getAllByText('BDT 42,008').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('−BDT 1,62,417').length).toBe(2); // দিনের net + সারি
+    expect(screen.getAllByText('−BDT 1,62,417').length).toBe(1); // দিনে একটাই লেনদেন হলে তারিখের মোট লুকানো (অঙ্ক দুবার না) — শুধু সারি
     await userEvent.click(screen.getByRole('button', { name: /Rent/ }));
     expect(screen.getByRole('dialog', { name: 'Edit transaction' })).toBeTruthy();
   });
