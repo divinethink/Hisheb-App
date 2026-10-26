@@ -9,14 +9,14 @@ describe('monthSpendStats', () => {
     expect(s.daysLeft).toBe(11);
     expect(s.avgPerDayMinor).toBe(110_000);
     expect(s.forecastMinor).toBe(3_410_000);
-    expect(s.safePerDayMinor).toBe(118_182);
+    expect(s.safePerDayMinor).toBe(118_200);
   });
 
   it('over budget: no safe/day, forecast still shown', () => {
     const s = monthSpendStats(5_862_600, 3_500_000, '2026-10', '2026-10-27');
     expect(s.safePerDayMinor).toBeNull();
     expect(s.daysLeft).toBe(4);
-    expect(s.forecastMinor).toBe(Math.round((5_862_600 / 27) * 31));
+    expect(s.forecastMinor).toBe(6_731_100);
   });
 
   it('last day of month: no safe/day (daysLeft=0)', () => {

@@ -23,6 +23,9 @@ export function budgetPace(budgetMinor: number, spentMinor: number, month: strin
   return { expectedSpentMinor, paceStatus: spentMinor > expectedSpentMinor ? 'ahead' : 'on-track' };
 }
 
+// পুরো টাকায় round (পয়সা দেখানোর দরকার নেই — প্রদর্শনে "BDT 1,182/day"), minor-এ ১০০-র গুণিতক
+const wholeTaka = (minor: number) => Math.round(minor / 100) * 100;
+
 export interface MonthSpendStats {
   /** আজ পর্যন্ত কত দিন গেছে (চলতি মাসে আজকেরটা সহ; অতীত মাসে পুরো মাস; ভবিষ্যৎ মাসে ০) */
   elapsedDays: number;
@@ -46,7 +49,7 @@ export function monthSpendStats(spentMinor: number, budgetMinor: number, month: 
     return {
       elapsedDays: totalDays,
       daysLeft: 0,
-      avgPerDayMinor: Math.round(spentMinor / totalDays),
+      avgPerDayMinor: wholeTaka(spentMinor / totalDays),
       forecastMinor: null,
       safePerDayMinor: null,
     };
@@ -57,8 +60,8 @@ export function monthSpendStats(spentMinor: number, budgetMinor: number, month: 
   return {
     elapsedDays: elapsed,
     daysLeft,
-    avgPerDayMinor: Math.round(spentMinor / elapsed),
-    forecastMinor: Math.round((spentMinor / elapsed) * totalDays),
-    safePerDayMinor: remaining > 0 && daysLeft > 0 ? Math.round(remaining / daysLeft) : null,
+    avgPerDayMinor: wholeTaka(spentMinor / elapsed),
+    forecastMinor: wholeTaka((spentMinor / elapsed) * totalDays),
+    safePerDayMinor: remaining > 0 && daysLeft > 0 ? wholeTaka(remaining / daysLeft) : null,
   };
 }
