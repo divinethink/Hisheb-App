@@ -50,6 +50,16 @@ export async function getAllTransactions(
   return parseTransactions(snap.docs, onInvalid);
 }
 
+/** Home সার্চ: সব মাসের non-deleted লেনদেন, limit ছাড়া। শুধু সার্চ-প্যানেল খোলা থাকলে subscribe হয় (lazy) — হিসাবে ব্যবহৃত নয়। */
+export function subscribeAllTransactions(
+  uid: string,
+  onChange: (txs: Transaction[]) => void,
+  onInvalid?: (id: string, err: unknown) => void,
+  onError?: (err: Error) => void,
+): () => void {
+  return onSnapshot(txCol(uid), (snap) => onChange(parseTransactions(snap.docs, onInvalid)), onError);
+}
+
 /** Cross-check window (P4): যেকোনো YYYY-MM-DD রেঞ্জ, limit ছাড়া (complete aggregation)। */
 export function subscribeTransactionsByRange(
   uid: string,

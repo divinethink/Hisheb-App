@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { subscribeTransactionsByMonth, subscribeTransactionsByRange } from '../data/transactionRepo';
+import { subscribeAllTransactions, subscribeTransactionsByMonth, subscribeTransactionsByRange } from '../data/transactionRepo';
 import { subscribeCategories, subscribeLabels } from '../data/catalogRepo';
 import { subscribeSettings } from '../data/settingsRepo';
 import { subscribeAccounts } from '../data/accountRepo';
@@ -41,6 +41,13 @@ export function useMonthTransactions(uid: string, yyyymm: string) {
     ),
   );
   return { ...q, invalidCount };
+}
+
+/** Home সার্চের জন্য সব মাসের লেনদেন — কেবল HomeSearch mount থাকলে (সার্চ খোলা) subscribe হয় */
+export function useAllTransactions(uid: string) {
+  return useLiveQuery<Transaction[]>(`txall:${uid}`, (onData, onError) =>
+    subscribeAllTransactions(uid, onData, undefined, onError),
+  );
 }
 
 export function useRangeTransactions(uid: string, start: string, end: string) {

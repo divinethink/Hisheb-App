@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bell, ChevronLeft, ChevronRight, Plus, Search, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
+import { Bell, ChevronLeft, ChevronRight, Plus, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
 import Logo from '../../common/Logo';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import Card from '../../common/Card';
@@ -7,6 +7,9 @@ import IconBadge from '../../common/IconBadge';
 import CategoryIcon, { categoryTint } from '../../common/CategoryIcon';
 import BudgetProgressBar from '../../common/BudgetProgressBar';
 import TransactionSheet from './TransactionSheet';
+import HomeSearch from './HomeSearch';
+import { SearchToggle } from '../../common/ListSearch';
+import { useBackClose } from '../../../hooks/useBackClose';
 import { getTransactionsByMonth, restoreTransaction, softDeleteTransaction } from '../../../data/transactionRepo';
 import { useCategories, useLabels, useMonthTransactions, useSettings } from '../../../hooks/useData';
 import { getCategoryIcon } from '../../../lib/categoryIcons';
@@ -47,6 +50,8 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
   const [sheet, setSheet] = useState<{ initial: Transaction | null } | null>(autoOpenAdd ? { initial: null } : null); // G5 shortcut
   const [undoId, setUndoId] = useState<string | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false); // সব-মাস সার্চ
+  useBackClose(() => setSearchOpen(false), searchOpen); // ব্যাক = সার্চ বন্ধ (অ্যাপ নয়)
   const [chipFilter, setChipFilter] = useState<string | null>(null); // item ৪: quick-chip ট্যাপে category-filter
 
   // item ১: আগের মাসের টোটাল — শুধু "vs last month" তুলনার জন্য, one-shot read (existing
@@ -121,13 +126,20 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
           <h1 className="flex items-center gap-2 text-lg font-semibold text-fg"><Logo size={28} />হিসাব-নিকাশ</h1>
           {/* item ৬ (UI Polish): cloud sync-status icon সরানো হলো — OfflineBanner (AppShell, সব
               ট্যাবে global) ইতিমধ্যে এই একই তথ্য টেক্সটসহ দেখায়, তাই এখানে duplicate ছিল।
-              Search/Bell আপাতত header-এ visual placement মাত্র (mockup-parity) — কোনো নতুন
-              search/notification লজিক এই ধাপে যোগ হয়নি, পরে আলাদা approval-এ। */}
-          <div className="flex items-center gap-3">
-            <Search aria-label="Search" size={18} className="text-muted" />
+              Search এখন আসল (owner-approved 2026-10-27): সব মাসে category/note/label/অঙ্ক। Bell আপাতত visual placement মাত্র। */}
+          <div className="flex items-center gap-1">
+            <SearchToggle open={searchOpen} onToggle={() => setSearchOpen((o) => !o)} />
             <Bell aria-label="Reminders" size={18} className="text-muted" />
           </div>
         </header>
+        {searchOpen && (
+          <HomeSearch
+            uid={uid}
+            catById={catById}
+            onPick={(t) => setSheet({ initial: t })}
+          />
+        )}
+        {!searchOpen && (<>
         <div className="mx-4 flex items-center gap-3 py-2">
           <div className="flex shrink-0 items-center gap-0.5">
             <button
@@ -316,6 +328,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
             )}
           </>
         )}
+        </>)}
       </div>
 
       <button
