@@ -32,7 +32,7 @@ export default function MonthSummaryCard({
   const over = hasBudget && expenseMinor > budgetMinor;
   const forecastBad = !!s && s.forecastMinor != null && hasBudget && s.forecastMinor > budgetMinor;
   const negative = savingsMinor < 0;
-  const shortMonth = monthLabel(month).split(' ')[0];
+  const shortMonth = monthLabel(month).split(' ')[0].slice(0, 3);
   const daysLeftText = s && s.daysLeft > 0 && s.forecastMinor != null ? ` · ${s.daysLeft} days left` : '';
 
   // bar: over হলে মোট ব্যয়কে ১০০% ধরে, টিক = target-এর অবস্থান; নইলে bar = ব্যয়/target, টিক ডান প্রান্তে
