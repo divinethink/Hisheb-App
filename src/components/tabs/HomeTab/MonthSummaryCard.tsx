@@ -52,7 +52,7 @@ export default function MonthSummaryCard({
         aria-pressed={active}
         aria-label={`${kind === 'income' ? 'Income' : 'Expense'} ${formatAmount(amount)}`}
         onClick={() => onTypeFilter(active ? null : kind)}
-        className={`flex min-h-7 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${tone} ${bg} ${active ? 'ring-2 ring-current' : ''}`}
+        className={`relative flex min-h-7 items-center gap-1 rounded-full before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] px-2.5 py-0.5 text-xs font-medium ${tone} ${bg} ${active ? 'ring-2 ring-current' : ''}`}
       >
         <Icon aria-hidden size={13} />
         <span>{formatPlain(amount)}</span>
@@ -63,14 +63,14 @@ export default function MonthSummaryCard({
   return (
     <section
       aria-label="Month summary"
-      className={`mx-4 rounded-2xl border p-3 shadow-sm ${over ? 'border-expense/30 bg-expense/10' : 'border-muted/10 bg-canvas'}`}
+      className={`mx-4 rounded-2xl border p-3 shadow-sm proportional-nums ${over ? 'border-expense/30 bg-expense/10' : 'border-muted/10 bg-canvas'}`}
     >
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-[11px] text-muted">{`Savings · ${shortMonth}${daysLeftText}`}</p>
           <p className={`text-[22px] font-semibold leading-tight ${negative ? 'text-expense' : 'text-income'}`}>{formatNet(savingsMinor)}</p>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-end gap-2">
           {chip('income', incomeMinor)}
           {chip('expense', expenseMinor)}
         </div>
@@ -78,12 +78,19 @@ export default function MonthSummaryCard({
 
       {hasBudget && s && (
         <>
-          <div className="relative mb-1 mt-2.5" role="img" aria-label={`${Math.round(pct)}% of target used`}>
+          <div className="relative mb-3.5 mt-2.5" role="img" aria-label={`${Math.round(pct)}% of target used`}>
             <div className="flex h-2 overflow-hidden rounded-full bg-muted/15">
               <div className={`h-full ${fillTone}`} style={{ width: `${fillPct}%` }} />
               {over && <div className="h-full bg-expense" style={{ width: `${100 - fillPct}%` }} />}
             </div>
             <div className="absolute -top-[3px] h-3.5 w-0.5 rounded-sm bg-fg" style={{ left: `calc(${tickPct}% - 1px)` }} />
+            <span
+              aria-hidden
+              className="absolute top-3 text-[9px] leading-none text-muted"
+              style={{ left: `${tickPct}%`, transform: `translateX(${tickPct > 90 ? '-100%' : tickPct < 10 ? '0' : '-50%'})` }}
+            >
+              target
+            </span>
           </div>
           <div className="flex justify-between gap-1.5 text-xs text-muted">
             <span>
@@ -101,7 +108,7 @@ export default function MonthSummaryCard({
                   <>
                     {' · '}Safe <span className="font-medium text-fg">{formatPlain(s.safePerDayMinor)}</span>
                   </>
-                )}{' '}
+                )}
                 /day
               </span>
               {s.forecastMinor != null && (
