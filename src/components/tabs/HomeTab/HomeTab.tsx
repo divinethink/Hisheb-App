@@ -247,7 +247,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
                       <span>{dateLabel(g.date, today)}</span>
                       {g.txs.length > 1 && <span>{formatNet(g.netMinor)}</span>}
                     </h2>
-                    <Card className="overflow-hidden shadow-[0_6px_16px_-10px_rgb(var(--color-fg)/0.18)]">
+                    <Card className="overflow-hidden">
                       <ul>
                         {g.txs.map((t) => (
                           <li key={t.id} className="border-t border-muted/10 first:border-t-0">
