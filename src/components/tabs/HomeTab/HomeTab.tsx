@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type TouchEvent } from 'react';
-import { Bell, Plus, TrendingUp, TrendingDown, PiggyBank } from 'lucide-react';
+import { useMemo, useRef, useState, type TouchEvent } from 'react';
+import { Bell, Plus } from 'lucide-react';
 import Logo from '../../common/Logo';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import Card from '../../common/Card';
-import IconBadge from '../../common/IconBadge';
 import CategoryIcon, { categoryTint } from '../../common/CategoryIcon';
 import TransactionSheet from './TransactionSheet';
 import HomeSearch from './HomeSearch';
-import MonthTargetCard from './MonthTargetCard';
+import MonthSummaryCard from './MonthSummaryCard';
 import { SearchToggle } from '../../common/ListSearch';
 import { useBackClose } from '../../../hooks/useBackClose';
-import { getTransactionsByMonth, restoreTransaction, softDeleteTransaction } from '../../../data/transactionRepo';
+import { restoreTransaction, softDeleteTransaction } from '../../../data/transactionRepo';
 import { useCategories, useLabels, useMonthTransactions, useSettings } from '../../../hooks/useData';
 import { getCategoryIcon } from '../../../lib/categoryIcons';
 import { currentMonth, dateLabel, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
@@ -21,14 +20,6 @@ import type { Category, Label } from '../../../validation/catalogSchemas';
 
 const NO_CATS: Category[] = [];
 const NO_LABELS: Label[] = [];
-
-// item ১: "vs last month" — শতাংশ পরিবর্তন, আগের মাস ০/অজানা হলে দেখানো হয় না (বিভ্রান্তিকর %-এড়াতে)।
-function trendText(current: number, previous: number | null): string | null {
-  if (previous == null || previous <= 0) return null;
-  if (current === previous) return '= vs last mo';
-  const pct = Math.round((Math.abs(current - previous) / previous) * 100);
-  return `${current > previous ? '↑' : '↓'}${pct}% vs last mo`;
-}
 
 export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; autoOpenAdd?: boolean }) {
   const now = useMemo(() => currentMonth(), []);
@@ -43,6 +34,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [searchOpen, setSearchOpen] = useState(false); // সব-মাস সার্চ
   useBackClose(() => setSearchOpen(false), searchOpen); // ব্যাক = সার্চ বন্ধ (অ্যাপ নয়)
+  const [typeFilter, setTypeFilter] = useState<'income' | 'expense' | null>(null); // Income/Expense tile ট্যাপ
   const [chipFilter, setChipFilter] = useState<string | null>(null); // item ৪: quick-chip ট্যাপে category-filter
 
   // মাস-strip + swipe (Spendee-স্টাইল, Owner-approved 2026-10-27): চলতি মাসের পরের ১ মাস পর্যন্ত (আগাম এন্ট্রির জন্য)
@@ -52,6 +44,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
     if (next > maxMonth) return;
     setMonth(next);
     setChipFilter(null);
+    setTypeFilter(null);
   };
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   function onTouchStart(e: TouchEvent) {
@@ -69,24 +62,6 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
     if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
     goMonth(dx < 0 ? 1 : -1);
   }
-
-  // item ১: আগের মাসের টোটাল — শুধু "vs last month" তুলনার জন্য, one-shot read (existing
-  // getTransactionsByMonth reuse, live subscription না — কম-খরচে, রিপোর্ট-স্ক্রিনেও একই ফাংশন ব্যবহৃত)।
-  const [prevTotals, setPrevTotals] = useState<{ incomeMinor: number; expenseMinor: number } | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    setPrevTotals(null);
-    getTransactionsByMonth(uid, shiftMonth(month, -1))
-      .then((rows) => {
-        if (!cancelled) setPrevTotals(summarize(rows));
-      })
-      .catch(() => {
-        if (!cancelled) setPrevTotals(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [uid, month]);
 
   // soft-delete + 5s Undo snackbar (UI Mockup §৩, Gmail-স্টাইল); একবারে একটাই pending undo।
   async function handleDelete(id: string) {
@@ -131,7 +106,10 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
     return [...map.values()].sort((a, b) => b.amountMinor - a.amountMinor).slice(0, 4);
   }, [txs, catById]);
 
-  const filteredTxs = useMemo(() => (txs && chipFilter ? txs.filter((t) => t.categoryId === chipFilter) : txs), [txs, chipFilter]);
+  const filteredTxs = useMemo(
+    () => (txs ? txs.filter((t) => (!chipFilter || t.categoryId === chipFilter) && (!typeFilter || t.type === typeFilter)) : txs),
+    [txs, chipFilter, typeFilter],
+  );
   const groups = useMemo(() => (filteredTxs ? groupByDate(filteredTxs) : []), [filteredTxs]);
 
   return (
@@ -189,35 +167,16 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
 
         {totals && (
           <>
-            <Card as="section" ariaLabel="Month summary" className="mx-4 grid grid-cols-3 gap-1.5 p-3 text-center">
-              <div className="flex flex-col items-center gap-1 rounded-xl bg-income/10 py-2">
-                <IconBadge icon={TrendingUp} tone="income" size={28} />
-                <p className="text-xs text-muted">Income</p>
-                <p className="text-sm font-semibold text-income">{formatAmount(totals.incomeMinor)}</p>
-                {prevTotals && (
-                  <p className="whitespace-nowrap text-[10px] text-muted">{trendText(totals.incomeMinor, prevTotals.incomeMinor)}</p>
-                )}
-              </div>
-              <div className="flex flex-col items-center gap-1 rounded-xl bg-expense/10 py-2">
-                <IconBadge icon={TrendingDown} tone="expense" size={28} />
-                <p className="text-xs text-muted">Expense</p>
-                <p className="text-sm font-semibold text-expense">{formatAmount(totals.expenseMinor)}</p>
-                {prevTotals && (
-                  <p className="whitespace-nowrap text-[10px] text-muted">{trendText(totals.expenseMinor, prevTotals.expenseMinor)}</p>
-                )}
-              </div>
-              <div className={`flex flex-col items-center gap-1 rounded-xl py-2 ${totals.savingsMinor < 0 ? 'bg-expense/10' : 'bg-income/10'}`}>
-                <IconBadge icon={PiggyBank} tone={totals.savingsMinor < 0 ? 'expense' : 'income'} size={28} />
-                <p className="text-xs text-muted">Savings</p>
-                <p className={`text-sm font-semibold ${totals.savingsMinor < 0 ? 'text-expense' : 'text-income'}`}>
-                  {formatNet(totals.savingsMinor)}
-                </p>
-              </div>
-            </Card>
-
-            {budgetMinor != null && budgetMinor > 0 && (
-              <MonthTargetCard spentMinor={totals.expenseMinor} budgetMinor={budgetMinor} month={month} today={today} />
-            )}
+            <MonthSummaryCard
+              incomeMinor={totals.incomeMinor}
+              expenseMinor={totals.expenseMinor}
+              savingsMinor={totals.savingsMinor}
+              budgetMinor={budgetMinor != null && budgetMinor > 0 ? budgetMinor : null}
+              month={month}
+              today={today}
+              typeFilter={typeFilter}
+              onTypeFilter={setTypeFilter}
+            />
 
             {topCategories.length > 1 && (
               <div className="mt-3">
@@ -254,10 +213,12 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
               </div>
             )}
 
-            {chipFilter && (
+            {(chipFilter || typeFilter) && (
               <div className="mx-4 mt-2 flex items-center justify-between text-xs text-muted">
-                <span>Filtered: {topCategories.find((c) => c.categoryId === chipFilter)?.name}</span>
-                <button type="button" onClick={() => setChipFilter(null)} className="font-medium text-primary">
+                <span>
+                  Filtered: {[typeFilter && (typeFilter === 'income' ? 'Income' : 'Expense'), chipFilter && topCategories.find((c) => c.categoryId === chipFilter)?.name].filter(Boolean).join(' · ')}
+                </span>
+                <button type="button" onClick={() => { setChipFilter(null); setTypeFilter(null); }} className="font-medium text-primary">
                   Clear
                 </button>
               </div>
@@ -284,7 +245,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
                   <section key={g.date} aria-label={dateLabel(g.date, today)} className="mb-2">
                     <h2 className="flex justify-between px-2 pb-1 pt-1 text-xs font-medium text-muted">
                       <span>{dateLabel(g.date, today)}</span>
-                      {g.txs.length > 1 && <span>{formatNet(g.netMinor)}</span>}
+                      <span>{formatNet(g.netMinor)}</span>
                     </h2>
                     <Card className="overflow-hidden">
                       <ul>
@@ -303,7 +264,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
                                 color={catById.get(t.categoryId)?.color}
                               />
                               <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm text-fg">{t.categoryName}</span>
+                                <span className="block truncate text-base text-fg">{t.categoryName}</span>
                                 {t.note && <span className="block truncate text-xs text-muted">{t.note}</span>}
                                 {t.labelNames.length > 0 && (
                                   <span className="mt-0.5 flex gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -318,7 +279,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
                                   </span>
                                 )}
                               </span>
-                              <span className={`shrink-0 self-start text-sm font-medium ${t.type === 'expense' ? 'text-expense' : 'text-income'}`}>
+                              <span className={`shrink-0 self-start text-base font-medium ${t.type === 'expense' ? 'text-expense' : 'text-income'}`}>
                                 {formatSigned(t.amountMinor, t.type)}
                               </span>
                             </button>

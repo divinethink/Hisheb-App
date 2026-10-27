@@ -20,8 +20,6 @@ vi.mock('../../../data/transactionRepo', () => ({
   updateTransaction: vi.fn(),
   softDeleteTransaction: repo.softDeleteTransaction,
   restoreTransaction: repo.restoreTransaction,
-  // UI Polish [1_5] §১ item ১: "vs last month" এর জন্য one-shot previous-month read
-  getTransactionsByMonth: vi.fn().mockResolvedValue([]),
 }));
 vi.mock('../../../data/catalogRepo', () => ({ addCategory: vi.fn(), addLabel: vi.fn() }));
 
@@ -51,9 +49,9 @@ describe('HomeTab', () => {
     hooks.cats.mockReturnValue(ready([]));
     hooks.lbls.mockReturnValue(ready([]));
     render(<HomeTab uid="u1" />);
-    expect(screen.getAllByText('BDT 1,62,417').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('BDT 42,008').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('−BDT 1,62,417').length).toBe(1); // দিনে একটাই লেনদেন হলে তারিখের মোট লুকানো (অঙ্ক দুবার না) — শুধু সারি
+    expect(screen.getAllByText('1,62,417').length).toBeGreaterThan(0); // Expense চিপ
+    expect(screen.getAllByText('42,008').length).toBeGreaterThan(0); // Income চিপ
+    expect(screen.getAllByText('−BDT 1,62,417').length).toBe(2); // সারি + দিনের মোট (একটা লেনদেনেও দেখায়)
     await userEvent.click(screen.getByRole('button', { name: /Rent/ }));
     expect(screen.getByRole('dialog', { name: 'Edit transaction' })).toBeTruthy();
   });
@@ -116,5 +114,24 @@ describe('HomeTab', () => {
     const cur = nav.querySelector('[aria-current="true"]');
     expect(cur).toBeTruthy();
     expect(nav.querySelectorAll('button').length).toBe(3);
+  });
+
+  it('Income/Expense chip filters the list and Clear resets', async () => {
+    hooks.tx.mockReturnValue({
+      ...ready([
+        mk('a', '2026-09-03', 'expense', 16241700, 'Rent'),
+        mk('b', '2026-09-01', 'income', 4200800, 'Salary'),
+      ]),
+      invalidCount: 0,
+    });
+    hooks.cats.mockReturnValue(ready([]));
+    hooks.lbls.mockReturnValue(ready([]));
+    render(<HomeTab uid="u1" />);
+    await userEvent.click(screen.getByRole('button', { name: /^Income/ }));
+    expect(screen.queryByRole('button', { name: /Rent/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Salary/ })).toBeTruthy();
+    expect(screen.getByText(/Filtered: Income/)).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.getByRole('button', { name: /Rent/ })).toBeTruthy();
   });
 });

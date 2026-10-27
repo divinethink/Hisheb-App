@@ -44,3 +44,8 @@ export function categoryColorIndex(name: string, mod: number): number {
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return h % mod;
 }
+
+/** formatAmount থেকে "BDT " ছাড়া — কমপ্যাক্ট চিপে ("1,62,417") */
+export function formatPlain(minor: number): string {
+  return formatAmount(minor).replace(/^BDT /, '');
+}
