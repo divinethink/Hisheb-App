@@ -51,7 +51,7 @@ describe('HomeTab', () => {
     render(<HomeTab uid="u1" />);
     expect(screen.getAllByText('1,62,417').length).toBeGreaterThan(0); // Expense চিপ
     expect(screen.getAllByText('42,008').length).toBeGreaterThan(0); // Income চিপ
-    expect(screen.getAllByText('−BDT 1,62,417').length).toBe(2); // সারি + দিনের মোট (একটা লেনদেনেও দেখায়)
+    expect(screen.getAllByText('−BDT 1,62,417').length).toBe(1); // শুধু সারি — একটা লেনদেনে দিনের মোট নেই
     await userEvent.click(screen.getByRole('button', { name: /Rent/ }));
     expect(screen.getByRole('dialog', { name: 'Edit transaction' })).toBeTruthy();
   });

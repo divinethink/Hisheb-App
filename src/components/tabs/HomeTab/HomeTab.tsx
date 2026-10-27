@@ -245,7 +245,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
                   <section key={g.date} aria-label={dateLabel(g.date, today)} className="mb-2">
                     <h2 className="flex justify-between px-2 pb-1 pt-1 text-xs font-medium text-muted">
                       <span>{dateLabel(g.date, today)}</span>
-                      <span>{formatNet(g.netMinor)}</span>
+                      {g.txs.length > 1 && <span>{formatNet(g.netMinor)}</span>}
                     </h2>
                     <Card className="overflow-hidden">
                       <ul>

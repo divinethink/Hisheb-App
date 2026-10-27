@@ -45,7 +45,7 @@ export default function MonthSummaryCard({
     const active = typeFilter === kind;
     const Icon = kind === 'income' ? ArrowUpRight : ArrowDownRight;
     const tone = kind === 'income' ? 'text-income' : 'text-expense';
-    const bg = over || negative ? 'bg-canvas' : kind === 'income' ? 'bg-income/10' : 'bg-expense/10';
+    const bg = over || negative ? 'bg-muted/10' : kind === 'income' ? 'bg-income/10' : 'bg-expense/10';
     return (
       <button
         type="button"
@@ -63,7 +63,7 @@ export default function MonthSummaryCard({
   return (
     <section
       aria-label="Month summary"
-      className={`mx-4 rounded-2xl border p-3 shadow-sm proportional-nums ${over ? 'border-expense/30 bg-expense/10' : 'border-muted/10 bg-canvas'}`}
+      className={`mx-4 rounded-2xl border p-3 shadow-sm proportional-nums ${over ? 'border-expense/50 bg-canvas' : 'border-muted/10 bg-canvas'}`}
     >
       <div className="flex items-center justify-between gap-2">
         <div>
