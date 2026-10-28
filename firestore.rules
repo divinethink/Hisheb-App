@@ -37,7 +37,7 @@ service cloud.firestore {
               : col == 'debts' ? posInt(d.totalAmountMinor)
               : col == 'investments'
                 ? (posInt(d.principalMinor) && optPosInt(d, 'round') && optStr(d, 'companyId', 100)
-                   && optStr(d, 'platformNo', 30))
+                   && optStr(d, 'platformNo', 30) && optStr(d, 'contractFileId', 100) && optStr(d, 'contractName', 120))
               : col == 'investmentCompanies'
                 ? (nameOk(d) && d.name.size() <= 60 && optStr(d, 'medium', 60) && logoOk(d))
               : col == 'homeDeposits' ? posInt(d.amountMinor)
