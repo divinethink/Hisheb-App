@@ -12,6 +12,7 @@ export default function MonthSummaryCard({
   expenseMinor,
   savingsMinor,
   budgetMinor,
+  avgExpenseMinor = null,
   month,
   today,
   typeFilter,
@@ -21,6 +22,8 @@ export default function MonthSummaryCard({
   expenseMinor: number;
   savingsMinor: number;
   budgetMinor: number | null;
+  /** আগের ৩ মাসের গড় মাসিক ব্যয় (Overview-র মতোই); ডেটা না থাকলে null */
+  avgExpenseMinor?: number | null;
   month: string;
   today: string;
   typeFilter: TypeFilter;
@@ -43,6 +46,7 @@ export default function MonthSummaryCard({
   const fillTone = pct >= 90 ? 'bg-danger' : pct >= 80 ? 'bg-warning' : 'bg-primary';
   const pctTone = over ? 'text-expense' : pct >= 90 ? 'text-danger' : pct >= 80 ? 'text-warning' : 'text-primary';
 
+  const tile = 'flex min-h-14 flex-col justify-center rounded-xl px-2.5 py-1.5';
   const chip = (kind: 'income' | 'expense', amount: number) => {
     const active = typeFilter === kind;
     const Icon = kind === 'income' ? ArrowUpRight : ArrowDownRight;
@@ -54,10 +58,13 @@ export default function MonthSummaryCard({
         aria-pressed={active}
         aria-label={`${kind === 'income' ? 'Income' : 'Expense'} ${formatAmount(amount)}`}
         onClick={() => onTypeFilter(active ? null : kind)}
-        className={`relative flex min-h-7 items-center gap-1 rounded-full before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] px-2.5 py-0.5 text-xs font-medium ${tone} ${bg} ${active ? 'ring-2 ring-current' : ''}`}
+        className={`${tile} min-w-0 text-left ${tone} ${bg} ${active ? 'ring-2 ring-current' : ''}`}
       >
-        <Icon aria-hidden size={13} />
-        <span>{formatPlain(amount)}</span>
+        <span className="flex items-center gap-1 text-[11px] leading-tight text-muted">
+          <Icon aria-hidden size={12} />
+          {kind === 'income' ? 'Income' : 'Expense'}
+        </span>
+        <span className="truncate text-[17px] font-semibold leading-tight">{formatPlain(amount)}</span>
       </button>
     );
   };
@@ -67,66 +74,69 @@ export default function MonthSummaryCard({
       aria-label="Month summary"
       className={`mx-4 rounded-2xl border bg-canvas bg-gradient-to-b p-3 shadow-sm proportional-nums ${glow} ${over ? 'border-expense/50' : 'border-muted/10'}`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <p className="text-[11px] text-muted">{`Savings · ${shortMonth}${daysLeftText}`}</p>
-          <p className={`text-[22px] font-semibold leading-tight ${negative ? 'text-expense' : 'text-income'}`}>{formatNet(savingsMinor)}</p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          {chip('income', incomeMinor)}
-          {chip('expense', expenseMinor)}
+      <div className="grid grid-cols-3 gap-2">
+        {chip('income', incomeMinor)}
+        {chip('expense', expenseMinor)}
+        <div className={`${tile} min-w-0 bg-muted/10`} aria-label="Average expense per month, last 3 months">
+          <span className="truncate text-[11px] leading-tight text-muted">⌀ Avg exp/mo · 3m</span>
+          <span className="truncate text-[17px] font-semibold leading-tight text-fg">{avgExpenseMinor != null ? formatPlain(Math.round(avgExpenseMinor)) : '—'}</span>
         </div>
       </div>
 
       {hasBudget && s && (
-        <>
-          <div className="relative mb-3.5 mt-2.5" role="img" aria-label={`${Math.round(pct)}% of target used`}>
-            <div className="flex h-2 overflow-hidden rounded-full bg-muted/15">
-              <div className={`h-full ${fillTone}`} style={{ width: `${fillPct}%` }} />
-              {over && <div className="h-full bg-expense" style={{ width: `${100 - fillPct}%` }} />}
-            </div>
-            <div className="absolute -top-[3px] h-3.5 w-0.5 rounded-sm bg-fg" style={{ left: `calc(${tickPct}% - 1px)` }} />
-            <span
-              aria-hidden
-              className="absolute top-3 text-[9px] leading-none text-muted"
-              style={{ left: `${tickPct}%`, transform: `translateX(${tickPct > 90 ? '-100%' : tickPct < 10 ? '0' : '-50%'})` }}
-            >
-              target
-            </span>
+        <div className="relative mb-3 mt-2" role="img" aria-label={`${Math.round(pct)}% of target used`}>
+          <div className="flex h-2 overflow-hidden rounded-full bg-muted/15">
+            <div className={`h-full ${fillTone}`} style={{ width: `${fillPct}%` }} />
+            {over && <div className="h-full bg-expense" style={{ width: `${100 - fillPct}%` }} />}
           </div>
-          <div className="flex justify-between gap-1.5 text-xs text-muted">
-            <span>
-              <span className={`font-medium ${pctTone}`}>{Math.round(pct)}%</span> of target {formatPlain(budgetMinor)}
+          <div className="absolute -top-[3px] h-3.5 w-0.5 rounded-sm bg-fg" style={{ left: `calc(${tickPct}% - 1px)` }} />
+          <span
+            aria-hidden
+            className="absolute top-3 text-[9px] leading-none text-muted"
+            style={{ left: `${tickPct}%`, transform: `translateX(${tickPct > 90 ? '-100%' : tickPct < 10 ? '0' : '-50%'})` }}
+          >
+            target
+          </span>
+        </div>
+      )}
+
+      <div className={`grid gap-2 ${hasBudget && s ? 'grid-cols-2' : 'grid-cols-1'} ${hasBudget && s ? '' : 'mt-2'}`}>
+        {hasBudget && s && (
+          <div className={`${tile} bg-surface text-xs text-muted`}>
+            <span className="leading-tight">
+              <span className={`text-[17px] font-semibold ${pctTone}`}>{Math.round(pct)}%</span> of target {formatPlain(budgetMinor)}
             </span>
-            <span className={`font-medium ${pctTone}`}>
+            <span className={`font-medium leading-tight ${pctTone}`}>
               {over ? `${formatPlain(expenseMinor - budgetMinor)} over` : `${formatPlain(budgetMinor - expenseMinor)} left`}
             </span>
-          </div>
-          {s.elapsedDays > 0 && (
-            <div className="mt-0.5 flex justify-between gap-1.5 text-xs text-muted">
-              <span>
-                Avg <span className="font-medium text-fg">{formatPlain(s.avgPerDayMinor)}</span>
-                {s.safePerDayMinor != null && (
-                  <>
-                    {' · '}Safe <span className="font-medium text-fg">{formatPlain(s.safePerDayMinor)}</span>
-                  </>
+            {s.elapsedDays > 0 && s.forecastMinor != null && (
+              <span className="flex items-center gap-1 leading-tight">
+                Forecast <span className={`font-medium ${forecastBad ? (over ? 'text-expense' : 'text-warning') : 'text-income'}`}>{formatPlain(s.forecastMinor)}</span>
+                {forecastBad ? (
+                  <AlertTriangle aria-label="Forecast is above target" size={12} className={over ? 'text-expense' : 'text-warning'} />
+                ) : (
+                  <Check aria-label="Forecast is within target" size={12} className="text-income" />
                 )}
-                /day
               </span>
-              {s.forecastMinor != null && (
-                <span className="flex items-center gap-1">
-                  Forecast <span className={`font-medium ${forecastBad ? (over ? 'text-expense' : 'text-warning') : 'text-income'}`}>{formatPlain(s.forecastMinor)}</span>
-                  {forecastBad ? (
-                    <AlertTriangle aria-label="Forecast is above target" size={13} className={over ? 'text-expense' : 'text-warning'} />
-                  ) : (
-                    <Check aria-label="Forecast is within target" size={13} className="text-income" />
-                  )}
-                </span>
+            )}
+          </div>
+        )}
+        <div className={`${tile} bg-surface`}>
+          <p className="truncate text-[11px] leading-tight text-muted">{`Savings · ${shortMonth}${daysLeftText}`}</p>
+          <p className={`truncate text-[19px] font-semibold leading-tight ${negative ? 'text-expense' : 'text-income'}`}>{formatNet(savingsMinor)}</p>
+          {s && s.elapsedDays > 0 && (
+            <p className="truncate text-xs leading-tight text-muted">
+              Avg <span className="font-medium text-fg">{formatPlain(s.avgPerDayMinor)}</span>
+              {s.safePerDayMinor != null && (
+                <>
+                  {' · '}Safe <span className="font-medium text-fg">{formatPlain(s.safePerDayMinor)}</span>
+                </>
               )}
-            </div>
+              /day
+            </p>
           )}
-        </>
-      )}
+        </div>
+      </div>
     </section>
   );
 }

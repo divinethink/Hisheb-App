@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 const hooks = vi.hoisted(() => ({ tx: vi.fn(), cats: vi.fn(), lbls: vi.fn(), settings: vi.fn() }));
 vi.mock('../../../hooks/useData', () => ({
   useMonthTransactions: hooks.tx,
+  useRangeTransactions: () => ({ state: { status: 'loading' as const }, retry: () => {} }),
   useCategories: hooks.cats,
   useLabels: hooks.lbls,
   useSettings: hooks.settings,

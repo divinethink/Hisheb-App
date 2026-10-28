@@ -10,10 +10,11 @@ import MonthSummaryCard from './MonthSummaryCard';
 import { SearchToggle } from '../../common/ListSearch';
 import { useBackClose } from '../../../hooks/useBackClose';
 import { restoreTransaction, softDeleteTransaction } from '../../../data/transactionRepo';
-import { useCategories, useLabels, useMonthTransactions, useSettings } from '../../../hooks/useData';
+import { useCategories, useLabels, useMonthTransactions, useRangeTransactions, useSettings } from '../../../hooks/useData';
 import { getCategoryIcon } from '../../../lib/categoryIcons';
-import { currentMonth, dateLabel, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
+import { currentMonth, dateLabel, monthEndDate, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
 import { formatAmount, formatNet, formatSigned } from '../../../lib/format';
+import { avgMonthlyExpense } from '../../../lib/overviewCalc';
 import { groupByDate, summarize } from '../../../lib/summary';
 import type { Transaction } from '../../../validation/transactionSchema';
 import type { Category, Label } from '../../../validation/catalogSchemas';
@@ -26,6 +27,10 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
   const [month, setMonth] = useState(now);
   const today = useMemo(() => toDhakaDate(new Date()), []);
   const tx = useMonthTransactions(uid, month);
+  // আগের ৩ মাসের গড় ব্যয় — Overview "Avg expense / month"-এর হুবহু একই হিসাব ও query (read-only)
+  const avgMonths = useMemo(() => [shiftMonth(month, -1), shiftMonth(month, -2), shiftMonth(month, -3)], [month]);
+  const avgTx = useRangeTransactions(uid, `${avgMonths[2]}-01`, monthEndDate(avgMonths[0]));
+  const avgExpenseMinor = avgTx.state.status === 'ready' ? avgMonthlyExpense(avgTx.state.data, avgMonths) : null;
   const cats = useCategories(uid);
   const lbls = useLabels(uid);
   const settings = useSettings(uid);
@@ -172,6 +177,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
               expenseMinor={totals.expenseMinor}
               savingsMinor={totals.savingsMinor}
               budgetMinor={budgetMinor != null && budgetMinor > 0 ? budgetMinor : null}
+              avgExpenseMinor={avgExpenseMinor}
               month={month}
               today={today}
               typeFilter={typeFilter}

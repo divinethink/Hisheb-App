@@ -32,6 +32,15 @@ describe('MonthSummaryCard', () => {
     expect(screen.getByLabelText('Forecast is above target')).toBeTruthy();
   });
 
+  it('avg expense tile: shows 3-month avg, dash when none', () => {
+    const { rerender } = render(
+      <MonthSummaryCard {...base} avgExpenseMinor={3_000_000} expenseMinor={2_200_000} savingsMinor={2_000_800} budgetMinor={3_500_000} month="2026-10" today="2026-10-20" />,
+    );
+    expect(screen.getByText('30,000')).toBeTruthy();
+    rerender(<MonthSummaryCard {...base} expenseMinor={2_200_000} savingsMinor={2_000_800} budgetMinor={3_500_000} month="2026-10" today="2026-10-20" />);
+    expect(screen.getByText('—')).toBeTruthy();
+  });
+
   it('no budget: only savings and chips', () => {
     render(<MonthSummaryCard {...base} expenseMinor={100_000} savingsMinor={3_000_000} budgetMinor={null} month="2026-10" today="2026-10-20" />);
     expect(screen.queryByText(/of target/)).toBeNull();
