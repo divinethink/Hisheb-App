@@ -27,7 +27,12 @@ export function contractProblemMessage(p: ContractFileProblem): string {
 
 /** Drive/Firestore-এ রাখার নাম: trim, নিয়ন্ত্রণ-অক্ষর বাদ, সর্বোচ্চ ১২০ (".pdf" শেষে থাকে)। */
 export function safeContractName(name: string): string {
-  const cleaned = name.replace(/[\u0000-\u001f\u007f/\\]/g, ' ').replace(/\s+/g, ' ').trim() || 'contract.pdf';
+  // নিয়ন্ত্রণ-অক্ষর (<0x20, 0x7f) ও / \ কে স্পেস করা হয়; regex নয় (ESLint no-control-regex এড়াতে)
+  const stripped = Array.from(name, (ch) => {
+    const c = ch.codePointAt(0) ?? 0;
+    return c < 0x20 || c === 0x7f || ch === '/' || ch === '\\' ? ' ' : ch;
+  }).join('');
+  const cleaned = stripped.replace(/\s+/g, ' ').trim() || 'contract.pdf';
   if (cleaned.length <= CONTRACT_NAME_MAX) return cleaned;
   const hasExt = /\.pdf$/i.test(cleaned);
   const keep = CONTRACT_NAME_MAX - (hasExt ? 4 : 0);
