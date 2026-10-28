@@ -49,6 +49,15 @@ export function isGoogleDriveConfigured(clientId: string | undefined): clientId 
   return !!clientId && typeof window !== 'undefined' && !!window.google?.accounts?.oauth2;
 }
 
+/** Drive তৈরি না থাকলে কারণ (null = তৈরি)। UI-তে "কেন" দেখাতে — Client ID নেই, নাকি Google স্ক্রিপ্ট লোড হয়নি। */
+export function driveNotReadyReason(clientId: string | undefined): string | null {
+  if (!clientId) return 'Client ID is missing in this build (VITE_GOOGLE_DRIVE_CLIENT_ID).';
+  if (typeof window === 'undefined' || !window.google?.accounts?.oauth2) {
+    return 'Google sign-in script did not load. Check internet or ad-blocker, then reopen the app.';
+  }
+  return null;
+}
+
 function ensureTokenClient(clientId: string): GisTokenClient {
   if (tokenClient) return tokenClient;
   if (!window.google) throw new Error('Google Identity Services লোড হয়নি।');

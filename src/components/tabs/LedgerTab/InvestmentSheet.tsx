@@ -6,7 +6,7 @@ import CompanyLogo from '../../common/CompanyLogo';
 import CompanyPickerScreen from './CompanyPickerScreen';
 import ContractLink from '../../common/ContractLink';
 import { getEnv } from '../../../config/env';
-import { isGoogleDriveConfigured, uploadContractPdf } from '../../../data/googleDrive';
+import { driveNotReadyReason, isGoogleDriveConfigured, uploadContractPdf } from '../../../data/googleDrive';
 import { checkContractMeta, contractProblemMessage, hasPdfMagic, safeContractName } from '../../../lib/contractFile';
 import { minorToInput, resolveAmountMinor } from '../../../lib/money';
 import { addInvestment, updateInvestment } from '../../../data/investmentRepo';
@@ -146,7 +146,8 @@ export default function InvestmentSheet({
       // PDF আগে আপলোড (প্রথম await-এই, যাতে Google অনুমতি-পপআপ ক্লিকের সাথে যুক্ত থাকে); ব্যর্থ হলে এন্ট্রি সেভ হয় না
       let contract: { contractFileId: string | null; contractName: string | null } | null = null;
       if (pdfFile) {
-        if (!driveReady) throw new Error("Google Drive isn't set up for this build yet.");
+        // ক্লিকের মুহূর্তে আবার দেখা (স্ক্রিপ্ট দেরিতে লোড হলেও ঠিক)
+        if (!isGoogleDriveConfigured(DRIVE_CLIENT_ID)) throw new Error(`Google Drive not ready: ${driveNotReadyReason(DRIVE_CLIENT_ID)}`);
         let up = uploadedRef.current?.file === pdfFile ? uploadedRef.current : null;
         if (!up) {
           const name = safeContractName(pdfFile.name);
@@ -497,7 +498,7 @@ export default function InvestmentSheet({
               {removeContract && <p className="mt-1 text-xs text-muted">PDF will be detached on Save (the Drive file stays).</p>}
             </>
           )}
-          {!driveReady && <p className="mt-1 text-xs text-muted">Google Drive isn't set up for this build yet.</p>}
+          {!driveReady && <p className="mt-1 text-xs text-muted">Google Drive not ready: {driveNotReadyReason(DRIVE_CLIENT_ID)}</p>}
           {pdfError && (
             <p role="alert" className="mt-1 text-xs text-expense">
               {pdfError}

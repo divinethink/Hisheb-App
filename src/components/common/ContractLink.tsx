@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
 import { getEnv } from '../../config/env';
-import { getContractViewLink, isGoogleDriveConfigured } from '../../data/googleDrive';
+import { driveNotReadyReason, getContractViewLink, isGoogleDriveConfigured } from '../../data/googleDrive';
 
 const DRIVE_CLIENT_ID = getEnv().googleDriveClientId;
 
@@ -14,7 +14,7 @@ export default function ContractLink({ fileId, name }: { fileId: string; name: s
     if (busy) return;
     setError('');
     if (!isGoogleDriveConfigured(DRIVE_CLIENT_ID)) {
-      setError("Google Drive isn't set up for this build yet.");
+      setError(`Google Drive not ready: ${driveNotReadyReason(DRIVE_CLIENT_ID)}`);
       return;
     }
     // popup-blocker এড়াতে ক্লিকের মুহূর্তেই ফাঁকা ট্যাব খুলি, লিংক পেলে সেখানে বসাই

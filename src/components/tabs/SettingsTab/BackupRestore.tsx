@@ -3,7 +3,7 @@ import { useBackClose } from '../../../hooks/useBackClose';
 import type { SessionUser } from '../../../auth/AuthProvider';
 import { getEnv } from '../../../config/env';
 import { buildBackupPayload, parseBackupPayload, restoreFromBackup, type BackupPayload } from '../../../data/backupRepo';
-import { isGoogleDriveConfigured, uploadBackupToDrive } from '../../../data/googleDrive';
+import { driveNotReadyReason, isGoogleDriveConfigured, uploadBackupToDrive } from '../../../data/googleDrive';
 
 const DRIVE_CLIENT_ID = getEnv().googleDriveClientId;
 
@@ -182,7 +182,7 @@ export default function BackupRestore({ user, onClose }: { user: SessionUser; on
           >
             {driveBusy ? 'Backing up…' : '☁️ Back up to Google Drive'}
           </button>
-          {!driveReady && <p className="text-xs text-muted">Google Drive backup isn't set up for this build yet.</p>}
+          {!driveReady && <p className="text-xs text-muted">Google Drive not ready: {driveNotReadyReason(DRIVE_CLIENT_ID)}</p>}
           <button
             type="button"
             onClick={() => void handleDeviceBackup()}
