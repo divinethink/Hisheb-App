@@ -2,6 +2,7 @@ import { useState } from 'react';
 import FullScreenPage from '../../common/FullScreenPage';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import CollapsibleSection from '../../common/CollapsibleSection';
+import CompanyLogo from '../../common/CompanyLogo';
 import { SearchToggle, SearchPanel } from '../../common/ListSearch';
 import InvestmentSheet from './InvestmentSheet';
 import InvestmentDetailScreen from './InvestmentDetailScreen';
@@ -15,7 +16,8 @@ import {
   partitionInvestmentsForList,
   INVESTMENT_STATUS_LABEL,
 } from '../../../lib/investmentCalc';
-import { useInvestments, useSettings } from '../../../hooks/useData';
+import { useInvestmentCompanies, useInvestments, useSettings } from '../../../hooks/useData';
+import { stripRoundTag } from '../../../lib/investmentName';
 import type { Investment } from '../../../validation/investmentSchema';
 
 type InvFilter = 'all' | 'running' | 'doubtful';
@@ -38,6 +40,7 @@ export default function InvestmentsScreen({
   title?: string;
 }) {
   const investments = useInvestments(uid);
+  const companies = useInvestmentCompanies(uid);
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<Investment | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -71,7 +74,10 @@ export default function InvestmentsScreen({
     .filter((i) => investmentStatus(i.principalMinor, i.repayments) === 'closed')
     .reduce((s, i) => s + profitMinor(i.principalMinor, i.repayments), 0);
 
+  const companyById = new Map((companies.state.status === 'ready' ? companies.state.data : []).map((c) => [c.id, c] as const));
+
   const renderRow = (i: Investment) => {
+    const co = i.companyId ? companyById.get(i.companyId) : undefined;
     const status = investmentStatus(i.principalMinor, i.repayments);
     const running = runningMinor(i.principalMinor, i.repayments);
     const repaid = sumRepayments(i.repayments);
@@ -86,9 +92,7 @@ export default function InvestmentsScreen({
           onClick={() => setSelected(i)}
           className="relative flex min-h-14 w-full items-center gap-3 overflow-hidden rounded-2xl border border-muted/15 bg-surface px-3 py-2 text-left active:bg-muted/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
         >
-          <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
-            {i.investedTo.trim().charAt(0).toUpperCase() || '?'}
-          </span>
+          <CompanyLogo name={stripRoundTag(co?.name ?? i.investedTo)} logo={co?.logo} size="sm" />
           <span className="min-w-0 flex-1">
             <span className="flex items-baseline justify-between gap-2">
               <span className="truncate text-sm font-medium text-fg">{i.investedTo}</span>

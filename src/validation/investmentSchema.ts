@@ -34,6 +34,11 @@ export const InvestmentSchema = z.object({
   investmentOutcomeChangedAt: nullish(DateStr),
   // ঐচ্ছিক, additive — owner-created customLedgers/{id} (kind='investment')-এ গ্রুপিং, পুরনো doc-এ null।
   ledgerId: nullish(z.string()),
+  // ধাপ ১ (২০২৬-১০-২৯), সব ঐচ্ছিক/additive — পুরনো doc-এ না থাকলে null/''। investedTo-তে পুরো নাম ("Apon Bazaar [9]") থাকে
+  // (denormalized), companyId দিয়ে investmentCompanies/{id}-এর সাথে যোগ।
+  companyId: nullish(z.string()),
+  round: nullish(z.number().int().positive()), // Medium-এর (যেমন biniyog.io) দেওয়া ক্রম — Owner লেখেন, অ্যাপ [n] বসায়
+  platformNo: z.string().max(30).default(''), // প্ল্যাটফর্মের Investment No (#74874), Round থেকে সম্পূর্ণ আলাদা
   createdAt: nullish(TimestampLike),
   updatedAt: nullish(TimestampLike),
 });

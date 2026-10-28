@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { X, Pencil } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import StatStrip from '../../common/StatStrip';
+import CompanyLogo from '../../common/CompanyLogo';
 import InvestmentRepaymentSheet from './InvestmentRepaymentSheet';
 import InvestmentSheet from './InvestmentSheet';
 import { formatAmount } from '../../../lib/format';
 import { formatDisplayDate, isOverdue } from '../../../lib/date';
-import { useSettings } from '../../../hooks/useData';
+import { useInvestmentCompanies, useSettings } from '../../../hooks/useData';
+import { stripRoundTag } from '../../../lib/investmentName';
 import { runningMinor, investmentStatus, profitMinor, INVESTMENT_STATUS_LABEL } from '../../../lib/investmentCalc';
 import { setInvestmentOutcome, setInvestmentRepayments, updateInvestment } from '../../../data/investmentRepo';
 import { settleOrPending } from '../../../lib/async';
@@ -23,6 +25,9 @@ export default function InvestmentDetailScreen({ uid, investment, onBack }: { ui
   const [deleteIdx, setDeleteIdx] = useState<number | null>(null);
   const [editRepaymentIdx, setEditRepaymentIdx] = useState<number | null>(null);
   const settings = useSettings(uid);
+  const companies = useInvestmentCompanies(uid);
+  const company =
+    investment.companyId && companies.state.status === 'ready' ? companies.state.data.find((c) => c.id === investment.companyId) : undefined;
   const dateFormat = settings.state.status === 'ready' ? settings.state.data.dateFormat : 'dmy';
 
   const status = investmentStatus(investment.principalMinor, investment.repayments);
@@ -50,9 +55,17 @@ export default function InvestmentDetailScreen({ uid, investment, onBack }: { ui
     <FullScreenPage title={investment.investedTo} onBack={onBack} footer={footer}>
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted">Principal{investment.duration ? ` · ${investment.duration}` : ''}</p>
-            <p className="text-lg font-semibold text-fg">{formatAmount(investment.principalMinor)}</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <CompanyLogo name={stripRoundTag(company?.name ?? investment.investedTo)} logo={company?.logo} size="md" />
+            <div className="min-w-0">
+              <p className="text-sm text-muted">Principal{investment.duration ? ` · ${investment.duration}` : ''}</p>
+              <p className="text-lg font-semibold text-fg">{formatAmount(investment.principalMinor)}</p>
+              {(investment.medium || investment.platformNo) && (
+                <p className="truncate text-xs text-muted">
+                  {[investment.medium, investment.platformNo ? `#${investment.platformNo}` : ''].filter(Boolean).join(' · ')}
+                </p>
+              )}
+            </div>
           </div>
           <button type="button" aria-label="Edit" onClick={() => setEditOpen(true)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-muted/40 text-muted">
             <Pencil aria-hidden size={18} />

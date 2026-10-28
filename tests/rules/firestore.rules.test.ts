@@ -109,6 +109,31 @@ describe('validWrite — other collections (P3/P8-এর clause আগে থে
     await assertFails(setDoc(p('zakatPayments'), { amountMinor: 0 }));
     await assertSucceeds(setDoc(p('zakatPayments'), { amountMinor: 100 }));
   });
+  it('investments: optional company/round/platformNo fields are type-checked, old docs still pass', async () => {
+    await assertSucceeds(setDoc(p('investments'), { principalMinor: 100 })); // পুরনো doc
+    await assertSucceeds(
+      setDoc(p('investments'), { principalMinor: 100, companyId: 'c1', round: 9, platformNo: '74874' }),
+    );
+    await assertSucceeds(setDoc(p('investments'), { principalMinor: 100, companyId: null, round: null }));
+    await assertFails(setDoc(p('investments'), { principalMinor: 100, round: 0 }));
+    await assertFails(setDoc(p('investments'), { principalMinor: 100, round: 1.5 }));
+    await assertFails(setDoc(p('investments'), { principalMinor: 100, round: '9' }));
+    await assertFails(setDoc(p('investments'), { principalMinor: 100, companyId: 5 }));
+    await assertFails(setDoc(p('investments'), { principalMinor: 100, platformNo: 'x'.repeat(31) }));
+  });
+  it('investmentCompanies: name required, medium/logo limited', async () => {
+    const logo = 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=';
+    await assertSucceeds(setDoc(p('investmentCompanies'), { name: 'Apon Bazaar' }));
+    await assertSucceeds(setDoc(p('investmentCompanies'), { name: 'Apon Bazaar', medium: 'biniyog.io', logo }));
+    await assertSucceeds(setDoc(p('investmentCompanies'), { name: 'Apon Bazaar', medium: '', logo: null }));
+    await assertFails(setDoc(p('investmentCompanies'), { name: '' }));
+    await assertFails(setDoc(p('investmentCompanies'), { medium: 'biniyog.io' }));
+    await assertFails(setDoc(p('investmentCompanies'), { name: 'x'.repeat(61) }));
+    await assertFails(setDoc(p('investmentCompanies'), { name: 'A', medium: 'm'.repeat(61) }));
+    await assertFails(setDoc(p('investmentCompanies'), { name: 'A', logo: 'https://evil.example/x.png' }));
+    await assertFails(setDoc(p('investmentCompanies'), { name: 'A', logo: 'data:image/svg+xml;base64,PHN2Zz4=' }));
+    await assertFails(setDoc(p('investmentCompanies'), { name: 'A', logo: 'data:image/webp;base64,' + 'A'.repeat(40000) }));
+  });
   it('gpfEntries require positive int amount and a known type', async () => {
     const ok = { amountMinor: 121300, type: 'contribution' };
     await assertSucceeds(setDoc(p('gpfEntries'), ok));

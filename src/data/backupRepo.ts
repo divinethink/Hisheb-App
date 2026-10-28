@@ -19,8 +19,10 @@ export const BACKUP_COLLECTIONS = [
   'netWorthSnapshots',
   'debts',
   'investments',
+  'investmentCompanies',
   'depositFunds',
   'homeDeposits',
+  'customLedgers',
   'categories',
   'labels',
   'historicalYearlyTotals',
@@ -149,6 +151,8 @@ export async function restoreFromBackup(
   onProgress?: (label: string) => void,
 ): Promise<void> {
   for (const col of BACKUP_COLLECTIONS) {
+    // পুরনো ব্যাকআপে এই collection-এর key-ই নেই (পরে যোগ হওয়া) → বর্তমান ডেটা মোছা নয় (Zero Data Loss)
+    if (!(col in payload.collections)) continue;
     onProgress?.(`Restoring ${col}…`);
     await deleteAllDocs(uid, col);
     const docs = payload.collections[col];

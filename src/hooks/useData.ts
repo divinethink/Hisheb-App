@@ -5,6 +5,7 @@ import { subscribeSettings } from '../data/settingsRepo';
 import { subscribeAccounts } from '../data/accountRepo';
 import { subscribeDebts } from '../data/debtRepo';
 import { subscribeInvestments } from '../data/investmentRepo';
+import { subscribeInvestmentCompanies } from '../data/investmentCompanyRepo';
 import { subscribeFunds, subscribeHomeDeposits } from '../data/homeDepositRepo';
 import { subscribeGpfEntries } from '../data/gpfRepo';
 import { subscribeCustomLedgers } from '../data/customLedgerRepo';
@@ -17,6 +18,7 @@ import type { Settings } from '../validation/settingsSchema';
 import type { Account } from '../validation/accountSchema';
 import type { Debt } from '../validation/debtSchema';
 import type { Investment } from '../validation/investmentSchema';
+import type { InvestmentCompany } from '../validation/investmentCompanySchema';
 import type { Fund, HomeDepositEntry } from '../validation/homeDepositSchema';
 import type { GpfEntry } from '../validation/gpfSchema';
 import type { CustomLedger } from '../validation/customLedgerSchema';
@@ -73,6 +75,9 @@ export function useDebts(uid: string) {
 }
 export function useInvestments(uid: string) {
   return useLiveQuery<Investment[]>(`inv:${uid}`, (d, e) => subscribeInvestments(uid, d, undefined, e));
+}
+export function useInvestmentCompanies(uid: string) {
+  return useLiveQuery<InvestmentCompany[]>(`invco:${uid}`, (d, e) => subscribeInvestmentCompanies(uid, d, undefined, e));
 }
 export function useFunds(uid: string) {
   return useLiveQuery<Fund[]>(`fund:${uid}`, (d, e) => subscribeFunds(uid, d, undefined, e));

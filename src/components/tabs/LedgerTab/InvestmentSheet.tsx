@@ -1,14 +1,28 @@
 import { useEffect, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import AmountInput from '../../common/AmountInput';
+import CompanyLogo from '../../common/CompanyLogo';
+import CompanyPickerScreen from './CompanyPickerScreen';
 import { minorToInput, resolveAmountMinor } from '../../../lib/money';
 import { addInvestment, updateInvestment } from '../../../data/investmentRepo';
 import { markClean, markDirty } from '../../../pwa/dirtyForms';
 import { settleOrPending } from '../../../lib/async';
+import { toDhakaDate } from '../../../lib/date';
+import {
+  baseInvestmentName,
+  composeInvestmentName,
+  hasTrailingRoundTag,
+  lastRoundForCompany,
+  mediumSuggestions,
+  parseRoundInput,
+} from '../../../lib/investmentName';
+import { useInvestmentCompanies, useInvestments } from '../../../hooks/useData';
 import type { Investment } from '../../../validation/investmentSchema';
 
+// গ (Owner-approved ২০২৬-১০-২৯): UTC-substring নয়, ঢাকার তারিখ — রাত ১২টা–ভোর ৬টায়ও সঠিক দিন (§৯)
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toDhakaDate(new Date());
 }
 
 export default function InvestmentSheet({
@@ -22,8 +36,19 @@ export default function InvestmentSheet({
   ledgerId?: string | null;
   onClose: () => void;
 }) {
-  const [investedTo, setInvestedTo] = useState(initial?.investedTo ?? '');
+  // পুরনো এন্ট্রি (companyId নেই) = legacy: নাম হুবহু আগের মতো টেক্সট, [n]/কোম্পানি ছোঁয়া হয় না (zero data loss, ধাপ ২-এ Link)
+  const legacy = initial !== null && !initial.companyId;
+  const baseName = initial ? (legacy ? initial.investedTo : baseInvestmentName(initial.investedTo, initial.round)) : '';
+  const initialRound = initial?.round ? String(initial.round) : '';
+  const companies = useInvestmentCompanies(uid);
+  const investments = useInvestments(uid);
+  const [companyId, setCompanyId] = useState<string | null>(initial?.companyId ?? null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [investedTo, setInvestedTo] = useState(baseName);
+  const [round, setRound] = useState(initialRound);
+  const [platformNo, setPlatformNo] = useState(initial?.platformNo ?? '');
   const [medium, setMedium] = useState(initial?.medium ?? '');
+  const [mediumFocus, setMediumFocus] = useState(false);
   const [amount, setAmount] = useState(initial ? minorToInput(initial.principalMinor) : '');
   const [date, setDate] = useState(initial?.date ?? today());
   const [duration, setDuration] = useState(initial?.duration ?? '');
@@ -33,9 +58,34 @@ export default function InvestmentSheet({
   const [error, setError] = useState('');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
+  const companyList = companies.state.status === 'ready' ? companies.state.data : [];
+  const invList = investments.state.status === 'ready' ? investments.state.data : [];
+  const company = companyId ? companyList.find((c) => c.id === companyId) ?? null : null;
+  const lastRound = companyId ? lastRoundForCompany(invList, companyId, initial ? invList.find((i) => i.id === initial.id) ?? null : null) : null;
+  const suggestions = mediumSuggestions(
+    invList.map((i) => i.medium),
+    company?.medium ?? '',
+    medium,
+  );
+
+  const roundParsed = parseRoundInput(round);
+  const trimmedName = investedTo.trim();
+  const roundInvalid = !legacy && roundParsed === 'invalid';
+  const doubleTag = !legacy && typeof roundParsed === 'number' && hasTrailingRoundTag(trimmedName);
+  const companyMissing = !legacy && companyId === null;
+  const savedAs = legacy ? trimmedName : composeInvestmentName(trimmedName, typeof roundParsed === 'number' ? roundParsed : null);
+
   const dirty = initial
-    ? investedTo.trim() !== initial.investedTo || medium !== initial.medium || duration !== initial.duration || note !== initial.note || date !== initial.date
-    : investedTo.trim() !== '' || amount !== '' || medium !== '' || duration !== '' || note !== '';
+    ? trimmedName !== baseName ||
+      medium !== initial.medium ||
+      duration !== initial.duration ||
+      note !== initial.note ||
+      date !== initial.date ||
+      // খ (Owner-approved ২০২৬-১০-২৯): Edit মোডে শুধু Amount বদলে Back করলেও "Discard?" আসবে
+      amount !== minorToInput(initial.principalMinor) ||
+      platformNo.trim() !== initial.platformNo ||
+      (!legacy && (companyId !== (initial.companyId ?? null) || round.trim() !== initialRound))
+    : trimmedName !== '' || companyId !== null || amount !== '' || medium !== '' || duration !== '' || note !== '' || platformNo !== '' || round !== '';
 
   useEffect(() => {
     if (!dirty) return;
@@ -52,21 +102,33 @@ export default function InvestmentSheet({
   async function save() {
     if (saving) return;
     setSubmitted(true);
-    const trimmedTo = investedTo.trim();
     const parsed = resolveAmountMinor(amount);
     setError('');
-    if (!trimmedTo || parsed === null || !date) return;
+    if (!trimmedName || parsed === null || !date || companyMissing || roundInvalid || doubleTag) return;
+    const roundNum = !legacy && typeof roundParsed === 'number' ? roundParsed : null;
+    const finalName = legacy ? trimmedName : composeInvestmentName(trimmedName, roundNum);
+    const platform = platformNo.trim().replace(/^#\s*/, '');
     setSaving(true);
     try {
       if (initial) {
         await settleOrPending(
-          updateInvestment(uid, initial.id, { investedTo: trimmedTo, medium, principalMinor: parsed, date, duration, note }),
+          updateInvestment(uid, initial.id, {
+            investedTo: finalName,
+            medium,
+            principalMinor: parsed,
+            date,
+            duration,
+            note,
+            platformNo: platform,
+            // legacy এন্ট্রিতে companyId/round লেখা হয় না — শুধু কোম্পানি-সংযুক্ত এন্ট্রিতে
+            ...(legacy ? {} : { companyId, round: roundNum }),
+          }),
           3000,
         );
       } else {
         await settleOrPending(
           addInvestment(uid, {
-            investedTo: trimmedTo,
+            investedTo: finalName,
             medium,
             principalMinor: parsed,
             currency: 'BDT',
@@ -77,6 +139,9 @@ export default function InvestmentSheet({
             zakatable: true,
             expectedRepaymentDate: null,
             ledgerId,
+            companyId,
+            round: roundNum,
+            platformNo: platform,
           }),
           3000,
         );
@@ -86,6 +151,21 @@ export default function InvestmentSheet({
       setError('Could not save. Check your connection and try again.');
       setSaving(false);
     }
+  }
+
+  if (pickerOpen) {
+    return (
+      <CompanyPickerScreen
+        uid={uid}
+        selectedId={companyId}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(c) => {
+          setCompanyId(c.id);
+          setInvestedTo(c.name); // নাম এন্ট্রিতে এডিটযোগ্য থাকে; এন্ট্রির নাম বদলালে কোম্পানি-রেকর্ড বদলায় না
+          setPickerOpen(false);
+        }}
+      />
+    );
   }
 
   if (confirmDiscard) {
@@ -117,25 +197,134 @@ export default function InvestmentSheet({
       }
     >
       <div className="flex flex-col gap-4">
-        <div>
-          <label htmlFor="inv-to" className="mb-1 block text-sm text-muted">
-            Invested To
-          </label>
-          <input
-            id="inv-to"
-            autoFocus
-            value={investedTo}
-            maxLength={60}
-            onChange={(e) => setInvestedTo(e.target.value)}
-            aria-invalid={submitted && !investedTo.trim()}
-            className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-          />
-          {submitted && !investedTo.trim() && (
-            <p role="alert" className="mt-1 text-sm text-expense">
-              Enter a name.
-            </p>
-          )}
-        </div>
+        {legacy ? (
+          <div>
+            <label htmlFor="inv-to" className="mb-1 block text-sm text-muted">
+              Invested To
+            </label>
+            <input
+              id="inv-to"
+              autoFocus
+              value={investedTo}
+              maxLength={60}
+              onChange={(e) => setInvestedTo(e.target.value)}
+              aria-invalid={submitted && !trimmedName}
+              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
+            />
+            {submitted && !trimmedName && (
+              <p role="alert" className="mt-1 text-sm text-expense">
+                Enter a name.
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            <div>
+              <span className="mb-1 block text-sm text-muted">Company</span>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                aria-invalid={submitted && companyMissing}
+                className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-muted/40 bg-surface px-3 text-left"
+              >
+                {companyId ? (
+                  <>
+                    <CompanyLogo name={company?.name ?? trimmedName} logo={company?.logo} size="sm" />
+                    <span className="min-w-0 flex-1 truncate font-medium text-fg">{company?.name ?? trimmedName}</span>
+                  </>
+                ) : (
+                  <span className="flex-1 text-muted">Choose company</span>
+                )}
+                <ChevronDown aria-hidden size={18} className="text-muted" />
+              </button>
+              {submitted && companyMissing && (
+                <p role="alert" className="mt-1 text-sm text-expense">
+                  Choose a company.
+                </p>
+              )}
+            </div>
+
+            {companyId && (
+              <div>
+                <label htmlFor="inv-to" className="mb-1 block text-sm text-muted">
+                  Name
+                </label>
+                <input
+                  id="inv-to"
+                  value={investedTo}
+                  maxLength={60}
+                  onChange={(e) => setInvestedTo(e.target.value)}
+                  aria-invalid={submitted && (!trimmedName || doubleTag)}
+                  className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
+                />
+                {submitted && !trimmedName && (
+                  <p role="alert" className="mt-1 text-sm text-expense">
+                    Enter a name.
+                  </p>
+                )}
+                {submitted && doubleTag && (
+                  <p role="alert" className="mt-1 text-sm text-expense">
+                    Remove the [n] from the name — Round adds it.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label htmlFor="inv-round" className="mb-1 block text-sm text-muted">
+                  Round (optional)
+                </label>
+                <input
+                  id="inv-round"
+                  inputMode="numeric"
+                  value={round}
+                  maxLength={3}
+                  placeholder="9"
+                  onChange={(e) => setRound(e.target.value)}
+                  aria-invalid={submitted && roundInvalid}
+                  className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
+                />
+                {submitted && roundInvalid ? (
+                  <p role="alert" className="mt-1 text-xs text-expense">
+                    Digits only (1–999).
+                  </p>
+                ) : (
+                  lastRound !== null && <p className="mt-1 text-xs text-muted">Last: {lastRound}</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="inv-no" className="mb-1 block text-sm text-muted">
+                  Investment No (optional)
+                </label>
+                <input
+                  id="inv-no"
+                  value={platformNo}
+                  maxLength={30}
+                  placeholder="#74874"
+                  onChange={(e) => setPlatformNo(e.target.value)}
+                  className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {legacy && (
+          <div>
+            <label htmlFor="inv-no" className="mb-1 block text-sm text-muted">
+              Investment No (optional)
+            </label>
+            <input
+              id="inv-no"
+              value={platformNo}
+              maxLength={30}
+              placeholder="#74874"
+              onChange={(e) => setPlatformNo(e.target.value)}
+              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
+            />
+          </div>
+        )}
 
         <div>
           <label htmlFor="inv-medium" className="mb-1 block text-sm text-muted">
@@ -146,9 +335,34 @@ export default function InvestmentSheet({
             value={medium}
             maxLength={60}
             onChange={(e) => setMedium(e.target.value)}
+            onFocus={() => setMediumFocus(true)}
+            onBlur={() => setMediumFocus(false)}
             className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
           />
+          {mediumFocus && suggestions.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2" role="list" aria-label="Medium suggestions">
+              {suggestions.map((m, idx) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="listitem"
+                  // pointerdown-এ focus কেড়ে নেওয়া আটকাই, যাতে চিপ বাছার আগে সাজেশন-সারি লুকিয়ে না যায়
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => setMedium(m)}
+                  className={`min-h-9 rounded-full px-3 text-sm ${idx === 0 && company?.medium?.trim() === m ? 'bg-primary text-canvas' : 'bg-primary/10 text-primary'}`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        {!legacy && companyId && trimmedName && (
+          <p className="rounded-lg bg-surface px-3 py-2 text-sm text-muted">
+            Saved as: <span className="font-medium text-fg">{savedAs}</span>
+          </p>
+        )}
 
         <AmountInput value={amount} onChange={setAmount} showError={submitted} />
 

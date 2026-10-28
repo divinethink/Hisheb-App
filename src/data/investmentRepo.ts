@@ -38,7 +38,7 @@ export async function addInvestment(uid: string, input: InvestmentInput): Promis
 }
 
 type EditablePatch = Partial<
-  Pick<InvestmentInput, 'investedTo' | 'medium' | 'principalMinor' | 'date' | 'duration' | 'note' | 'expectedRepaymentDate'>
+  Pick<InvestmentInput, 'investedTo' | 'medium' | 'principalMinor' | 'date' | 'duration' | 'note' | 'expectedRepaymentDate' | 'companyId' | 'round' | 'platformNo'>
 >;
 
 export async function updateInvestment(uid: string, id: string, patch: EditablePatch): Promise<void> {

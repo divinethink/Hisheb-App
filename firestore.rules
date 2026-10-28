@@ -15,6 +15,19 @@ service cloud.firestore {
     function posInt(v) {
       return v is int && v > 0;
     }
+    // ঐচ্ছিক ফিল্ড: না থাকলে/null হলে ঠিক; থাকলে টাইপ ও সীমা মানতে হবে (investments ধাপ ১, additive)
+    function optPosInt(d, k) {
+      return !(k in d) || d[k] == null || (d[k] is int && d[k] > 0);
+    }
+    function optStr(d, k, max) {
+      return !(k in d) || d[k] == null || (d[k] is string && d[k].size() <= max);
+    }
+    // কোম্পানি-লোগো: ছোট webp/png/jpeg data-URL (≤৪০০০০ অক্ষর), svg নয় — validation/investmentCompanySchema.ts-এর সাথে মিল
+    function logoOk(d) {
+      return !('logo' in d) || d.logo == null
+             || (d.logo is string && d.logo.size() <= 40000
+                 && d.logo.matches('^data:image/(webp|png|jpeg);base64,[A-Za-z0-9+/=]+$'));
+    }
     function validWrite(col, d) {
       return (col == 'transactions'
                 ? (posInt(d.amountMinor) && d.type in ['income', 'expense']
@@ -22,7 +35,11 @@ service cloud.firestore {
               : col in ['labels', 'categories'] ? nameOk(d)
               : col == 'customLedgers' ? (nameOk(d) && d.kind in ['deposit', 'investment'])
               : col == 'debts' ? posInt(d.totalAmountMinor)
-              : col == 'investments' ? posInt(d.principalMinor)
+              : col == 'investments'
+                ? (posInt(d.principalMinor) && optPosInt(d, 'round') && optStr(d, 'companyId', 100)
+                   && optStr(d, 'platformNo', 30))
+              : col == 'investmentCompanies'
+                ? (nameOk(d) && d.name.size() <= 60 && optStr(d, 'medium', 60) && logoOk(d))
               : col == 'homeDeposits' ? posInt(d.amountMinor)
               : col == 'gpfEntries'
                 ? (posInt(d.amountMinor) && d.type in ['contribution', 'interest', 'withdrawal'])
