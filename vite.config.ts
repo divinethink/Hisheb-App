@@ -11,7 +11,7 @@ export default defineConfig({
       registerType: 'prompt',
       // Firebase Auth নিজের ডোমেইনে (authDomain = hosting ডোমেইন) /__/auth/handler ও /__/auth/iframe
       // serve করে — এই reserved path SW-এর index.html-fallback-এ পড়লে Google sign-in popup ভেঙে যায়।
-      workbox: { navigateFallbackDenylist: [/^\/__\//] },
+      workbox: { navigateFallbackDenylist: [/^\/__\//, /^\/privacy\.html$/] },
       includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'হিসাব-নিকাশ',
