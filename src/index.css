@@ -36,14 +36,3 @@ body {
     transform: scale(0.97);
   }
 }
-
-/* Home সামারি কার্ড এন্ট্রি-অ্যানিমেশন (~১ সেকেন্ড): কার্ড fade-up, বার ভরা, পতাকা পপ।
-   prefers-reduced-motion: reduce হলে কিছুই চলে না (শুধু no-preference-এ প্রযোজ্য)। */
-@keyframes ms-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-@keyframes ms-bar { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
-@keyframes ms-pop { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
-@media (prefers-reduced-motion: no-preference) {
-  .ms-up { animation: ms-up 300ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-  .ms-bar { animation: ms-bar 700ms cubic-bezier(0.22, 1, 0.36, 1) 200ms both; }
-  .ms-pop { animation: ms-pop 250ms cubic-bezier(0.22, 1, 0.36, 1) 650ms both; }
-}
