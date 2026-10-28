@@ -19,7 +19,17 @@ type InvestmentOutcome = z.infer<typeof InvestmentOutcomeSchema>;
 const OUTCOME_OPTIONS: readonly InvestmentOutcome[] = ['running', 'doubtful', 'written_off'];
 const OUTCOME_LABEL: Record<InvestmentOutcome, string> = { running: 'Running', doubtful: 'Doubtful', written_off: 'Written-off' };
 
-export default function InvestmentDetailScreen({ uid, investment, onBack }: { uid: string; investment: Investment; onBack: () => void }) {
+export default function InvestmentDetailScreen({
+  uid,
+  investment,
+  onBack,
+  onOpenCompany,
+}: {
+  uid: string;
+  investment: Investment;
+  onBack: () => void;
+  onOpenCompany?: (companyId: string) => void;
+}) {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteIdx, setDeleteIdx] = useState<number | null>(null);
@@ -56,10 +66,21 @@ export default function InvestmentDetailScreen({ uid, investment, onBack }: { ui
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <CompanyLogo name={stripRoundTag(company?.name ?? investment.investedTo)} logo={company?.logo} size="md" />
+            {company && onOpenCompany ? (
+              <button type="button" aria-label={`Open ${company.name}`} onClick={() => onOpenCompany(company.id)} className="shrink-0 rounded-xl active:opacity-70">
+                <CompanyLogo name={stripRoundTag(company.name)} logo={company.logo} size="md" />
+              </button>
+            ) : (
+              <CompanyLogo name={stripRoundTag(company?.name ?? investment.investedTo)} logo={company?.logo} size="md" />
+            )}
             <div className="min-w-0">
               <p className="text-sm text-muted">Principal{investment.duration ? ` · ${investment.duration}` : ''}</p>
               <p className="text-lg font-semibold text-fg">{formatAmount(investment.principalMinor)}</p>
+              {company && onOpenCompany && (
+                <button type="button" onClick={() => onOpenCompany(company.id)} className="min-h-8 truncate text-xs font-medium text-primary underline">
+                  {company.name} →
+                </button>
+              )}
               {(investment.medium || investment.platformNo) && (
                 <p className="truncate text-xs text-muted">
                   {[investment.medium, investment.platformNo ? `#${investment.platformNo}` : ''].filter(Boolean).join(' · ')}

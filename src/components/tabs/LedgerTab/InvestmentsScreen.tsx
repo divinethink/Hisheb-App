@@ -6,6 +6,9 @@ import CompanyLogo from '../../common/CompanyLogo';
 import { SearchToggle, SearchPanel } from '../../common/ListSearch';
 import InvestmentSheet from './InvestmentSheet';
 import InvestmentDetailScreen from './InvestmentDetailScreen';
+import CompanyDetailScreen from './CompanyDetailScreen';
+import CompanyPickerScreen from './CompanyPickerScreen';
+import { Building2 } from 'lucide-react';
 import { formatAmount, formatTaka } from '../../../lib/format';
 import { formatDisplayDate, isOverdue } from '../../../lib/date';
 import {
@@ -43,15 +46,53 @@ export default function InvestmentsScreen({
   const companies = useInvestmentCompanies(uid);
   const [addOpen, setAddOpen] = useState(false);
   const [selected, setSelected] = useState<Investment | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [browseCompanies, setBrowseCompanies] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<InvFilter>('all');
   const settings = useSettings(uid);
   const dateFormat = settings.state.status === 'ready' ? settings.state.data.dateFormat : 'dmy';
 
+  if (companyId) {
+    return (
+      <CompanyDetailScreen
+        uid={uid}
+        companyId={companyId}
+        onBack={() => setCompanyId(null)}
+        onOpenInvestment={(i) => {
+          setCompanyId(null);
+          setSelected(i);
+        }}
+      />
+    );
+  }
+  if (browseCompanies) {
+    return (
+      <CompanyPickerScreen
+        uid={uid}
+        selectedId={null}
+        onSelect={(c) => {
+          setBrowseCompanies(false);
+          setCompanyId(c.id);
+        }}
+        onClose={() => setBrowseCompanies(false)}
+      />
+    );
+  }
   if (investments.state.status === 'ready' && selected) {
     const fresh = investments.state.data.find((i) => i.id === selected.id) ?? selected;
-    return <InvestmentDetailScreen uid={uid} investment={fresh} onBack={() => setSelected(null)} />;
+    return (
+      <InvestmentDetailScreen
+        uid={uid}
+        investment={fresh}
+        onBack={() => setSelected(null)}
+        onOpenCompany={(id) => {
+          setSelected(null);
+          setCompanyId(id);
+        }}
+      />
+    );
   }
 
   const all = investments.state.status === 'ready' ? investments.state.data : [];
@@ -128,7 +169,14 @@ export default function InvestmentsScreen({
       title={title}
       onBack={onBack}
       footer={footer}
-      actions={<SearchToggle open={searchOpen} onToggle={() => setSearchOpen((o) => !o)} />}
+      actions={
+        <>
+          <button type="button" aria-label="Companies" onClick={() => setBrowseCompanies(true)} className="flex h-11 w-11 items-center justify-center text-muted">
+            <Building2 aria-hidden size={18} />
+          </button>
+          <SearchToggle open={searchOpen} onToggle={() => setSearchOpen((o) => !o)} />
+        </>
+      }
     >
       <div className="flex flex-col gap-3">
         {searchOpen && (
