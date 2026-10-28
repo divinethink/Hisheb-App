@@ -71,21 +71,21 @@ function Totals({
 }) {
   return (
     <Card as="section" ariaLabel="Totals" className="mx-4">
-      <div className="grid grid-cols-3 gap-2 p-4 text-center">
-        <div className="flex flex-col items-center gap-1">
+      <div className="grid grid-cols-3 gap-1.5 px-3 py-4 text-center">
+        <div className="flex min-w-0 flex-col items-center gap-1">
           <IconBadge icon={TrendingUp} tone="income" size={32} />
           <p className="text-xs text-muted">Income</p>
-          <p className="text-base font-semibold text-income">{formatTaka(income)}</p>
+          <p className="whitespace-nowrap text-[15px] font-semibold text-income">{formatTaka(income)}</p>
         </div>
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex min-w-0 flex-col items-center gap-1">
           <IconBadge icon={TrendingDown} tone="expense" size={32} />
           <p className="text-xs text-muted">Expense</p>
-          <p className="text-base font-semibold text-expense">{formatTaka(expense)}</p>
+          <p className="whitespace-nowrap text-[15px] font-semibold text-expense">{formatTaka(expense)}</p>
         </div>
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex min-w-0 flex-col items-center gap-1">
           <IconBadge icon={PiggyBank} tone={savings < 0 ? 'expense' : 'income'} size={32} />
           <p className="text-xs text-muted">Savings</p>
-          <p className={`text-base font-semibold ${savings < 0 ? 'text-expense' : 'text-income'}`}>{formatNetTaka(savings)}</p>
+          <p className={`whitespace-nowrap text-[15px] font-semibold ${savings < 0 ? 'text-expense' : 'text-income'}`}>{formatNetTaka(savings)}</p>
         </div>
       </div>
       {savingsPct != null && (
@@ -423,7 +423,10 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
         return growth ? (
           <Card as="section" ariaLabel="Net worth growth" className="mx-4 mt-3 flex items-center gap-2 px-3 py-2.5">
             <IconBadge icon={Wallet} tone="primary" size={28} />
-            <p className="min-w-0 flex-1 truncate text-xs text-muted">Net Worth · {growth.latestYyyymm}</p>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-xs text-muted">Net Worth</p>
+              <p className="truncate text-[10px] text-muted">{growth.latestYyyymm}</p>
+            </div>
             <p className="shrink-0 text-base font-semibold text-fg">{formatTaka(growth.latestMinor)}</p>
             {growth.deltaPct != null && (
               <p className={`shrink-0 text-xs font-medium ${growth.deltaPct >= 0 ? 'text-income' : 'text-expense'}`} title={`vs ${growth.earliestYyyymm}`}>
