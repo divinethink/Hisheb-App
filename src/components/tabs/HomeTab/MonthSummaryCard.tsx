@@ -36,7 +36,7 @@ export default function MonthSummaryCard({
   const forecastBad = !!s && s.forecastMinor != null && hasBudget && s.forecastMinor > budgetMinor;
   const negative = savingsMinor < 0;
   // কার্ডের ব্যাকগ্রাউন্ড আভা: উপরে ৩% → মাঝে ৫% → নিচে ১০% (theme token, সব theme-এ মেলে)
-  const glow = over || negative ? 'from-expense/[0.02] via-expense/[0.03] to-expense/[0.06]' : 'from-income/[0.03] via-income/5 to-income/10';
+  const glow = over || negative ? 'from-muted/[0.03] via-muted/5 to-muted/10' : 'from-income/[0.03] via-income/5 to-income/10';
   const shortMonth = monthLabel(month).split(' ')[0].slice(0, 3);
   const daysLeftText = s && s.daysLeft > 0 && s.forecastMinor != null ? ` · ${s.daysLeft} days left` : '';
 
@@ -72,19 +72,19 @@ export default function MonthSummaryCard({
   return (
     <section
       aria-label="Month summary"
-      className={`mx-4 rounded-2xl border bg-canvas bg-gradient-to-b p-3 shadow-sm proportional-nums ${glow} ${over ? 'border-expense/30' : 'border-muted/10'}`}
+      className={`mx-4 rounded-2xl border bg-canvas bg-gradient-to-b p-2.5 shadow-sm proportional-nums ${glow} border-muted/10`}
     >
       <div className="grid grid-cols-3 gap-2">
         {chip('income', incomeMinor)}
         {chip('expense', expenseMinor)}
         <div className={`${tile} bg-muted/10`} aria-label="Average expense per month, last 3 months">
           <span className="text-[11px] leading-tight text-muted">⌀ Avg/mo · 3m</span>
-          <span className="text-base font-semibold leading-tight text-fg">{avgExpenseMinor != null ? formatPlain(Math.round(avgExpenseMinor)) : '—'}</span>
+          <span className="text-base font-semibold leading-tight text-fg">{avgExpenseMinor != null ? formatPlain(Math.round(avgExpenseMinor / 100) * 100) : '—'}</span>
         </div>
       </div>
 
       {hasBudget && s && (
-        <div className="relative mb-3 mt-2" role="img" aria-label={`${Math.round(pct)}% of target used`}>
+        <div className="relative mb-4 mt-2" role="img" aria-label={`${Math.round(pct)}% of target used`}>
           <div className="flex h-2 overflow-hidden rounded-full bg-muted/15">
             <div className={`h-full ${fillTone}`} style={{ width: `${fillPct}%` }} />
             {over && <div className="h-full bg-expense" style={{ width: `${100 - fillPct}%` }} />}
@@ -101,10 +101,25 @@ export default function MonthSummaryCard({
       )}
 
       <div className={`grid gap-2 ${hasBudget && s ? 'grid-cols-2' : 'grid-cols-1'} ${hasBudget && s ? '' : 'mt-2'}`}>
+        <div className={`${tile} border border-muted/10 bg-surface`}>
+          <p className="text-[11px] leading-tight text-muted">{`Savings · ${shortMonth}${daysLeftText}`}</p>
+          <p className={`text-[19px] font-semibold leading-tight ${negative ? 'text-expense' : 'text-income'}`}>{formatNet(savingsMinor)}</p>
+          {s && s.elapsedDays > 0 && (
+            <p className="text-[11px] leading-tight text-muted">
+              Avg <span className="font-medium text-fg">{formatPlain(s.avgPerDayMinor)}</span>
+              {s.safePerDayMinor != null && (
+                <>
+                  {' · '}Safe <span className="font-medium text-fg">{formatPlain(s.safePerDayMinor)}</span>
+                </>
+              )}
+              /day
+            </p>
+          )}
+        </div>
         {hasBudget && s && (
-          <div className={`${tile} border border-muted/10 bg-surface text-[11px] text-muted`}>
+          <div className={`${tile} border border-muted/10 bg-surface text-[10px] text-muted`}>
             <span className="leading-tight">
-              <span className={`text-[17px] font-semibold ${pctTone}`}>{Math.round(pct)}%</span> of target {formatPlain(budgetMinor)}
+              <span className={`text-[15px] font-semibold ${pctTone}`}>{Math.round(pct)}%</span> of target {formatPlain(budgetMinor)}
             </span>
             <span className={`font-medium leading-tight ${pctTone}`}>
               {over ? `${formatPlain(expenseMinor - budgetMinor)} over` : `${formatPlain(budgetMinor - expenseMinor)} left`}
@@ -121,21 +136,6 @@ export default function MonthSummaryCard({
             )}
           </div>
         )}
-        <div className={`${tile} border border-muted/10 bg-surface`}>
-          <p className="text-[11px] leading-tight text-muted">{`Savings · ${shortMonth}${daysLeftText}`}</p>
-          <p className={`text-[19px] font-semibold leading-tight ${negative ? 'text-expense' : 'text-income'}`}>{formatNet(savingsMinor)}</p>
-          {s && s.elapsedDays > 0 && (
-            <p className="text-[11px] leading-tight text-muted">
-              Avg <span className="font-medium text-fg">{formatPlain(s.avgPerDayMinor)}</span>
-              {s.safePerDayMinor != null && (
-                <>
-                  {' · '}Safe <span className="font-medium text-fg">{formatPlain(s.safePerDayMinor)}</span>
-                </>
-              )}
-              /day
-            </p>
-          )}
-        </div>
       </div>
     </section>
   );
