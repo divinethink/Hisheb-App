@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, Check } from 'lucide-react';
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, Check, Flag } from 'lucide-react';
 import { monthSpendStats } from '../../../lib/budgetPace';
 import { monthLabel } from '../../../lib/date';
 import { formatAmount, formatNet, formatPlain } from '../../../lib/format';
@@ -38,7 +38,7 @@ export default function MonthSummaryCard({
   // কার্ডের ব্যাকগ্রাউন্ড আভা: উপরে ৩% → মাঝে ৫% → নিচে ১০% (theme token, সব theme-এ মেলে)
   const glow = over || negative ? 'from-muted/[0.03] via-muted/5 to-muted/10' : 'from-income/[0.03] via-income/5 to-income/10';
   const shortMonth = monthLabel(month).split(' ')[0].slice(0, 3);
-  const daysLeftText = s && s.daysLeft > 0 && s.forecastMinor != null ? ` · ${s.daysLeft} days left` : '';
+  const daysLeftText = s && s.daysLeft > 0 && s.forecastMinor != null ? ` · ${s.daysLeft}d left` : '';
 
   // bar: over হলে মোট ব্যয়কে ১০০% ধরে, টিক = target-এর অবস্থান; নইলে bar = ব্যয়/target, টিক ডান প্রান্তে
   const tickPct = over ? (budgetMinor / expenseMinor) * 100 : 100;
@@ -46,7 +46,7 @@ export default function MonthSummaryCard({
   const fillTone = pct >= 90 ? 'bg-danger' : pct >= 80 ? 'bg-warning' : 'bg-primary';
   const pctTone = over ? 'text-expense' : pct >= 90 ? 'text-danger' : pct >= 80 ? 'text-warning' : 'text-primary';
 
-  const tile = 'flex h-[60px] min-w-0 flex-col justify-center overflow-hidden whitespace-nowrap rounded-xl px-2.5 py-1';
+  const tile = 'flex h-16 min-w-0 flex-col justify-center overflow-hidden whitespace-nowrap rounded-xl border border-muted/10 px-2.5 py-1.5';
   const chip = (kind: 'income' | 'expense', amount: number) => {
     const active = typeFilter === kind;
     const Icon = kind === 'income' ? ArrowUpRight : ArrowDownRight;
@@ -84,24 +84,23 @@ export default function MonthSummaryCard({
       </div>
 
       {hasBudget && s && (
-        <div className="relative mb-4 mt-2" role="img" aria-label={`${Math.round(pct)}% of target used`}>
+        <div className="relative my-2.5" role="img" aria-label={`${Math.round(pct)}% of target used`}>
           <div className="flex h-2 overflow-hidden rounded-full bg-muted/15">
             <div className={`h-full ${fillTone}`} style={{ width: `${fillPct}%` }} />
             {over && <div className="h-full bg-expense" style={{ width: `${100 - fillPct}%` }} />}
           </div>
-          <div className="absolute -top-[3px] h-3.5 w-0.5 rounded-sm bg-fg" style={{ left: `calc(${tickPct}% - 1px)` }} />
-          <span
+          <div
             aria-hidden
-            className="absolute top-3 text-[9px] leading-none text-muted"
-            style={{ left: `${tickPct}%`, transform: `translateX(${tickPct > 90 ? '-100%' : tickPct < 10 ? '0' : '-50%'})` }}
+            className="absolute top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full border border-fg bg-canvas text-fg"
+            style={{ left: `calc(${tickPct}% - ${tickPct >= 97 ? 14 : 8}px)` }}
           >
-            target
-          </span>
+            <Flag size={9} />
+          </div>
         </div>
       )}
 
       <div className={`grid gap-2 ${hasBudget && s ? 'grid-cols-2' : 'grid-cols-1'} ${hasBudget && s ? '' : 'mt-2'}`}>
-        <div className={`${tile} border border-muted/10 bg-surface`}>
+        <div className={`${tile} bg-surface`}>
           <p className="text-[11px] leading-tight text-muted">{`Savings · ${shortMonth}${daysLeftText}`}</p>
           <p className={`text-[19px] font-semibold leading-tight ${negative ? 'text-expense' : 'text-income'}`}>{formatNet(savingsMinor)}</p>
           {s && s.elapsedDays > 0 && (
@@ -117,7 +116,7 @@ export default function MonthSummaryCard({
           )}
         </div>
         {hasBudget && s && (
-          <div className={`${tile} border border-muted/10 bg-surface text-[10px] text-muted`}>
+          <div className={`${tile} bg-surface text-[10px] text-muted`}>
             <span className="leading-tight">
               <span className={`text-[15px] font-semibold ${pctTone}`}>{Math.round(pct)}%</span> of target {formatPlain(budgetMinor)}
             </span>

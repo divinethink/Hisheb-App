@@ -19,7 +19,7 @@ describe('MonthSummaryCard', () => {
     expect(screen.getByText('1,100')).toBeTruthy(); // Avg
     expect(screen.getByText('1,182')).toBeTruthy(); // Safe
     expect(screen.getByLabelText('Forecast is within target')).toBeTruthy();
-    expect(screen.getByText('Savings · Oct · 11 days left')).toBeTruthy();
+    expect(screen.getByText('Savings · Oct · 11d left')).toBeTruthy();
   });
 
   it('over target: over text, no Safe, forecast warning', () => {

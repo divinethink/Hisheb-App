@@ -246,7 +246,7 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
                 </button>
               </div>
             ) : (
-              <div className="mt-4 flex flex-col gap-1 px-4">
+              <div className="mt-2 flex flex-col gap-1 px-4">
                 {groups.map((g) => (
                   <section key={g.date} aria-label={dateLabel(g.date, today)} className="mb-2">
                     <h2 className="flex justify-between px-2 pb-1 pt-1 text-xs font-medium text-muted">
