@@ -36,7 +36,7 @@ export default function MonthSummaryCard({
   const forecastBad = !!s && s.forecastMinor != null && hasBudget && s.forecastMinor > budgetMinor;
   const negative = savingsMinor < 0;
   // কার্ডের ব্যাকগ্রাউন্ড আভা: উপরে ৩% → মাঝে ৫% → নিচে ১০% (theme token, সব theme-এ মেলে)
-  const glow = over || negative ? 'from-expense/[0.03] via-expense/5 to-expense/10' : 'from-income/[0.03] via-income/5 to-income/10';
+  const glow = over || negative ? 'from-expense/[0.02] via-expense/[0.03] to-expense/[0.06]' : 'from-income/[0.03] via-income/5 to-income/10';
   const shortMonth = monthLabel(month).split(' ')[0].slice(0, 3);
   const daysLeftText = s && s.daysLeft > 0 && s.forecastMinor != null ? ` · ${s.daysLeft} days left` : '';
 
@@ -46,7 +46,7 @@ export default function MonthSummaryCard({
   const fillTone = pct >= 90 ? 'bg-danger' : pct >= 80 ? 'bg-warning' : 'bg-primary';
   const pctTone = over ? 'text-expense' : pct >= 90 ? 'text-danger' : pct >= 80 ? 'text-warning' : 'text-primary';
 
-  const tile = 'flex min-h-14 flex-col justify-center rounded-xl px-2.5 py-1.5';
+  const tile = 'flex h-[60px] min-w-0 flex-col justify-center overflow-hidden whitespace-nowrap rounded-xl px-2.5 py-1';
   const chip = (kind: 'income' | 'expense', amount: number) => {
     const active = typeFilter === kind;
     const Icon = kind === 'income' ? ArrowUpRight : ArrowDownRight;
@@ -58,13 +58,13 @@ export default function MonthSummaryCard({
         aria-pressed={active}
         aria-label={`${kind === 'income' ? 'Income' : 'Expense'} ${formatAmount(amount)}`}
         onClick={() => onTypeFilter(active ? null : kind)}
-        className={`${tile} min-w-0 text-left ${tone} ${bg} ${active ? 'ring-2 ring-current' : ''}`}
+        className={`${tile} text-left ${tone} ${bg} ${active ? 'ring-2 ring-current' : ''}`}
       >
         <span className="flex items-center gap-1 text-[11px] leading-tight text-muted">
           <Icon aria-hidden size={12} />
           {kind === 'income' ? 'Income' : 'Expense'}
         </span>
-        <span className="truncate text-[17px] font-semibold leading-tight">{formatPlain(amount)}</span>
+        <span className="text-base font-semibold leading-tight">{formatPlain(amount)}</span>
       </button>
     );
   };
@@ -72,14 +72,14 @@ export default function MonthSummaryCard({
   return (
     <section
       aria-label="Month summary"
-      className={`mx-4 rounded-2xl border bg-canvas bg-gradient-to-b p-3 shadow-sm proportional-nums ${glow} ${over ? 'border-expense/50' : 'border-muted/10'}`}
+      className={`mx-4 rounded-2xl border bg-canvas bg-gradient-to-b p-3 shadow-sm proportional-nums ${glow} ${over ? 'border-expense/30' : 'border-muted/10'}`}
     >
       <div className="grid grid-cols-3 gap-2">
         {chip('income', incomeMinor)}
         {chip('expense', expenseMinor)}
-        <div className={`${tile} min-w-0 bg-muted/10`} aria-label="Average expense per month, last 3 months">
-          <span className="truncate text-[11px] leading-tight text-muted">⌀ Avg exp/mo · 3m</span>
-          <span className="truncate text-[17px] font-semibold leading-tight text-fg">{avgExpenseMinor != null ? formatPlain(Math.round(avgExpenseMinor)) : '—'}</span>
+        <div className={`${tile} bg-muted/10`} aria-label="Average expense per month, last 3 months">
+          <span className="text-[11px] leading-tight text-muted">⌀ Avg/mo · 3m</span>
+          <span className="text-base font-semibold leading-tight text-fg">{avgExpenseMinor != null ? formatPlain(Math.round(avgExpenseMinor)) : '—'}</span>
         </div>
       </div>
 
@@ -102,7 +102,7 @@ export default function MonthSummaryCard({
 
       <div className={`grid gap-2 ${hasBudget && s ? 'grid-cols-2' : 'grid-cols-1'} ${hasBudget && s ? '' : 'mt-2'}`}>
         {hasBudget && s && (
-          <div className={`${tile} bg-surface text-xs text-muted`}>
+          <div className={`${tile} border border-muted/10 bg-surface text-[11px] text-muted`}>
             <span className="leading-tight">
               <span className={`text-[17px] font-semibold ${pctTone}`}>{Math.round(pct)}%</span> of target {formatPlain(budgetMinor)}
             </span>
@@ -113,19 +113,19 @@ export default function MonthSummaryCard({
               <span className="flex items-center gap-1 leading-tight">
                 Forecast <span className={`font-medium ${forecastBad ? (over ? 'text-expense' : 'text-warning') : 'text-income'}`}>{formatPlain(s.forecastMinor)}</span>
                 {forecastBad ? (
-                  <AlertTriangle aria-label="Forecast is above target" size={12} className={over ? 'text-expense' : 'text-warning'} />
+                  <AlertTriangle aria-label="Forecast is above target" size={11} className={over ? 'text-expense' : 'text-warning'} />
                 ) : (
-                  <Check aria-label="Forecast is within target" size={12} className="text-income" />
+                  <Check aria-label="Forecast is within target" size={11} className="text-income" />
                 )}
               </span>
             )}
           </div>
         )}
-        <div className={`${tile} bg-surface`}>
-          <p className="truncate text-[11px] leading-tight text-muted">{`Savings · ${shortMonth}${daysLeftText}`}</p>
-          <p className={`truncate text-[19px] font-semibold leading-tight ${negative ? 'text-expense' : 'text-income'}`}>{formatNet(savingsMinor)}</p>
+        <div className={`${tile} border border-muted/10 bg-surface`}>
+          <p className="text-[11px] leading-tight text-muted">{`Savings · ${shortMonth}${daysLeftText}`}</p>
+          <p className={`text-[19px] font-semibold leading-tight ${negative ? 'text-expense' : 'text-income'}`}>{formatNet(savingsMinor)}</p>
           {s && s.elapsedDays > 0 && (
-            <p className="truncate text-xs leading-tight text-muted">
+            <p className="text-[11px] leading-tight text-muted">
               Avg <span className="font-medium text-fg">{formatPlain(s.avgPerDayMinor)}</span>
               {s.safePerDayMinor != null && (
                 <>
