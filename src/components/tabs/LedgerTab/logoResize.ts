@@ -20,18 +20,54 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-export type LogoError = 'not-image' | 'too-big' | 'bad-image' | 'too-large';
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error('bad-image'));
+    r.readAsDataURL(file);
+  });
+}
 
-export async function fileToLogoDataUrl(file: File): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('not-image' satisfies LogoError);
-  if (file.size > MAX_INPUT_BYTES) throw new Error('too-big' satisfies LogoError);
+type Decoded = { src: CanvasImageSource; w: number; h: number; close: () => void };
+
+/** একাধিক পথে ডিকোড: (১) createImageBitmap (EXIF ঘোরানো ঠিক, বেশি ফরম্যাট), (২) object-URL, (৩) FileReader data-URL। */
+async function decodeImage(file: File): Promise<Decoded> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bmp = await createImageBitmap(file);
+      return { src: bmp, w: bmp.width, h: bmp.height, close: () => bmp.close() };
+    } catch {
+      /* পরের পথ */
+    }
+  }
   const url = URL.createObjectURL(file);
   try {
     const img = await loadImage(url);
-    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    return { src: img, w: img.naturalWidth, h: img.naturalHeight, close: () => undefined };
+  } catch {
+    /* পরের পথ */
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+  const img = await loadImage(await readAsDataUrl(file));
+  return { src: img, w: img.naturalWidth, h: img.naturalHeight, close: () => undefined };
+}
+
+export type LogoError = 'not-image' | 'too-big' | 'bad-image' | 'too-large' | 'unsupported';
+
+export async function fileToLogoDataUrl(file: File): Promise<string> {
+  // কিছু ফোনে type ফাঁকা আসে; HEIC/HEIF ব্রাউজার পড়তে পারে না — আলাদা বার্তা
+  if (/hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name)) throw new Error('unsupported' satisfies LogoError);
+  if (file.type && !file.type.startsWith('image/')) throw new Error('not-image' satisfies LogoError);
+  if (file.size > MAX_INPUT_BYTES) throw new Error('too-big' satisfies LogoError);
+  if (file.size === 0) throw new Error('bad-image' satisfies LogoError);
+  const dec = await decodeImage(file);
+  try {
+    const side = Math.min(dec.w, dec.h);
     if (!side) throw new Error('bad-image' satisfies LogoError);
-    const sx = (img.naturalWidth - side) / 2;
-    const sy = (img.naturalHeight - side) / 2;
+    const sx = (dec.w - side) / 2;
+    const sy = (dec.h - side) / 2;
     for (const [px, quality] of ATTEMPTS) {
       const canvas = document.createElement('canvas');
       canvas.width = px;
@@ -40,13 +76,13 @@ export async function fileToLogoDataUrl(file: File): Promise<string> {
       if (!ctx) throw new Error('bad-image' satisfies LogoError);
       ctx.fillStyle = '#ffffff'; // স্বচ্ছ ব্যাকগ্রাউন্ড ডার্ক মোডে মিশে না যেতে
       ctx.fillRect(0, 0, px, px);
-      ctx.drawImage(img, sx, sy, side, side, 0, 0, px, px);
+      ctx.drawImage(dec.src, sx, sy, side, side, 0, 0, px, px);
       const out = canvas.toDataURL('image/webp', quality);
       if (out.length <= TARGET_CHARS && safeLogo(out) !== null) return out;
     }
     throw new Error('too-large' satisfies LogoError);
   } finally {
-    URL.revokeObjectURL(url);
+    dec.close();
   }
 }
 
@@ -58,7 +94,9 @@ export function logoErrorMessage(e: unknown): string {
       return 'Image is too large (max 15 MB).';
     case 'too-large':
       return 'Could not shrink this image enough. Try a simpler one.';
+    case 'unsupported':
+      return 'HEIC/HEIF is not supported. Choose a JPG or PNG.';
     default:
-      return 'Could not read this image.';
+      return 'Could not read this image. Save it to the phone first (Gallery/Downloads), then choose it again.';
   }
 }
