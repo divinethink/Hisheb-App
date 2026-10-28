@@ -34,6 +34,20 @@ describe('InvestmentSchema — ধাপ ১ additive ফিল্ড', () => {
   });
 });
 
+describe('InvestmentSchema — ধাপ ৩ contract ফিল্ড', () => {
+  it('পুরনো doc-এ contractFileId/contractName null', () => {
+    const r = InvestmentSchema.parse(oldDoc);
+    expect(r.contractFileId).toBeNull();
+    expect(r.contractName).toBeNull();
+  });
+  it('নতুন ফিল্ড পার্স হয়, সীমা ছাড়ালে অগ্রাহ্য', () => {
+    const r = InvestmentSchema.parse({ ...oldDoc, contractFileId: '1AbC', contractName: 'A.pdf' });
+    expect(r.contractFileId).toBe('1AbC');
+    expect(InvestmentSchema.safeParse({ ...oldDoc, contractFileId: 'x'.repeat(101) }).success).toBe(false);
+    expect(InvestmentSchema.safeParse({ ...oldDoc, contractName: 'x'.repeat(121) }).success).toBe(false);
+  });
+});
+
 describe('InvestmentCompanySchema', () => {
   it('ন্যূনতম doc: medium ফাঁকা, logo null', () => {
     const c = InvestmentCompanySchema.parse({ id: 'c1', name: 'Apon Bazaar' });

@@ -9,6 +9,8 @@ const DRIVE_FOLDER_NAME = 'Hisheb Backup';
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
 const FOLDER_ID_CACHE_KEY = 'hisheb_drive_folder_id';
+const CONTRACT_FOLDER_NAME = 'Hisheb Contracts';
+const CONTRACT_FOLDER_CACHE_KEY = 'hisheb_drive_contract_folder_id';
 const FILE_ID_CACHE_KEY = 'hisheb_drive_file_id';
 
 interface GisTokenResponse {
@@ -112,8 +114,12 @@ async function driveFetch(clientId: string, url: string, options?: RequestInit, 
   return res;
 }
 
-async function findOrCreateFolder(clientId: string): Promise<string> {
-  const cached = localStorage.getItem(FOLDER_ID_CACHE_KEY);
+async function findOrCreateFolder(
+  clientId: string,
+  folderName: string = DRIVE_FOLDER_NAME,
+  cacheKey: string = FOLDER_ID_CACHE_KEY,
+): Promise<string> {
+  const cached = localStorage.getItem(cacheKey);
   if (cached) {
     try {
       const res = await driveFetch(clientId, `${DRIVE_API_BASE}/files/${cached}?fields=id,trashed`);
@@ -122,22 +128,22 @@ async function findOrCreateFolder(clientId: string): Promise<string> {
     } catch {
       /* cache stale — নিচে re-find/create */
     }
-    localStorage.removeItem(FOLDER_ID_CACHE_KEY);
+    localStorage.removeItem(cacheKey);
   }
-  const q = encodeURIComponent(`name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const q = encodeURIComponent(`name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
   const listRes = await driveFetch(clientId, `${DRIVE_API_BASE}/files?q=${q}&fields=files(id)&spaces=drive&pageSize=1`);
   const listJson = (await listRes.json()) as { files?: { id: string }[] };
   if (listJson.files?.[0]) {
-    localStorage.setItem(FOLDER_ID_CACHE_KEY, listJson.files[0].id);
+    localStorage.setItem(cacheKey, listJson.files[0].id);
     return listJson.files[0].id;
   }
   const createRes = await driveFetch(clientId, `${DRIVE_API_BASE}/files?fields=id`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: DRIVE_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }),
+    body: JSON.stringify({ name: folderName, mimeType: 'application/vnd.google-apps.folder' }),
   });
   const createJson = (await createRes.json()) as { id: string };
-  localStorage.setItem(FOLDER_ID_CACHE_KEY, createJson.id);
+  localStorage.setItem(cacheKey, createJson.id);
   return createJson.id;
 }
 
@@ -190,4 +196,53 @@ export async function uploadBackupToDrive(clientId: string, payload: unknown): P
   });
   const json = (await res.json()) as { id: string };
   localStorage.setItem(FILE_ID_CACHE_KEY, json.id);
+}
+
+// ───── PDF চুক্তিপত্র (Investment ধাপ ৩) ─────
+// ফাইল Owner-এর নিজের Drive-এর "Hisheb Contracts" ফোল্ডারে (drive.file scope — শুধু এই অ্যাপের বানানো ফাইল), পাবলিক না।
+// এন্ট্রি মুছলে/বদলালে Drive-এর ফাইল মোছা হয় না।
+
+export class DriveFileMissingError extends Error {
+  constructor() {
+    super('This PDF is no longer in your Google Drive (deleted, trashed or not accessible).');
+    this.name = 'DriveFileMissingError';
+  }
+}
+
+/** Drive-এ PDF আপলোড; { fileId, name } ফেরত। ফোল্ডার তৈরি ব্যর্থ হলে Drive-এর রুটে যায়, আটকায় না। */
+export async function uploadContractPdf(clientId: string, file: File, name: string): Promise<{ fileId: string; name: string }> {
+  let folderId: string | null = null;
+  try {
+    folderId = await findOrCreateFolder(clientId, CONTRACT_FOLDER_NAME, CONTRACT_FOLDER_CACHE_KEY);
+  } catch {
+    /* রুটে আপলোড */
+  }
+  const metadata = { name, mimeType: 'application/pdf', ...(folderId ? { parents: [folderId] } : {}) };
+  const boundary = 'hisheb_' + Math.random().toString(36).slice(2);
+  const body = new Blob([
+    `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`,
+    file,
+    `\r\n--${boundary}--`,
+  ]);
+  const res = await driveFetch(clientId, `${DRIVE_UPLOAD_BASE}/files?uploadType=multipart&fields=id,name`, {
+    method: 'POST',
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body,
+  });
+  const json = (await res.json()) as { id: string; name?: string };
+  return { fileId: json.id, name: json.name ?? name };
+}
+
+/** দেখার লিংক (webViewLink)। ফাইল নেই/ট্র্যাশে/অ্যাক্সেস নেই হলে DriveFileMissingError — silent fail নয়। */
+export async function getContractViewLink(clientId: string, fileId: string): Promise<string> {
+  let meta: { webViewLink?: string; trashed?: boolean };
+  try {
+    const res = await driveFetch(clientId, `${DRIVE_API_BASE}/files/${encodeURIComponent(fileId)}?fields=webViewLink,trashed`);
+    meta = (await res.json()) as { webViewLink?: string; trashed?: boolean };
+  } catch (err) {
+    if (err instanceof Error && /Drive API error (404|403)/.test(err.message)) throw new DriveFileMissingError();
+    throw err;
+  }
+  if (meta.trashed || !meta.webViewLink) throw new DriveFileMissingError();
+  return meta.webViewLink;
 }

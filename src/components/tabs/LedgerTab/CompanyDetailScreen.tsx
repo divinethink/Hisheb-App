@@ -144,6 +144,7 @@ export default function CompanyDetailScreen({
                         <span className="block truncate text-sm font-medium text-fg">{i.investedTo}</span>
                         <span className="block truncate text-xs text-muted">
                           {[formatDisplayDate(i.date, dateFormat), i.platformNo ? `#${i.platformNo}` : ''].filter(Boolean).join(' · ')}
+                          {i.contractFileId && <span className="ml-1 rounded bg-expense/10 px-1.5 py-px text-[10px] font-semibold text-expense">PDF</span>}
                         </span>
                       </span>
                       <span className="shrink-0 text-right">

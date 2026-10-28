@@ -3,6 +3,7 @@ import { X, Pencil } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import StatStrip from '../../common/StatStrip';
 import CompanyLogo from '../../common/CompanyLogo';
+import ContractLink from '../../common/ContractLink';
 import InvestmentRepaymentSheet from './InvestmentRepaymentSheet';
 import InvestmentSheet from './InvestmentSheet';
 import { formatAmount } from '../../../lib/format';
@@ -117,6 +118,13 @@ export default function InvestmentDetailScreen({
             },
           ]}
         />
+
+        {investment.contractFileId && (
+          <div>
+            <p className="mb-1 text-sm text-muted">Contract (PDF)</p>
+            <ContractLink fileId={investment.contractFileId} name={investment.contractName} />
+          </div>
+        )}
 
         <div>
           <p className="mb-1 text-sm text-muted">Outcome</p>

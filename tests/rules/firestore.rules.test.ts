@@ -121,6 +121,14 @@ describe('validWrite — other collections (P3/P8-এর clause আগে থে
     await assertFails(setDoc(p('investments'), { principalMinor: 100, companyId: 5 }));
     await assertFails(setDoc(p('investments'), { principalMinor: 100, platformNo: 'x'.repeat(31) }));
   });
+  it('investments: optional contractFileId/contractName are type-checked and size-limited', async () => {
+    await assertSucceeds(setDoc(p('investments'), { principalMinor: 100, contractFileId: '1AbC', contractName: 'Agreement.pdf' }));
+    await assertSucceeds(setDoc(p('investments'), { principalMinor: 100, contractFileId: null, contractName: null }));
+    await assertFails(setDoc(p('investments'), { principalMinor: 100, contractFileId: 5 }));
+    await assertFails(setDoc(p('investments'), { principalMinor: 100, contractFileId: 'x'.repeat(101) }));
+    await assertFails(setDoc(p('investments'), { principalMinor: 100, contractName: 'x'.repeat(121) }));
+    await assertFails(setDoc(p('investments'), { principalMinor: 100, contractName: 7 }));
+  });
   it('investmentCompanies: name required, medium/logo limited', async () => {
     const logo = 'data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=';
     await assertSucceeds(setDoc(p('investmentCompanies'), { name: 'Apon Bazaar' }));

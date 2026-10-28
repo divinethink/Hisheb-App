@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, Paperclip } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import AmountInput from '../../common/AmountInput';
 import CompanyLogo from '../../common/CompanyLogo';
 import CompanyPickerScreen from './CompanyPickerScreen';
+import ContractLink from '../../common/ContractLink';
+import { getEnv } from '../../../config/env';
+import { isGoogleDriveConfigured, uploadContractPdf } from '../../../data/googleDrive';
+import { checkContractMeta, contractProblemMessage, hasPdfMagic, safeContractName } from '../../../lib/contractFile';
 import { minorToInput, resolveAmountMinor } from '../../../lib/money';
 import { addInvestment, updateInvestment } from '../../../data/investmentRepo';
 import { markClean, markDirty } from '../../../pwa/dirtyForms';
@@ -19,6 +23,8 @@ import {
 } from '../../../lib/investmentName';
 import { useInvestmentCompanies, useInvestments } from '../../../hooks/useData';
 import type { Investment } from '../../../validation/investmentSchema';
+
+const DRIVE_CLIENT_ID = getEnv().googleDriveClientId;
 
 // গ (Owner-approved ২০২৬-১০-২৯): UTC-substring নয়, ঢাকার তারিখ — রাত ১২টা–ভোর ৬টায়ও সঠিক দিন (§৯)
 function today(): string {
@@ -57,6 +63,14 @@ export default function InvestmentSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // PDF (ধাপ ৩): নতুন ফাইল বাছাই হয় ফর্মে, আপলোড হয় Save-এর সময় (বাতিল করলে Drive-এ এতিম ফাইল জমে না)
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [removeContract, setRemoveContract] = useState(false);
+  const [pdfError, setPdfError] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+  const uploadedRef = useRef<{ file: File; fileId: string; name: string } | null>(null); // সেভ আটকে retry হলে দ্বিতীয়বার আপলোড নয়
+  const driveReady = isGoogleDriveConfigured(DRIVE_CLIENT_ID);
+  const hasSavedContract = !!initial?.contractFileId && !removeContract;
 
   const companyList = companies.state.status === 'ready' ? companies.state.data : [];
   const invList = investments.state.status === 'ready' ? investments.state.data : [];
@@ -84,8 +98,10 @@ export default function InvestmentSheet({
       // খ (Owner-approved ২০২৬-১০-২৯): Edit মোডে শুধু Amount বদলে Back করলেও "Discard?" আসবে
       amount !== minorToInput(initial.principalMinor) ||
       platformNo.trim() !== initial.platformNo ||
+      pdfFile !== null ||
+      removeContract ||
       (!legacy && (companyId !== (initial.companyId ?? null) || round.trim() !== initialRound))
-    : trimmedName !== '' || companyId !== null || amount !== '' || medium !== '' || duration !== '' || note !== '' || platformNo !== '' || round !== '';
+    : trimmedName !== '' || companyId !== null || amount !== '' || medium !== '' || duration !== '' || note !== '' || platformNo !== '' || round !== '' || pdfFile !== null;
 
   useEffect(() => {
     if (!dirty) return;
@@ -99,6 +115,23 @@ export default function InvestmentSheet({
     else onClose();
   }
 
+  async function pickPdf(file: File | undefined) {
+    if (!file) return;
+    setPdfError('');
+    const problem = checkContractMeta(file);
+    if (problem) {
+      setPdfError(contractProblemMessage(problem));
+    } else {
+      const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+      if (!hasPdfMagic(head)) setPdfError('This file is not a valid PDF.');
+      else {
+        setPdfFile(file);
+        setRemoveContract(false);
+      }
+    }
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
   async function save() {
     if (saving) return;
     setSubmitted(true);
@@ -110,6 +143,21 @@ export default function InvestmentSheet({
     const platform = platformNo.trim().replace(/^#\s*/, '');
     setSaving(true);
     try {
+      // PDF আগে আপলোড (প্রথম await-এই, যাতে Google অনুমতি-পপআপ ক্লিকের সাথে যুক্ত থাকে); ব্যর্থ হলে এন্ট্রি সেভ হয় না
+      let contract: { contractFileId: string | null; contractName: string | null } | null = null;
+      if (pdfFile) {
+        if (!driveReady) throw new Error("Google Drive isn't set up for this build yet.");
+        let up = uploadedRef.current?.file === pdfFile ? uploadedRef.current : null;
+        if (!up) {
+          const name = safeContractName(pdfFile.name);
+          const r = await uploadContractPdf(DRIVE_CLIENT_ID, pdfFile, name);
+          up = { file: pdfFile, fileId: r.fileId, name: r.name };
+          uploadedRef.current = up;
+        }
+        contract = { contractFileId: up.fileId, contractName: safeContractName(up.name) };
+      } else if (removeContract) {
+        contract = { contractFileId: null, contractName: null }; // শুধু রেফারেন্স সরে; Drive-এর ফাইল মোছা হয় না
+      }
       if (initial) {
         await settleOrPending(
           updateInvestment(uid, initial.id, {
@@ -122,6 +170,7 @@ export default function InvestmentSheet({
             platformNo: platform,
             // legacy এন্ট্রিতে companyId/round লেখা হয় না — শুধু কোম্পানি-সংযুক্ত এন্ট্রিতে
             ...(legacy ? {} : { companyId, round: roundNum }),
+            ...(contract ?? {}),
           }),
           3000,
         );
@@ -142,13 +191,18 @@ export default function InvestmentSheet({
             companyId,
             round: roundNum,
             platformNo: platform,
+            ...(contract ?? {}),
           }),
           3000,
         );
       }
       onClose();
-    } catch {
-      setError('Could not save. Check your connection and try again.');
+    } catch (e) {
+      setError(
+        pdfFile && !uploadedRef.current
+          ? `PDF upload failed${e instanceof Error && e.message ? `: ${e.message}` : ''}. Allow the Google popup and tap Save again, or remove the PDF.`
+          : 'Could not save. Check your connection and try again.',
+      );
       setSaving(false);
     }
   }
@@ -405,6 +459,50 @@ export default function InvestmentSheet({
             onChange={(e) => setDuration(e.target.value)}
             className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
           />
+        </div>
+
+        <div>
+          <span className="mb-1 block text-sm text-muted">Contract (PDF, optional)</span>
+          <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" aria-label="Contract PDF file" onChange={(e) => void pickPdf(e.target.files?.[0])} />
+          {pdfFile ? (
+            <div className="flex min-h-12 items-center gap-2 rounded-lg border border-muted/40 bg-surface px-3 text-sm">
+              <Paperclip aria-hidden size={16} className="shrink-0 text-muted" />
+              <span className="min-w-0 flex-1 truncate text-fg">{pdfFile.name}</span>
+              <button type="button" onClick={() => setPdfFile(null)} className="min-h-9 shrink-0 px-2 text-expense">
+                Remove
+              </button>
+            </div>
+          ) : hasSavedContract && initial?.contractFileId ? (
+            <div className="flex flex-col gap-2">
+              <ContractLink fileId={initial.contractFileId} name={initial.contractName} />
+              <div className="flex gap-2">
+                <button type="button" disabled={!driveReady} onClick={() => fileRef.current?.click()} className="min-h-10 flex-1 rounded-lg border border-muted/40 text-sm text-fg disabled:opacity-60">
+                  Replace PDF
+                </button>
+                <button type="button" onClick={() => setRemoveContract(true)} className="min-h-10 flex-1 rounded-lg border border-expense/40 text-sm text-expense">
+                  Detach
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                disabled={!driveReady}
+                onClick={() => fileRef.current?.click()}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 text-sm font-medium text-primary disabled:opacity-60"
+              >
+                <Paperclip aria-hidden size={16} /> Attach PDF · saved to your Google Drive
+              </button>
+              {removeContract && <p className="mt-1 text-xs text-muted">PDF will be detached on Save (the Drive file stays).</p>}
+            </>
+          )}
+          {!driveReady && <p className="mt-1 text-xs text-muted">Google Drive isn't set up for this build yet.</p>}
+          {pdfError && (
+            <p role="alert" className="mt-1 text-xs text-expense">
+              {pdfError}
+            </p>
+          )}
         </div>
 
         {error && (

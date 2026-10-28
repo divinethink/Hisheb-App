@@ -39,6 +39,9 @@ export const InvestmentSchema = z.object({
   companyId: nullish(z.string()),
   round: nullish(z.number().int().positive()), // Medium-এর (যেমন biniyog.io) দেওয়া ক্রম — Owner লেখেন, অ্যাপ [n] বসায়
   platformNo: z.string().max(30).default(''), // প্ল্যাটফর্মের Investment No (#74874), Round থেকে সম্পূর্ণ আলাদা
+  // ধাপ ৩ (PDF চুক্তিপত্র), ঐচ্ছিক/additive — ফাইল Owner-এর নিজের Drive-এ (drive.file scope), এখানে শুধু রেফারেন্স; পুরনো doc-এ null
+  contractFileId: nullish(z.string().max(100)),
+  contractName: nullish(z.string().max(120)),
   createdAt: nullish(TimestampLike),
   updatedAt: nullish(TimestampLike),
 });
