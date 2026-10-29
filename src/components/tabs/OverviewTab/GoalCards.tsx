@@ -9,6 +9,7 @@ import {
   netWorthBridge,
   runwayMonths,
   type AssetKey,
+  type NetWorthPace,
   type SnapshotWithFlow,
   type TxLite,
 } from '../../../lib/overviewCalc';
@@ -69,12 +70,22 @@ export function NetWorthBridgeCard({ snapshots, txs }: { snapshots: readonly Sna
   );
 }
 
-/** ৩. লক্ষ্য ও পূর্বাভাস */
-export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMinor }: { currentMinor: number; latestYyyymm: string; goalMinor: number | null; avgSavingsMinor: number | null }) {
+/** ৩. লক্ষ্য ও পূর্বাভাস — দুই গতি: (ক) আয়-ব্যয়ের জমা অনুযায়ী, (খ) সম্পদ আসলে যতটা বাড়ছে তা অনুযায়ী */
+export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMinor, pace }: { currentMinor: number; latestYyyymm: string; goalMinor: number | null; avgSavingsMinor: number | null; pace: NetWorthPace | null }) {
   const goal = goalMinor ?? DEFAULT_NET_WORTH_GOAL_MINOR;
   const p = useMemo(() => goalProjection(currentMinor, goal, avgSavingsMinor, latestYyyymm, BOOST_MINOR), [currentMinor, goal, avgSavingsMinor, latestYyyymm]);
+  const g = useMemo(() => (pace ? goalProjection(currentMinor, goal, pace.perMonthMinor, latestYyyymm, 0) : null), [currentMinor, goal, pace, latestYyyymm]);
   const pct = Math.max(0, Math.min(100, (currentMinor / goal) * 100));
   const tile = 'flex-1 rounded-xl p-3';
+  const when = (proj: { monthsAtPace: number | null; paceYyyymm: string | null }, rate: number | null) =>
+    proj.monthsAtPace !== null && proj.paceYyyymm !== null ? (
+      <>
+        <p className="text-base font-semibold text-fg">{monthLabel(proj.paceYyyymm)}</p>
+        <p className="text-xs text-muted">{proj.monthsAtPace} মাস</p>
+      </>
+    ) : (
+      <p className="text-xs text-muted">{rate !== null && rate > 0 ? '৫০ বছরের বেশি' : 'পৌঁছানো যাচ্ছে না'}</p>
+    );
   return (
     <Block label="Net worth goal" title="লক্ষ্য ও পূর্বাভাস" sub={`লক্ষ্য ${formatTaka(goal)}${goalMinor === null ? ' (ডিফল্ট)' : ''} · Menu → Monthly Target-এ বদলান`}>
       <div className="mb-1.5 flex justify-between text-sm">
@@ -86,30 +97,38 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
       </div>
       {p.reached ? (
         <Tip tone="income">লক্ষ্য পূর্ণ হয়েছে। নতুন লক্ষ্য বসাতে পারেন।</Tip>
-      ) : avgSavingsMinor === null ? (
-        <Foot>শেষ ৬ মাসের আয়-ব্যয় অ্যাপে নেই, তাই পূর্বাভাস দেখানো যাচ্ছে না।</Foot>
+      ) : avgSavingsMinor === null && !pace ? (
+        <Foot>শেষ ৬ মাসের আয়-ব্যয় ও দুটি snapshot অ্যাপে নেই, তাই পূর্বাভাস দেখানো যাচ্ছে না।</Foot>
       ) : (
         <>
-          <p className="mb-2 mt-3 text-xs text-muted">গড় জমা (শেষ ৬ মাস): <b className={avgSavingsMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTaka(Math.round(avgSavingsMinor))}</b>/মাস</p>
-          {p.monthsAtPace === null ? (
-            <Tip>{avgSavingsMinor <= 0 ? 'এই গতিতে লক্ষ্যে পৌঁছানো যাচ্ছে না — আগে মাসিক জমা ধনাত্মক করুন।' : 'এই গতিতে ৫০ বছরের বেশি লাগবে — মাসিক জমা বাড়ান।'}</Tip>
-          ) : (
-            <div className="flex gap-2">
+          {avgSavingsMinor !== null && (
+            <p className="mb-1 mt-3 text-xs text-muted">হিসাব অনুযায়ী জমা (আয় − ব্যয়, শেষ ৬ মাস): <b className={avgSavingsMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTaka(Math.round(avgSavingsMinor))}</b>/মাস</p>
+          )}
+          {pace && (
+            <p className={`mb-2 text-xs text-muted ${avgSavingsMinor === null ? 'mt-3' : ''}`}>সম্পদ আসলে বেড়েছে (শেষ {pace.spanMonths} মাস): <b className={pace.perMonthMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTaka(pace.perMonthMinor)}</b>/মাস</p>
+          )}
+          <div className="flex gap-2">
+            {avgSavingsMinor !== null && (
               <div className={`${tile} bg-surface`}>
-                <p className="text-xs text-muted">এই গতিতে</p>
-                <p className="text-base font-semibold text-fg">{monthLabel(p.paceYyyymm as string)}</p>
-                <p className="text-xs text-muted">{p.monthsAtPace} মাস</p>
+                <p className="text-xs text-muted">হিসাব অনুযায়ী</p>
+                {when(p, avgSavingsMinor)}
               </div>
-              {p.monthsBoosted !== null && p.monthsSaved !== null && p.monthsSaved > 0 && (
-                <div className={`${tile} bg-income/10`}>
-                  <p className="text-xs text-income">মাসে +{formatTaka(BOOST_MINOR)} হলে</p>
-                  <p className="text-base font-semibold text-income">{monthLabel(p.boostYyyymm as string)}</p>
-                  <p className="text-xs text-income">{p.monthsSaved} মাস আগে</p>
-                </div>
-              )}
+            )}
+            {g && pace && (
+              <div className={`${tile} bg-surface`}>
+                <p className="text-xs text-muted">সম্পদ-বৃদ্ধি অনুযায়ী</p>
+                {when(g, pace.perMonthMinor)}
+              </div>
+            )}
+          </div>
+          {p.monthsBoosted !== null && p.monthsSaved !== null && p.monthsSaved > 0 && (
+            <div className={`${tile} mt-2 bg-income/10`}>
+              <p className="text-xs text-income">হিসাব অনুযায়ী গতিতে মাসে +{formatTaka(BOOST_MINOR)} হলে</p>
+              <p className="text-base font-semibold text-income">{monthLabel(p.boostYyyymm as string)}</p>
+              <p className="text-xs text-income">{p.monthsSaved} মাস আগে</p>
             </div>
           )}
-          <Foot>শুধু অনুমান — আয়-ব্যয় বদলালে ফল বদলাবে, নিশ্চয়তা নয়।</Foot>
+          <Foot>শুধু অনুমান — আয়-ব্যয় বদলালে ফল বদলাবে, নিশ্চয়তা নয়।{avgSavingsMinor !== null && pace ? ' দুই গতির ফারাক বড় হলে বুঝবেন সম্পদের একটা অংশ আয়-ব্যয়ের বাইরের কারণে (বিনিয়োগ-মান, পাওনা ইত্যাদি) বদলেছে।' : ''}</Foot>
         </>
       )}
     </Block>
@@ -150,14 +169,14 @@ export function AssetMixCard({ yyyymm, breakdown }: { yyyymm: string; breakdown:
 }
 
 /** Runway — কত মাস চলবে */
-export function RunwayCard({ cashMinor, totalMinor, avgExpenseMinor }: { cashMinor: number | null; totalMinor: number; avgExpenseMinor: number | null }) {
+export function RunwayCard({ yyyymm, cashMinor, totalMinor, avgExpenseMinor }: { yyyymm: string; cashMinor: number | null; totalMinor: number; avgExpenseMinor: number | null }) {
   if (avgExpenseMinor === null || avgExpenseMinor <= 0) return null;
   const total = runwayMonths(totalMinor, avgExpenseMinor);
   const cash = cashMinor !== null ? runwayMonths(Math.max(cashMinor, 0), avgExpenseMinor) : null;
   const fund = cashMinor !== null ? emergencyFund(cashMinor, avgExpenseMinor) : null;
   const w = (m: number | null) => `${Math.max(0, Math.min(100, ((m ?? 0) / 6) * 100))}%`;
   return (
-    <Block label="Runway" title="Runway — কত মাস চলবে" sub={`গড় মাসিক খরচ ${formatTaka(Math.round(avgExpenseMinor))} ধরে (শেষ ৬ মাস)`}>
+    <Block label="Runway" title="Runway — কত মাস চলবে" sub={`গড় মাসিক খরচ ${formatTaka(Math.round(avgExpenseMinor))} ধরে (শেষ ৬ মাস) · ${yyyymm} snapshot`}>
       {cash !== null && (
         <>
           <div className="flex justify-between text-sm"><span className="text-fg">শুধু নগদে</span><b className="text-expense">{cash.toFixed(1)} মাস</b></div>

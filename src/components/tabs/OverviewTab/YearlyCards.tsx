@@ -117,16 +117,18 @@ const CREEP_TIP: Record<string, string> = {
 };
 
 /** ২. লাইফস্টাইল ক্রিপ — গড় মাসিক আয় ও ব্যয়, আগের বছরের সাথে */
-export function LifestyleCreepCard({ year, prev, cur, monthsCur }: { year: number; prev: { incomeMinor: number; expenseMinor: number }; cur: { incomeMinor: number; expenseMinor: number }; monthsCur: number }) {
-  const c = useMemo(() => lifestyleCreep(prev, cur, monthsCur), [prev, cur, monthsCur]);
+export function LifestyleCreepCard({ year, prev, cur, monthsCur, monthsPrev = 12, samePeriod = false, prevFromRecord = false }: { year: number; prev: { incomeMinor: number; expenseMinor: number }; cur: { incomeMinor: number; expenseMinor: number }; monthsCur: number; monthsPrev?: number; samePeriod?: boolean; prevFromRecord?: boolean }) {
+  const c = useMemo(() => lifestyleCreep(prev, cur, monthsCur, monthsPrev), [prev, cur, monthsCur, monthsPrev]);
   if (!c) return null;
   const maxInc = Math.max(c.incomeAvgPrev, c.incomeAvgCur, 1);
   const maxExp = Math.max(c.expenseAvgPrev, c.expenseAvgCur, 1);
   return (
-    <Block label="Lifestyle creep" title="লাইফস্টাইল ক্রিপ" sub={`গড় মাসিক · ${year - 1} → ${year}${monthsCur < 12 ? ` (${year}: ${monthsCur} মাস)` : ''}`}>
+    <Block label="Lifestyle creep" title="লাইফস্টাইল ক্রিপ" sub={`গড় মাসিক · ${year - 1} → ${year}${samePeriod ? ` (একই সময়: জানু–${MONTH_SHORT[monthsCur - 1]})` : monthsCur < 12 ? ` (${year}: ${monthsCur} মাস)` : ''}`}>
       <CreepRow label="আয়" a={c.incomeAvgPrev} b={c.incomeAvgCur} pct={c.incomeChangePct} max={maxInc} color="rgb(var(--color-income))" upGood />
       <CreepRow label="খরচ" a={c.expenseAvgPrev} b={c.expenseAvgCur} pct={c.expenseChangePct} max={maxExp} color="rgb(var(--color-expense))" upGood={false} />
       {CREEP_TIP[c.verdict] && <Tip>{CREEP_TIP[c.verdict]}</Tip>}
+      {!samePeriod && monthsCur < 12 && <p className="mt-2 text-[11px] leading-relaxed text-muted">{year - 1}-এর পুরো বছরের গড়ের সাথে তুলনা — একই মাসগুলোর ডেটা অ্যাপে সম্পূর্ণ নেই।</p>}
+      {prevFromRecord && <p className="mt-2 text-[11px] leading-relaxed text-muted">{year - 1}-এর হিসাব অ্যাপের আগের Excel-record থেকে স্থানান্তরিত, লাইভ লেনদেন নয়।</p>}
     </Block>
   );
 }

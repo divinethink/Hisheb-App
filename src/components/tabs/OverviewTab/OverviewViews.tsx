@@ -20,9 +20,12 @@ import {
   bestWorstMonth,
   categoryBreakdown,
   flowByMonth,
+  latestWithBreakdown,
   monthRows,
   netWorthGrowthAllTime,
+  netWorthPace,
   netWorthYtd,
+  windowTotals,
   recentMonths,
   resolveYear,
   runwayMonths,
@@ -31,6 +34,7 @@ import {
   snapshotAtOrBefore,
   type HistoricalLite,
   type InvestmentLite,
+  type MonthRow,
   type NetWorthSnapshotLite,
   type TxLite,
   type YearRow,
@@ -268,7 +272,9 @@ function MonthlyBody({
   const prevSavings = prevT ? prevT.income - prevT.expense : null;
   const prevSavingsPct = prevT ? savingsRatePct(prevT.income, prevT.expense) : null;
   const savingsPctDeltaPt = savingsPct != null && prevSavingsPct != null ? savingsPct - prevSavingsPct : null;
-  const insight = savingsInsight(savings, prevSavings);
+  const insight = savingsInsight(savings, prevSavings, formatNetTaka);
+  const inProgress = month === today.slice(0, 7);
+  const daysIn = Number(today.slice(8, 10));
 
   const currentSnap = snapshots ? snapshotAtOrBefore(snapshots, month) : null;
   const avgExpense = runwayTxs ? avgMonthlyExpense(runwayTxs, runwayMonthsList) : null;
@@ -279,6 +285,7 @@ function MonthlyBody({
   return (
     <>
       <Totals income={t.income} expense={t.expense} savings={savings} savingsPct={savingsPct} savingsPctDeltaPt={savingsPctDeltaPt} />
+      {inProgress && <Note>মাস চলছে ({daysIn} দিন) — হিসাব এখনো অসম্পূর্ণ, তাই গত মাসের সাথে তুলনা পুরো মাসের নয়।</Note>}
       {insight && <Note>{insight}</Note>}
       {partial && <Note>Partial data — this period may include days recorded before the app was used.</Note>}
       <ReportCard month={month} txs={txs} prevTxs={prevTxs} targetPct={targetPct} />
@@ -322,6 +329,13 @@ export function YearlyView({ uid, historical }: { uid: string; historical: reado
     () => (isHist && snaps.state.status === 'ready' ? flowByMonth(snaps.state.data, year) : new Map<string, { incomeMinor: number; expenseMinor: number }>()),
     [isHist, snaps.state, year],
   );
+  // আগের বছরের মাসভিত্তিক সারি (লাইফস্টাইল ক্রিপে একই-সময় তুলনা): doc-বছরে Excel-record (flow) + লাইভ
+  const prevMonths = useMemo(() => {
+    if (prevTx.state.status !== 'ready') return null;
+    const prevHist = historical.some((h) => h.year === year - 1);
+    const prevFlow = prevHist && snaps.state.status === 'ready' ? flowByMonth(snaps.state.data, year - 1) : undefined;
+    return monthRows(prevTx.state.data, year - 1, prevFlow);
+  }, [prevTx.state, snaps.state, historical, year]);
 
   return (
     <>
@@ -338,6 +352,7 @@ export function YearlyView({ uid, historical }: { uid: string; historical: reado
         <YearlyBody
           row={resolveYear(year, historical, tx.state.data)}
           prevRow={resolveYear(year - 1, historical, prevTx.state.status === 'ready' ? prevTx.state.data : [])}
+          prevMonths={prevMonths}
           txs={tx.state.data}
           year={year}
           isHist={isHist}
@@ -369,7 +384,9 @@ function YearlyBody({
   investments,
   targetPct,
   inflationPct,
+  prevMonths,
 }: {
+  prevMonths: readonly MonthRow[] | null;
   uid: string;
   historical: readonly HistoricalLite[];
   thisYear: number;
@@ -392,6 +409,9 @@ function YearlyBody({
   const savingsPctDeltaPt = savingsPct != null && prevSavingsPct != null ? savingsPct - prevSavingsPct : null;
 
   const { best, worst } = useMemo(() => bestWorstMonth(months), [months]);
+  // চলতি বছরে আগের বছরের শুধু একই মাসগুলো (জানু–এখন) দিয়ে তুলনা; সব মাসে ডেটা না থাকলে null → পুরো-বছরের গড়ে ফিরে যায়
+  const monthsCur = year === thisYear ? Number(currentMonth().slice(5, 7)) : 12;
+  const samePeriod = useMemo(() => (year === thisYear && prevMonths ? windowTotals(prevMonths, monthsCur) : null), [year, thisYear, prevMonths, monthsCur]);
 
   return (
     <>
@@ -412,9 +432,12 @@ function YearlyBody({
       <SavingsRateCard year={year} rows={months} targetPct={targetPct} />
       <LifestyleCreepCard
         year={year}
-        prev={{ incomeMinor: prevRow.incomeMinor, expenseMinor: prevRow.expenseMinor }}
+        prev={samePeriod ? samePeriod : { incomeMinor: prevRow.incomeMinor, expenseMinor: prevRow.expenseMinor }}
         cur={{ incomeMinor: row.incomeMinor, expenseMinor: row.expenseMinor }}
-        monthsCur={year === thisYear ? Number(currentMonth().slice(5, 7)) : 12}
+        monthsCur={monthsCur}
+        monthsPrev={samePeriod ? monthsCur : 12}
+        samePeriod={samePeriod !== null}
+        prevFromRecord={prevRow.source === 'historical'}
       />
       {year === thisYear && snapshots && <RealGrowthCard snapshots={snapshots} inflationPct={inflationPct} />}
       {year === thisYear && investments && <InvestmentHonestCard investments={investments} />}
@@ -462,6 +485,8 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
 
   const rows = allTimeRows(historical, tx.state.data);
   const latestSnap = snaps.state.status === 'ready' && snaps.state.data.length > 0 ? snaps.state.data.reduce((a, b) => (b.yyyymm > a.yyyymm ? b : a)) : null;
+  // মিশ্রণ ও Runway: breakdown আছে এমন সর্বশেষ snapshot (সর্বশেষটায় না থাকলে আগেরটা)
+  const mixSnap = snaps.state.status === 'ready' ? latestWithBreakdown(snaps.state.data) : null;
   const goalMinor = settings.state.status === 'ready' ? settings.state.data.netWorthGoalMinor : null;
   const sum = rows.reduce((a, r) => ({ i: a.i + r.incomeMinor, e: a.e + r.expenseMinor }), { i: 0, e: 0 });
 
@@ -493,9 +518,13 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
       {snaps.state.status === 'ready' && latestSnap && (
         <>
           <NetWorthBridgeCard snapshots={snaps.state.data} txs={allTxs} />
-          <GoalCard currentMinor={latestSnap.totalAssetsMinor} latestYyyymm={latestSnap.yyyymm} goalMinor={goalMinor} avgSavingsMinor={avgSav} />
-          <AssetMixCard yyyymm={latestSnap.yyyymm} breakdown={latestSnap.breakdown} />
-          <RunwayCard cashMinor={latestSnap.breakdown ? latestSnap.breakdown.accountsMinor : null} totalMinor={latestSnap.totalAssetsMinor} avgExpenseMinor={avgExp} />
+          <GoalCard currentMinor={latestSnap.totalAssetsMinor} latestYyyymm={latestSnap.yyyymm} goalMinor={goalMinor} avgSavingsMinor={avgSav} pace={netWorthPace(snaps.state.data)} />
+          {mixSnap && (
+            <>
+              <AssetMixCard yyyymm={mixSnap.yyyymm} breakdown={mixSnap.breakdown} />
+              <RunwayCard yyyymm={mixSnap.yyyymm} cashMinor={mixSnap.breakdown ? mixSnap.breakdown.accountsMinor : null} totalMinor={mixSnap.totalAssetsMinor} avgExpenseMinor={avgExp} />
+            </>
+          )}
         </>
       )}
       {allTxs.length > 0 && (

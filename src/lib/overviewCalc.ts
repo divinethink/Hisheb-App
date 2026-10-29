@@ -183,9 +183,14 @@ export function netWorthYtd(snapshots: readonly NetWorthSnapshotLite[], yyyymm: 
   return { baseYyyymm: base.yyyymm, currentYyyymm: cur.yyyymm, deltaMinor, deltaPct };
 }
 
-/** rule-based এক-লাইন insight (কোনো AI/ML না) — আগের মাসের savings শূন্য/অজানা হলে null। */
-export function savingsInsight(currentSavingsMinor: number, previousSavingsMinor: number | null): string | null {
+/** rule-based এক-লাইন insight (কোনো AI/ML না) — আগের মাসের savings শূন্য/অজানা হলে null।
+ *  চিহ্ন বদলালে (ধনাত্মক ↔ ঋণাত্মক) % অর্থহীন (যেমন "546% lower"), তাই টাকার বাক্য। `fmtNet` সাইন-সহ টাকা-ফরম্যাট (UI দেয়)। */
+export function savingsInsight(currentSavingsMinor: number, previousSavingsMinor: number | null, fmtNet: (minor: number) => string = (m) => String(m)): string | null {
   if (previousSavingsMinor === null || previousSavingsMinor === 0) return null;
+  if (currentSavingsMinor < 0 !== previousSavingsMinor < 0 && currentSavingsMinor !== 0) {
+    const verb = currentSavingsMinor < 0 ? 'turned negative' : 'turned positive';
+    return `Savings ${verb}: ${fmtNet(previousSavingsMinor)} last month → ${fmtNet(currentSavingsMinor)} this month`;
+  }
   const diffPct = ((currentSavingsMinor - previousSavingsMinor) / Math.abs(previousSavingsMinor)) * 100;
   if (Math.abs(diffPct) < 1) return null;
   const rounded = Math.round(Math.abs(diffPct));
@@ -429,6 +434,33 @@ export function goalProjection(currentMinor: number, goalMinor: number, avgMonth
   };
 }
 
+export interface NetWorthPace {
+  /** মাসে সম্পদ গড়ে কতটা বাড়ছে (ঋণাত্মক হতে পারে) */
+  perMonthMinor: number;
+  baseYyyymm: string;
+  spanMonths: number;
+}
+
+const monthIndex = (yyyymm: string) => Number(yyyymm.slice(0, 4)) * 12 + Number(yyyymm.slice(5, 7)) - 1;
+
+/** আসল সম্পদ-বৃদ্ধির গতি: শেষ snapshot বনাম ~`months` মাস আগের (না থাকলে সবচেয়ে পুরনোটা)। আয়-ব্যয়ের হিসাব নয়, snapshot-এর মোট সম্পদের বদল। ২টা আলাদা snapshot না থাকলে null। */
+export function netWorthPace(snapshots: readonly NetWorthSnapshotLite[], months = 6): NetWorthPace | null {
+  if (snapshots.length < 2) return null;
+  const sorted = [...snapshots].sort((a, b) => a.yyyymm.localeCompare(b.yyyymm));
+  const cur = sorted[sorted.length - 1];
+  const older = sorted.filter((s) => s.yyyymm < cur.yyyymm);
+  const base = snapshotAtOrBefore(older, shiftMonth(cur.yyyymm, -months)) ?? older[0];
+  if (!base) return null;
+  const span = monthIndex(cur.yyyymm) - monthIndex(base.yyyymm);
+  if (span <= 0) return null;
+  return { perMonthMinor: Math.round((cur.totalAssetsMinor - base.totalAssetsMinor) / span), baseYyyymm: base.yyyymm, spanMonths: span };
+}
+
+/** `breakdown` আছে এমন সবচেয়ে সাম্প্রতিক snapshot (সর্বশেষটায় না থাকলে আগেরটা); একটাও না থাকলে null। */
+export function latestWithBreakdown<T extends { yyyymm: string; breakdown?: unknown }>(snapshots: readonly T[]): T | null {
+  return snapshots.reduce<T | null>((a, b) => (b.breakdown && (a === null || b.yyyymm > a.yyyymm) ? b : a), null);
+}
+
 export type AssetKey = 'accounts' | 'investment' | 'receivable' | 'homeDeposit' | 'gpf';
 
 export interface AssetMix {
@@ -610,7 +642,7 @@ export function weekdaySpend(txs: readonly TxLite[], end: string, windowDays = 9
 }
 
 // ── নো-স্পেন্ড ক্যালেন্ডার ──
-export type DayLevel = 'none' | 'low' | 'mid' | 'high' | 'future';
+export type DayLevel = 'none' | 'low' | 'mid' | 'high' | 'future' | 'today';
 export interface CalendarDay {
   date: string;
   day: number;
@@ -626,7 +658,7 @@ export interface NoSpendCalendar {
   currentStreak: number;
 }
 
-/** মাসের প্রতিটা দিনের খরচ-স্তর: ০ = নো-স্পেন্ড; বাকিগুলো খরচ-হওয়া দিনের গড়ের সাথে তুলনায় low(<0.7×) / mid / high(≥1.3×)। `today`-এর পরের দিন 'future'। */
+/** মাসের প্রতিটা দিনের খরচ-স্তর: ০ = নো-স্পেন্ড; বাকিগুলো খরচ-হওয়া দিনের গড়ের সাথে তুলনায় low(<0.7×) / mid / high(≥1.3×)। `today`-এর পরের দিন 'future'; আজ খরচ-শূন্য হলে 'today' (চলছে — গণনায় নেই, টানা ভাঙে না)। */
 export function noSpendCalendar(txs: readonly TxLite[], yyyymm: string, today: string): NoSpendCalendar {
   const daily = dailyExpense(txs);
   const [y, m] = yyyymm.split('-').map(Number);
@@ -642,6 +674,7 @@ export function noSpendCalendar(txs: readonly TxLite[], yyyymm: string, today: s
     const spendMinor = daily.get(date) ?? 0;
     let level: DayLevel;
     if (date > today) level = 'future';
+    else if (date === today && spendMinor === 0) level = 'today'; // আজ এখনো চলছে — নো-স্পেন্ড গোনা কাল থেকে
     else if (spendMinor === 0) level = 'none';
     else if (spendMinor < avg * 0.7) level = 'low';
     else if (spendMinor >= avg * 1.3) level = 'high';
@@ -650,14 +683,14 @@ export function noSpendCalendar(txs: readonly TxLite[], yyyymm: string, today: s
       noSpendCount += 1;
       run += 1;
       if (run > best) best = run;
-    } else run = 0;
+    } else if (level !== 'today') run = 0;
     days.push({ date, day: d, weekday: weekdayIndex(date), spendMinor, level });
   }
   // চলতি টানা: আজ (বা মাসের শেষ গোনা-দিন) থেকে পেছনে; শুধু চলতি মাসে অর্থবহ
   let currentStreak = 0;
   if (today.startsWith(yyyymm)) {
     for (let i = days.length - 1; i >= 0; i--) {
-      if (days[i].level === 'future') continue;
+      if (days[i].level === 'future' || days[i].level === 'today') continue;
       if (days[i].level === 'none') currentStreak += 1;
       else break;
     }
@@ -816,6 +849,14 @@ export function lifestyleCreep(prev: { incomeMinor: number; expenseMinor: number
     else if (incomeChangePct > 1 && expenseChangePct < incomeChangePct - 1) verdict = 'expense_slower';
   }
   return { incomeAvgPrev, incomeAvgCur, expenseAvgPrev, expenseAvgCur, incomeChangePct, expenseChangePct, verdict };
+}
+
+/** বছরের প্রথম `n` মাসের মোট আয়/ব্যয় (একই সময়ের তুলনার জন্য)। n মাসের কোনোটায় ডেটা (লাইভ বা Excel-record) না থাকলে null — অসম্পূর্ণ তুলনা fabricate না। */
+export function windowTotals(rows: readonly MonthRow[], n: number): { incomeMinor: number; expenseMinor: number } | null {
+  if (n <= 0 || n > rows.length) return null;
+  const win = rows.slice(0, n);
+  if (win.some((r) => r.txCount === 0 && !r.fromRecord)) return null;
+  return { incomeMinor: win.reduce((a, r) => a + r.incomeMinor, 0), expenseMinor: win.reduce((a, r) => a + r.expenseMinor, 0) };
 }
 
 // ── আসল বৃদ্ধি (মূল্যস্ফীতি বাদে) ──

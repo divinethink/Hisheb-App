@@ -139,6 +139,7 @@ const LEVEL_CLASS: Record<string, string> = {
   low: 'bg-income/15 text-fg',
   mid: 'bg-warning/25 text-fg',
   high: 'bg-expense/30 text-fg',
+  today: 'border border-dashed border-primary text-fg',
   future: 'text-muted/40',
 };
 
@@ -165,6 +166,7 @@ export function NoSpendCalendarCard({ month, txs, today }: { month: string; txs:
           </span>
         ))}
       </div>
+      {c.days.some((d) => d.level === 'today') && <p className="mt-2 text-[11px] text-muted">আজ চলছে — নো-স্পেন্ড গোনা হবে কাল থেকে।</p>}
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
         <span className="rounded-full bg-income/10 px-2.5 py-1 text-income">{c.noSpendCount} দিন নো-স্পেন্ড</span>
         {c.bestStreak > 0 && <span className="rounded-full bg-warning/10 px-2.5 py-1 text-warning">সেরা টানা: {c.bestStreak} দিন</span>}

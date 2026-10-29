@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allTimeRows, categoryList, flowByMonth, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, avgMonthlySavings, netWorthYtd, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, netWorthBridge, recentMonths, goalProjection, assetMix, emergencyFund, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
+import { allTimeRows, categoryList, flowByMonth, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, avgMonthlySavings, netWorthYtd, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, netWorthBridge, recentMonths, goalProjection, netWorthPace, latestWithBreakdown, windowTotals, assetMix, emergencyFund, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
 
 const tx = (date: string, type: 'income' | 'expense', amountMinor: number, categoryName = 'A'): TxLite => ({ date, type, amountMinor, categoryName });
 const h2025: HistoricalLite = { year: 2025, totalIncomeMinor: 900, totalExpenseMinor: 600, totalDepositMinor: 5000 };
@@ -87,6 +87,12 @@ describe('Overview Enrichment ধাপ ১ (Monthly)', () => {
     expect(savingsInsight(1005, 1000)).toBeNull();
     expect(savingsInsight(500, 0)).toBeNull();
     expect(savingsInsight(500, null)).toBeNull();
+  });
+  it('savingsInsight — চিহ্ন বদলালে টাকার বাক্য (অর্থহীন % নয়)', () => {
+    const f = (m: number) => `${m >= 0 ? '+' : '−'}${Math.abs(m)}`;
+    expect(savingsInsight(-1720800, 387000, f)).toBe('Savings turned negative: +387000 last month → −1720800 this month');
+    expect(savingsInsight(5000, -2000, f)).toBe('Savings turned positive: −2000 last month → +5000 this month');
+    expect(savingsInsight(-200, -100, f)).toBe('Savings 100% lower than last month');
   });
 });
 
@@ -301,5 +307,33 @@ describe('emergencyFund', () => {
     expect(emergencyFund(10000, 100)?.pct).toBe(100);
     expect(emergencyFund(10000, null)).toBeNull();
     expect(emergencyFund(10000, 0)).toBeNull();
+  });
+});
+
+describe('netWorthPace / latestWithBreakdown / windowTotals', () => {
+  const snaps = [
+    { yyyymm: '2026-04', totalAssetsMinor: 1_000_000 },
+    { yyyymm: '2026-07', totalAssetsMinor: 1_300_000 },
+    { yyyymm: '2026-10', totalAssetsMinor: 1_600_000 },
+  ];
+  it('netWorthPace — ~৬ মাস আগের snapshot থেকে মাসিক গতি', () => {
+    expect(netWorthPace(snaps)).toEqual({ perMonthMinor: 100_000, baseYyyymm: '2026-04', spanMonths: 6 });
+  });
+  it('netWorthPace — ঋণাত্মক গতি, ২টার কম snapshot-এ null', () => {
+    expect(netWorthPace([{ yyyymm: '2026-09', totalAssetsMinor: 500 }, { yyyymm: '2026-10', totalAssetsMinor: 200 }])?.perMonthMinor).toBe(-300);
+    expect(netWorthPace([snaps[0]])).toBeNull();
+  });
+  it('latestWithBreakdown — breakdown-ওয়ালা সর্বশেষটা', () => {
+    const b = { accountsMinor: 1 };
+    const list = [{ yyyymm: '2026-08', breakdown: b }, { yyyymm: '2026-10' }, { yyyymm: '2026-09', breakdown: b }];
+    expect(latestWithBreakdown(list)?.yyyymm).toBe('2026-09');
+    expect(latestWithBreakdown([{ yyyymm: '2026-10' }])).toBeNull();
+  });
+  it('windowTotals — প্রথম n মাস; কোনো মাসে ডেটা না থাকলে null', () => {
+    const row = (i: number, inc: number, exp: number, txCount: number, fromRecord = false) => ({ yyyymm: `2025-${String(i).padStart(2, '0')}`, incomeMinor: inc, expenseMinor: exp, savingsMinor: inc - exp, txCount, fromRecord });
+    const rows = [row(1, 100, 40, 3), row(2, 200, 50, 0, true), row(3, 0, 0, 0), ...Array.from({ length: 9 }, (_, i) => row(i + 4, 0, 0, 0))];
+    expect(windowTotals(rows, 2)).toEqual({ incomeMinor: 300, expenseMinor: 90 });
+    expect(windowTotals(rows, 3)).toBeNull();
+    expect(windowTotals(rows, 0)).toBeNull();
   });
 });

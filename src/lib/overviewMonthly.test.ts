@@ -94,9 +94,17 @@ describe('noSpendCalendar', () => {
   });
   it('গণনা ও টানা: ২-৩ তারিখ (২ দিন), ৬-৭ তারিখ (২ দিন, চলতি)', () => {
     const c = noSpendCalendar(txs, '2026-10', '2026-10-07');
-    expect(c.noSpendCount).toBe(4);
+    // ৭ তারিখ (আজ) এখনো চলছে — গোনা হয় না: ২,৩,৬ = ৩ দিন; টানা ২-৩ (২), চলতি ৬ (১)
+    expect(c.noSpendCount).toBe(3);
     expect(c.bestStreak).toBe(2);
-    expect(c.currentStreak).toBe(2);
+    expect(c.currentStreak).toBe(1);
+  });
+  it('আজ খরচ-শূন্য হলে "today", খরচ থাকলে সাধারণ স্তর; আজ টানা ভাঙে না', () => {
+    const c = noSpendCalendar(txs, '2026-10', '2026-10-07');
+    expect(c.days[6].level).toBe('today');
+    const c2 = noSpendCalendar([...txs, tx('2026-10-07', 'expense', 100)], '2026-10', '2026-10-07');
+    expect(c2.days[6].level).not.toBe('today');
+    expect(c2.currentStreak).toBe(0);
   });
   it('পুরনো মাসে চলতি-টানা ০, সব দিন গোনা', () => {
     const c = noSpendCalendar(txs, '2026-10', '2026-11-15');
