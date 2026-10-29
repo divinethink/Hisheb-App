@@ -37,6 +37,12 @@ describe('spendPer100', () => {
     expect(r.savingsPer100).toBeNull();
     expect(r.overspendMinor).toBe(5000);
     expect(r.segments.some((s) => s.kind === 'savings')).toBe(false);
+    // ঘাটতিতে ভিত্তি = খরচ, যোগফল ঠিক ১০০ (আয়-ভিত্তিতে ১৫০ হয়ে যেত)
+    expect(r.basis).toBe('expense');
+    expect(r.segments.reduce((a, s) => a + s.value, 0)).toBe(100);
+  });
+  it('সঞ্চয় থাকলে ভিত্তি আয়', () => {
+    expect(spendPer100([tx('2026-10-01', 'income', 10000), tx('2026-10-02', 'expense', 4000, 'X')])!.basis).toBe('income');
   });
 });
 
@@ -77,6 +83,14 @@ describe('weekdaySpend', () => {
     expect(weekdaySpend([], '2026-10-30')).toBeNull();
     const flat = Array.from({ length: 14 }, (_, i) => tx(addDays('2026-10-30', -i), 'expense', 1000));
     expect(weekdaySpend(flat, '2026-10-30', 14)!.peak).toBeNull();
+  });
+  it('ডিফল্ট থ্রেশহোল্ড ১.৫: ১.৩× peak ধরা হয় না, ২× ধরা হয়', () => {
+    const mk = (peakAmt: number) => Array.from({ length: 14 }, (_, i) => {
+      const d = addDays('2026-10-30', -i);
+      return tx(d, 'expense', weekdayIndex(d) === 6 ? peakAmt : 1000);
+    });
+    expect(weekdaySpend(mk(1300), '2026-10-30', 14)!.peak).toBeNull();
+    expect(weekdaySpend(mk(2000), '2026-10-30', 14)!.peak?.index).toBe(6);
   });
 });
 

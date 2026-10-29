@@ -80,3 +80,17 @@ export function formatDateForInput(date: string, format: 'dmy' | 'mdy'): string 
 export function isOverdue(date: string | null | undefined, today: string = toDhakaDate(new Date())): boolean {
   return !!date && date < today;
 }
+
+const MONTHS_BN_FULL = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+const MONTHS_BN_SHORT = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
+
+/** বাংলা কার্ডের জন্য "জানুয়ারি 2029" (মাসের নাম বাংলা, সংখ্যা আগের মতোই) */
+export function monthLabelBn(yyyymm: string): string {
+  const [y, m] = yyyymm.split('-');
+  return `${MONTHS_BN_FULL[Number(m) - 1]} ${y}`;
+}
+
+/** বাংলা সংক্ষিপ্ত মাস ("অক্টো"), month = ১..১২ */
+export function monthShortBn(month: number): string {
+  return MONTHS_BN_SHORT[month - 1] ?? '';
+}

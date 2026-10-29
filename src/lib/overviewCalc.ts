@@ -332,6 +332,7 @@ export function yearDetailKind(isHistorical: boolean, liveTxCount: number): Year
 
 export interface SnapshotWithFlow {
   yyyymm: string;
+  snapshotDate?: string;
   totalAssetsMinor: number;
   flow?: { incomeMinor: number; expenseMinor: number };
 }
@@ -339,6 +340,9 @@ export interface SnapshotWithFlow {
 export interface NetWorthBridge {
   baseYyyymm: string;
   curYyyymm: string;
+  /** snapshot-এর আসল তারিখ (YYYY-MM-DD), না থাকলে null */
+  baseDate: string | null;
+  curDate: string | null;
   baseMinor: number;
   curMinor: number;
   deltaMinor: number;
@@ -380,6 +384,8 @@ export function netWorthBridge(snapshots: readonly SnapshotWithFlow[], txs: read
   return {
     baseYyyymm: base.yyyymm,
     curYyyymm: cur.yyyymm,
+    baseDate: sorted.find((x) => x.yyyymm === base.yyyymm)?.snapshotDate ?? null,
+    curDate: cur.snapshotDate ?? null,
     baseMinor: base.totalAssetsMinor,
     curMinor: cur.totalAssetsMinor,
     deltaMinor: delta,
@@ -551,9 +557,12 @@ export interface SpendPer100 {
   segments: HundredSegment[];
   savingsPer100: number | null; // খরচ ≤ আয় হলে
   overspendMinor: number; // খরচ > আয় হলে ঘাটতি, নাহলে 0
+  /** কিসের প্রতি ১০০-তে ভাগ: আয় (স্বাভাবিক) বা খরচ (খরচ > আয় হলে — নইলে যোগফল ১০০ ছাড়িয়ে যেত) */
+  basis: 'income' | 'expense';
 }
 
-/** আয়ের প্রতি ১০০ টাকায় শীর্ষ topN খাত + অন্যান্য + সঞ্চয়। খরচ ≤ আয় হলে যোগফল ঠিক ১০০ (largest-remainder)। আয় ০ হলে null। */
+/** আয়ের প্রতি ১০০ টাকায় শীর্ষ topN খাত + অন্যান্য + সঞ্চয়। খরচ ≤ আয় হলে ভিত্তি আয়, যোগফল ঠিক ১০০ (largest-remainder);
+ *  খরচ > আয় হলে ভিত্তি খরচ ("প্রতি ১০০ খরচে"), তখনও যোগফল ১০০। আয় ০ হলে null। */
 export function spendPer100(txs: readonly TxLite[], topN = 5): SpendPer100 | null {
   let income = 0;
   let expense = 0;
@@ -567,21 +576,20 @@ export function spendPer100(txs: readonly TxLite[], topN = 5): SpendPer100 | nul
   const restMinor = cats.slice(topN).reduce((a, c) => a + c.totalMinor, 0);
   const raw: { key: string; name: string; minor: number; kind: HundredSegment['kind'] }[] = top.map((c) => ({ key: c.name, name: c.name, minor: c.totalMinor, kind: 'category' }));
   if (restMinor > 0) raw.push({ key: 'others', name: 'অন্যান্য', minor: restMinor, kind: 'others' });
+  const over = expense > income;
   const overspendMinor = Math.max(0, expense - income);
-  if (expense <= income) raw.push({ key: 'savings', name: 'সঞ্চয়', minor: income - expense, kind: 'savings' });
+  if (!over) raw.push({ key: 'savings', name: 'সঞ্চয়', minor: income - expense, kind: 'savings' });
+  const denom = over ? expense : income;
 
-  const exact = raw.map((r) => (r.minor / income) * 100);
-  let values = exact.map((v) => Math.round(v));
-  if (expense <= income) {
-    // largest remainder: যোগফল ঠিক ১০০
-    values = exact.map((v) => Math.floor(v));
-    let left = 100 - values.reduce((a, b) => a + b, 0);
-    const order = exact.map((v, i) => ({ i, frac: v - Math.floor(v) })).sort((a, b) => b.frac - a.frac);
-    for (let k = 0; left > 0 && order.length > 0; k = (k + 1) % order.length, left--) values[order[k].i] += 1;
-  }
+  // largest remainder: যোগফল ঠিক ১০০
+  const exact = raw.map((r) => (r.minor / denom) * 100);
+  const values = exact.map((v) => Math.floor(v));
+  let left = 100 - values.reduce((a, b) => a + b, 0);
+  const order = exact.map((v, i) => ({ i, frac: v - Math.floor(v) })).sort((a, b) => b.frac - a.frac);
+  for (let k = 0; left > 0 && order.length > 0; k = (k + 1) % order.length, left--) values[order[k].i] += 1;
   const segments = raw.map((r, i) => ({ key: r.key, name: r.name, value: values[i], kind: r.kind })).filter((s) => s.value > 0);
   const sav = segments.find((s) => s.kind === 'savings');
-  return { segments, savingsPer100: expense <= income ? (sav ? sav.value : 0) : null, overspendMinor };
+  return { segments, savingsPer100: !over ? (sav ? sav.value : 0) : null, overspendMinor, basis: over ? 'expense' : 'income' };
 }
 
 // ── ছোট ফাঁক (Leak finder) ──
@@ -618,7 +626,7 @@ export interface WeekdayAvg {
 }
 
 /** [end−windowDays+1 … end] জানালায় প্রতি বারের গড় দৈনিক খরচ (খরচ-শূন্য দিনও গোনা)। জানালার শুরু প্রথম লেনদেনের আগে হলে প্রথম লেনদেনের দিন থেকে (অ্যাপ-ব্যবহারের আগের ফাঁকা দিন গড় নামায় না)। */
-export function weekdaySpend(txs: readonly TxLite[], end: string, windowDays = 90, minRatio = 1.25): WeekdayAvg | null {
+export function weekdaySpend(txs: readonly TxLite[], end: string, windowDays = 90, minRatio = 1.5): WeekdayAvg | null {
   const start = addDays(end, -(windowDays - 1));
   const inWin = expenseOnly(txs).filter((t) => t.date >= start && t.date <= end);
   if (inWin.length === 0) return null;
@@ -867,6 +875,8 @@ export interface RealGrowth {
   latestMinor: number;
   nominalPct: number;
   inflationPct: number;
+  /** তুলনার আসল সময়কাল (মাস) — মূল্যস্ফীতি বার্ষিক, তাই ১২ না হলে UI সতর্ক করে */
+  spanMonths: number;
   realPct: number;
   /** আজকের মোট সম্পদ = এক বছর আগের প্রায় কত টাকার সমান ক্রয়ক্ষমতা */
   purchasingPowerMinor: number;
@@ -886,6 +896,7 @@ export function realGrowth(snapshots: readonly NetWorthSnapshotLite[], inflation
     latestMinor: latest.totalAssetsMinor,
     nominalPct,
     inflationPct,
+    spanMonths: monthIndex(latest.yyyymm) - monthIndex(base.yyyymm),
     realPct: nominalPct - inflationPct,
     purchasingPowerMinor: Math.round(latest.totalAssetsMinor / (1 + inflationPct / 100)),
   };
@@ -894,7 +905,9 @@ export function realGrowth(snapshots: readonly NetWorthSnapshotLite[], inflation
 // ── বিনিয়োগের সৎ রিপোর্ট ──
 export interface InvestmentLite {
   principalMinor: number;
-  repayments: readonly { amountMinor: number }[];
+  /** বিনিয়োগের তারিখ — বার্ষিক হারের জন্য ঐচ্ছিক */
+  date?: string;
+  repayments: readonly { amountMinor: number; date?: string }[];
   investmentOutcome: 'running' | 'doubtful' | 'written_off';
 }
 export interface InvestmentHonest {
@@ -911,11 +924,14 @@ export interface InvestmentHonest {
   netMinor: number;
   netPctOfTotal: number | null;
   atRiskPct: number | null; // doubtful-এর ভাগ %
+  /** আনুমানিক বার্ষিক হার % = নিট ফল ÷ (আসল × বছর), আসল যতদিন আটকে ছিল ততদিন ধরে; তারিখ/`today` না থাকলে বা গড় আটকে-থাকা সময় ৩ মাসের কম হলে null (অতি-অল্প সময়ে বার্ষিকীকরণ বিভ্রান্তিকর) */
+  annualRatePct: number | null;
 }
 
 /** সব investment-এর আসল-ভাগ ও লাভ/ক্ষতি। কোনো investment না থাকলে null। */
-export function investmentHonest(list: readonly InvestmentLite[]): InvestmentHonest | null {
+export function investmentHonest(list: readonly InvestmentLite[], today?: string): InvestmentHonest | null {
   if (list.length === 0) return null;
+  let capitalYears = 0;
   let total = 0, running = 0, returned = 0, doubtful = 0, written = 0, profit = 0;
   for (const inv of list) {
     const paid = inv.repayments.reduce((a, r) => a + r.amountMinor, 0);
@@ -924,6 +940,13 @@ export function investmentHonest(list: readonly InvestmentLite[]): InvestmentHon
     total += inv.principalMinor;
     returned += back;
     profit += Math.max(0, paid - inv.principalMinor);
+    if (today && inv.date) {
+      // পুরো ফেরত হলে শেষ ফেরতের দিন পর্যন্ত, নইলে আজ পর্যন্ত আসল আটকে ছিল
+      const lastRepay = inv.repayments.reduce<string | null>((a, r) => (r.date && (a === null || r.date > a) ? r.date : a), null);
+      const end = paid >= inv.principalMinor && lastRepay ? lastRepay : today;
+      const days = Math.max(0, (parseYmd(end) - parseYmd(inv.date)) / DAY_MS);
+      capitalYears += inv.principalMinor * (days / 365);
+    }
     if (inv.investmentOutcome === 'doubtful') doubtful += left;
     else if (inv.investmentOutcome === 'written_off') written += left;
     else running += left;
@@ -940,5 +963,6 @@ export function investmentHonest(list: readonly InvestmentLite[]): InvestmentHon
     netMinor: net,
     netPctOfTotal: total > 0 ? (net / total) * 100 : null,
     atRiskPct: total > 0 ? (doubtful / total) * 100 : null,
+    annualRatePct: today && total > 0 && capitalYears / total >= 0.25 ? (net / capitalYears) * 100 : null,
   };
 }

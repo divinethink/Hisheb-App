@@ -49,3 +49,18 @@ export function categoryColorIndex(name: string, mod: number): number {
 export function formatPlain(minor: number): string {
   return formatAmount(minor).replace(/^BDT /, '');
 }
+
+/** minor → নিকটতম পূর্ণ টাকায় গোল (পয়সা বাদ), minor-এই ফেরত — Overview-র সব কার্ডে দশমিকহীন দেখাতে */
+export function roundWhole(minor: number): number {
+  return Math.sign(minor) * Math.round(Math.abs(minor) / 100) * 100;
+}
+
+/** formatTaka-র পূর্ণ-টাকা রূপ: "৳1,771" (দশমিক নেই) */
+export function formatTakaWhole(minor: number): string {
+  return formatTaka(roundWhole(minor));
+}
+
+/** formatNetTaka-র পূর্ণ-টাকা রূপ: "+৳1,771" */
+export function formatNetTakaWhole(minor: number): string {
+  return formatNetTaka(roundWhole(minor));
+}

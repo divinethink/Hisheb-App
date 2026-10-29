@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { categoryColorIndex, formatAmount, formatTaka } from '../../../lib/format';
+import { categoryColorIndex, formatAmount, formatTakaWhole } from '../../../lib/format';
 import { getCategoryIcon } from '../../../lib/categoryIcons';
 import type { CategoryShare } from '../../../lib/overviewCalc';
 
@@ -91,7 +91,7 @@ export function CategoryDonut({ items, totalMinor }: { items: readonly CategoryS
 
   const R_ICON = r + sw / 2 + 16;
   const sel = active ? slices.find((s) => s.c.name === active) ?? null : null;
-  const centerAmt = formatTaka(sel ? sel.c.totalMinor : sum);
+  const centerAmt = formatTakaWhole(sel ? sel.c.totalMinor : sum);
   const centerSize = centerAmt.length > 9 ? 12 : 15;
   const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
 

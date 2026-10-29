@@ -337,3 +337,19 @@ describe('netWorthPace / latestWithBreakdown / windowTotals', () => {
     expect(windowTotals(rows, 0)).toBeNull();
   });
 });
+
+describe('netWorthBridge — snapshotDate', () => {
+  it('আসল snapshot-তারিখ ফেরত দেয় (না থাকলে null)', () => {
+    const b = netWorthBridge(
+      [
+        { yyyymm: '2025-10', totalAssetsMinor: 100, snapshotDate: '2025-10-31' },
+        { yyyymm: '2026-10', totalAssetsMinor: 200, snapshotDate: '2026-10-29' },
+      ],
+      [],
+    )!;
+    expect(b.baseDate).toBe('2025-10-31');
+    expect(b.curDate).toBe('2026-10-29');
+    const c = netWorthBridge([{ yyyymm: '2025-10', totalAssetsMinor: 100 }, { yyyymm: '2026-10', totalAssetsMinor: 200 }], [])!;
+    expect(c.baseDate).toBeNull();
+  });
+});

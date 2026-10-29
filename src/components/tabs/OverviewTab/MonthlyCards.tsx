@@ -1,6 +1,6 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import Card from '../../common/Card';
-import { categoryColorIndex, formatTaka } from '../../../lib/format';
+import { categoryColorIndex, formatTakaWhole } from '../../../lib/format';
 import {
   leakFinder,
   monthReport,
@@ -32,7 +32,7 @@ const Tip = ({ children }: { children: ReactNode }) => <p className="mt-3 rounde
 
 /** ১. মাসের রিপোর্ট কার্ড — ৩ লাইনের নিয়ম-ভিত্তিক সারাংশ */
 export function ReportCard({ month, txs, prevTxs, targetPct }: { month: string; txs: readonly TxLite[]; prevTxs: readonly TxLite[] | null; targetPct: number | null }) {
-  const lines = useMemo(() => monthReport(txs, prevTxs, targetPct, formatTaka), [txs, prevTxs, targetPct]);
+  const lines = useMemo(() => monthReport(txs, prevTxs, targetPct, formatTakaWhole), [txs, prevTxs, targetPct]);
   if (lines.length === 0) return null;
   return (
     <Block label="Monthly report card" title={`${MONTHS_BN_GEN[monthIdx(month)]} রিপোর্ট কার্ড`} sub="আপনার হিসাব থেকে নিজে-নিজে তৈরি">
@@ -57,8 +57,8 @@ export function HundredCard({ month, txs }: { month: string; txs: readonly TxLit
   const total = r.segments.reduce((a, s) => a + s.value, 0);
   const colorOf = (s: { kind: string; key: string }) => (s.kind === 'savings' ? 'rgb(var(--color-income))' : s.kind === 'others' ? 'rgb(var(--color-muted))' : chartColor(s.key));
   return (
-    <Block label="Where my 100 taka goes" title="আমার ১০০ টাকা কোথায় যায়" sub={`${MONTHS_BN[monthIdx(month)]} মাসে প্রতি ১০০ টাকা আয়ে`}>
-      <div className="mb-3 flex h-3 overflow-hidden rounded-full bg-surface" role="img" aria-label="আয়ের প্রতি ১০০ টাকার ভাগ">
+    <Block label="Where my 100 taka goes" title="আমার ১০০ টাকা কোথায় যায়" sub={`${MONTHS_BN[monthIdx(month)]} মাসে প্রতি ১০০ টাকা ${r.basis === 'expense' ? 'খরচে' : 'আয়ে'}`}>
+      <div className="mb-3 flex h-3 overflow-hidden rounded-full bg-surface" role="img" aria-label={r.basis === 'expense' ? 'খরচের প্রতি ১০০ টাকার ভাগ' : 'আয়ের প্রতি ১০০ টাকার ভাগ'}>
         {r.segments.map((s) => (
           <div key={s.key} style={{ width: `${(s.value / total) * 100}%`, background: colorOf(s) }} />
         ))}
@@ -77,7 +77,7 @@ export function HundredCard({ month, txs }: { month: string; txs: readonly TxLit
       {r.savingsPer100 != null ? (
         <p className="mt-3 rounded-xl bg-income/10 px-3 py-2 text-xs text-income">১০০ টাকার মধ্যে <b>{r.savingsPer100} টাকা</b> আপনার জমেছে।</p>
       ) : (
-        <Tip>এই মাসে খরচ আয়ের চেয়ে {formatTaka(r.overspendMinor)} বেশি — তাই জমা হয়নি।</Tip>
+        <Tip>এই মাসে খরচ আয়ের চেয়ে {formatTakaWhole(r.overspendMinor)} বেশি — তাই জমা হয়নি।</Tip>
       )}
     </Block>
   );
@@ -96,15 +96,15 @@ export function LeakCard({ txs }: { txs: readonly TxLite[] }) {
           <li key={x.name} className="flex items-center justify-between gap-3 border-t border-muted/10 py-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-fg">{x.name}</p>
-              <p className="text-xs text-muted">{x.count} বার · গড় {formatTaka(x.avgMinor)}</p>
+              <p className="text-xs text-muted">{x.count} বার · গড় {formatTakaWhole(x.avgMinor)}</p>
             </div>
-            <p className="shrink-0 text-sm font-semibold text-expense">{formatTaka(x.totalMinor)}</p>
+            <p className="shrink-0 text-sm font-semibold text-expense">{formatTakaWhole(x.totalMinor)}</p>
           </li>
         ))}
       </ul>
       <Tip>
-        {items.length > 1 ? `${items.length}টি মিলে` : 'এটি'} {formatTaka(sum)}
-        {pctIncome != null ? ` = আয়ের ${pctIncome}%` : ''}। ৩০% কমালে মাসে {formatTaka(Math.round(sum * 0.3))} বাঁচে।
+        {items.length > 1 ? `${items.length}টি মিলে` : 'এটি'} {formatTakaWhole(sum)}
+        {pctIncome != null ? ` = আয়ের ${pctIncome}%` : ''}। ৩০% কমালে মাসে {formatTakaWhole(Math.round(sum * 0.3))} বাঁচে।
       </Tip>
     </Block>
   );
@@ -122,14 +122,14 @@ export function WeekdayCard({ txs, end }: { txs: readonly TxLite[] | null; end: 
           const isPeak = w.peak?.index === i;
           return (
             <div key={i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
-              <span className={`text-[10px] ${isPeak ? 'font-semibold text-expense' : 'text-muted'}`}>{Math.round(v / 100).toLocaleString('en-US')}</span>
+              <span className={`text-[10px] ${isPeak ? 'font-semibold text-expense' : 'text-muted'}`}>{formatTakaWhole(v)}</span>
               <div className={`w-full rounded-t ${isPeak ? 'bg-expense' : 'bg-income/50'}`} style={{ height: `${Math.max(2, (v / max) * 100)}px`, maxHeight: '100px' }} />
               <span className="text-[10px] text-muted">{WEEKDAYS_EN[i]}</span>
             </div>
           );
         })}
       </div>
-      {w.peak && <Tip>{WEEKDAYS_BN[w.peak.index]}ে গড়ে {formatTaka(w.peak.avgMinor)} — অন্য দিনের {(Math.round(w.peak.ratio * 10) / 10).toString()} গুণ।</Tip>}
+      {w.peak && <Tip>{WEEKDAYS_BN[w.peak.index]}ে গড়ে {formatTakaWhole(w.peak.avgMinor)} — অন্য দিনের {(Math.round(w.peak.ratio * 10) / 10).toString()} গুণ।</Tip>}
     </Block>
   );
 }
@@ -143,12 +143,22 @@ const LEVEL_CLASS: Record<string, string> = {
   future: 'text-muted/40',
 };
 
-/** ৫. নো-স্পেন্ড ক্যালেন্ডার */
+const LEGEND: { level: string; label: string }[] = [
+  { level: 'none', label: 'নো-স্পেন্ড' },
+  { level: 'low', label: 'কম খরচ' },
+  { level: 'mid', label: 'মাঝারি' },
+  { level: 'high', label: 'বেশি খরচ' },
+  { level: 'today', label: 'আজ (চলছে)' },
+];
+
+/** ৫. নো-স্পেন্ড ক্যালেন্ডার — দিনের ঘরে ট্যাপ করলে সেদিনের খরচ (ফোনে hover নেই, তাই title-এর বদলে) */
 export function NoSpendCalendarCard({ month, txs, today }: { month: string; txs: readonly TxLite[]; today: string }) {
   const c = useMemo(() => noSpendCalendar(txs, month, today), [txs, month, today]);
+  const [sel, setSel] = useState<string | null>(null);
   const lead = c.days[0]?.weekday ?? 0;
+  const picked = c.days.find((d) => d.date === sel && d.level !== 'future');
   return (
-    <Block label="No-spend calendar" title="নো-স্পেন্ড ক্যালেন্ডার" sub="সবুজ = খরচ শূন্য · লাল = বেশি খরচ">
+    <Block label="No-spend calendar" title="নো-স্পেন্ড ক্যালেন্ডার" sub="দিনের ঘরে ট্যাপ করলে সেদিনের খরচ দেখবেন">
       <div className="grid grid-cols-7 gap-1.5 text-center">
         {WEEKDAYS_EN.map((d) => (
           <span key={d} className="pb-1 text-[10px] text-muted">{d}</span>
@@ -157,15 +167,32 @@ export function NoSpendCalendarCard({ month, txs, today }: { month: string; txs:
           <span key={`b${i}`} aria-hidden />
         ))}
         {c.days.map((d) => (
-          <span
+          <button
             key={d.date}
-            title={d.level === 'future' ? undefined : `${d.day}: ${formatTaka(d.spendMinor)}`}
-            className={`flex aspect-square items-center justify-center rounded-lg text-xs ${LEVEL_CLASS[d.level]} ${d.date === today ? 'ring-2 ring-primary' : ''}`}
+            type="button"
+            disabled={d.level === 'future'}
+            aria-pressed={sel === d.date}
+            aria-label={d.level === 'future' ? `${d.day}` : `${d.day}: ${formatTakaWhole(d.spendMinor)}`}
+            onClick={() => setSel(sel === d.date ? null : d.date)}
+            className={`flex aspect-square items-center justify-center rounded-lg text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${LEVEL_CLASS[d.level]} ${d.date === today ? 'ring-2 ring-primary' : ''} ${sel === d.date ? 'outline outline-2 outline-fg' : ''}`}
           >
             {d.day}
-          </span>
+          </button>
         ))}
       </div>
+      {picked && (
+        <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-xs text-fg">
+          {picked.day} তারিখ: {picked.level === 'today' ? 'আজ এখনো খরচ নেই (চলছে)' : picked.spendMinor === 0 ? 'কোনো খরচ নেই' : <b>{formatTakaWhole(picked.spendMinor)}</b>}
+        </p>
+      )}
+      <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-muted" aria-label="রঙের অর্থ">
+        {LEGEND.map((l) => (
+          <li key={l.level} className="flex items-center gap-1">
+            <span aria-hidden className={`inline-block h-3 w-3 rounded ${LEVEL_CLASS[l.level]}`} />
+            {l.label}
+          </li>
+        ))}
+      </ul>
       {c.days.some((d) => d.level === 'today') && <p className="mt-2 text-[11px] text-muted">আজ চলছে — নো-স্পেন্ড গোনা হবে কাল থেকে।</p>}
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
         <span className="rounded-full bg-income/10 px-2.5 py-1 text-income">{c.noSpendCount} দিন নো-স্পেন্ড</span>

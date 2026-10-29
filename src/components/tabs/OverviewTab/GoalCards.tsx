@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import Card from '../../common/Card';
-import { monthLabel } from '../../../lib/date';
-import { formatNetTaka, formatTaka } from '../../../lib/format';
+import { formatDisplayDate, monthLabelBn } from '../../../lib/date';
+import { formatNetTakaWhole, formatTakaWhole } from '../../../lib/format';
 import {
   assetMix,
   emergencyFund,
@@ -45,9 +45,9 @@ export function NetWorthBridgeCard({ snapshots, txs }: { snapshots: readonly Sna
   const split = b.deltaMinor > 0 && b.ownMinor >= 0 && b.otherMinor >= 0;
   const ownPct = split ? Math.round((b.ownMinor / b.deltaMinor) * 100) : null;
   return (
-    <Block label="Net worth growth sources" title="সম্পদ কোথা থেকে বাড়ল" sub={`${b.baseYyyymm} → ${b.curYyyymm} · ${b.monthsSpan} মাস`}>
-      <p className={`text-2xl font-semibold ${up ? 'text-income' : 'text-expense'}`}>{formatNetTaka(b.deltaMinor)}</p>
-      <p className="mb-3 text-xs text-muted">{formatTaka(b.baseMinor)} থেকে {formatTaka(b.curMinor)}</p>
+    <Block label="Net worth growth sources" title="সম্পদ কোথা থেকে বাড়ল" sub={`${b.baseDate ? formatDisplayDate(b.baseDate) : b.baseYyyymm} → ${b.curDate ? formatDisplayDate(b.curDate) : b.curYyyymm} (snapshot) · ${b.monthsSpan} মাস`}>
+      <p className={`text-2xl font-semibold ${up ? 'text-income' : 'text-expense'}`}>{formatNetTakaWhole(b.deltaMinor)}</p>
+      <p className="mb-3 text-xs text-muted">{formatTakaWhole(b.baseMinor)} থেকে {formatTakaWhole(b.curMinor)}</p>
       {split && (
         <div className="mb-2 flex h-3 overflow-hidden rounded-full bg-surface" role="img" aria-label={`নিজের জমা ${ownPct}%`}>
           <div className="bg-income" style={{ width: `${(b.ownMinor / b.deltaMinor) * 100}%` }} />
@@ -56,11 +56,11 @@ export function NetWorthBridgeCard({ snapshots, txs }: { snapshots: readonly Sna
       )}
       <div className="flex items-center justify-between border-t border-muted/10 py-2 text-sm">
         <span className="text-fg"><span className="text-income">■</span> নিজের জমা (আয় − ব্যয়)</span>
-        <span className={`font-semibold ${b.ownMinor >= 0 ? 'text-income' : 'text-expense'}`}>{formatNetTaka(b.ownMinor)}</span>
+        <span className={`font-semibold ${b.ownMinor >= 0 ? 'text-income' : 'text-expense'}`}>{formatNetTakaWhole(b.ownMinor)}</span>
       </div>
       <div className="flex items-center justify-between border-t border-muted/10 py-2 text-sm">
         <span className="text-fg"><span className="text-chart7">■</span> অন্যান্য</span>
-        <span className="font-semibold text-fg">{formatNetTaka(b.otherMinor)}</span>
+        <span className="font-semibold text-fg">{formatNetTakaWhole(b.otherMinor)}</span>
       </div>
       {ownPct !== null && ownPct > 0 && <Tip tone="income">বৃদ্ধির <b>{ownPct}%</b> এসেছে আপনার নিজের জমা থেকে।</Tip>}
       {b.deltaMinor > 0 && b.ownMinor < 0 && <Tip>এই সময়ে খরচ আয়ের চেয়ে বেশি ছিল — বৃদ্ধি এসেছে অন্য খাত (বিনিয়োগ/পাওনা ইত্যাদি) থেকে।</Tip>}
@@ -80,16 +80,16 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
   const when = (proj: { monthsAtPace: number | null; paceYyyymm: string | null }, rate: number | null) =>
     proj.monthsAtPace !== null && proj.paceYyyymm !== null ? (
       <>
-        <p className="text-base font-semibold text-fg">{monthLabel(proj.paceYyyymm)}</p>
+        <p className="text-base font-semibold text-fg">{monthLabelBn(proj.paceYyyymm)}</p>
         <p className="text-xs text-muted">{proj.monthsAtPace} মাস</p>
       </>
     ) : (
       <p className="text-xs text-muted">{rate !== null && rate > 0 ? '৫০ বছরের বেশি' : 'পৌঁছানো যাচ্ছে না'}</p>
     );
   return (
-    <Block label="Net worth goal" title="লক্ষ্য ও পূর্বাভাস" sub={`লক্ষ্য ${formatTaka(goal)}${goalMinor === null ? ' (ডিফল্ট)' : ''} · Menu → Monthly Target-এ বদলান`}>
+    <Block label="Net worth goal" title="লক্ষ্য ও পূর্বাভাস" sub={`লক্ষ্য ${formatTakaWhole(goal)}${goalMinor === null ? ' (ডিফল্ট)' : ''} · Menu → Monthly Target-এ বদলান`}>
       <div className="mb-1.5 flex justify-between text-sm">
-        <b className="text-fg">{formatTaka(currentMinor)}</b>
+        <b className="text-fg">{formatTakaWhole(currentMinor)}</b>
         <span className="text-muted">{Math.floor(pct)}% পূরণ</span>
       </div>
       <div className="h-3 overflow-hidden rounded-full bg-surface" role="img" aria-label={`লক্ষ্যের ${Math.floor(pct)}% পূরণ`}>
@@ -102,10 +102,10 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
       ) : (
         <>
           {avgSavingsMinor !== null && (
-            <p className="mb-1 mt-3 text-xs text-muted">হিসাব অনুযায়ী জমা (আয় − ব্যয়, শেষ ৬ মাস): <b className={avgSavingsMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTaka(Math.round(avgSavingsMinor))}</b>/মাস</p>
+            <p className="mb-1 mt-3 text-xs text-muted">হিসাব অনুযায়ী জমা (আয় − ব্যয়, শেষ ৬ মাস): <b className={avgSavingsMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTakaWhole(Math.round(avgSavingsMinor))}</b>/মাস</p>
           )}
           {pace && (
-            <p className={`mb-2 text-xs text-muted ${avgSavingsMinor === null ? 'mt-3' : ''}`}>সম্পদ আসলে বেড়েছে (শেষ {pace.spanMonths} মাস): <b className={pace.perMonthMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTaka(pace.perMonthMinor)}</b>/মাস</p>
+            <p className={`mb-2 text-xs text-muted ${avgSavingsMinor === null ? 'mt-3' : ''}`}>সম্পদ আসলে বেড়েছে (শেষ {pace.spanMonths} মাস): <b className={pace.perMonthMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTakaWhole(pace.perMonthMinor)}</b>/মাস</p>
           )}
           <div className="flex gap-2">
             {avgSavingsMinor !== null && (
@@ -123,8 +123,8 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
           </div>
           {p.monthsBoosted !== null && p.monthsSaved !== null && p.monthsSaved > 0 && (
             <div className={`${tile} mt-2 bg-income/10`}>
-              <p className="text-xs text-income">হিসাব অনুযায়ী গতিতে মাসে +{formatTaka(BOOST_MINOR)} হলে</p>
-              <p className="text-base font-semibold text-income">{monthLabel(p.boostYyyymm as string)}</p>
+              <p className="text-xs text-income">হিসাব অনুযায়ী গতিতে মাসে +{formatTakaWhole(BOOST_MINOR)} হলে</p>
+              <p className="text-base font-semibold text-income">{monthLabelBn(p.boostYyyymm as string)}</p>
               <p className="text-xs text-income">{p.monthsSaved} মাস আগে</p>
             </div>
           )}
@@ -149,7 +149,7 @@ export function AssetMixCard({ yyyymm, breakdown }: { yyyymm: string; breakdown:
   if (!mix) return null;
   const pct = (n: number) => Math.round(n * 100);
   return (
-    <Block label="Asset mix" title="সম্পদের মিশ্রণ" sub={`${yyyymm} snapshot · মোট ${formatTaka(mix.totalMinor)}`}>
+    <Block label="Asset mix" title="সম্পদের মিশ্রণ" sub={`${yyyymm} snapshot · মোট ${formatTakaWhole(mix.totalMinor)}`}>
       <div className="mb-2 flex h-4 overflow-hidden rounded-full bg-surface" role="img" aria-label="সম্পদের ভাগ">
         {mix.items.map((i) => (
           <div key={i.key} className={MIX_META[i.key].bar} style={{ width: `${i.share * 100}%` }} />
@@ -158,7 +158,7 @@ export function AssetMixCard({ yyyymm, breakdown }: { yyyymm: string; breakdown:
       {mix.items.map((i) => (
         <div key={i.key} className="flex items-center justify-between border-t border-muted/10 py-2 text-sm">
           <span className="text-fg"><span className={MIX_META[i.key].text}>■</span> {MIX_META[i.key].label}</span>
-          <span><b className="text-fg">{formatTaka(i.minor)}</b> <span className="text-xs text-muted">· {(i.share * 100).toFixed(1)}%</span></span>
+          <span><b className="text-fg">{formatTakaWhole(i.minor)}</b> <span className="text-xs text-muted">· {(i.share * 100).toFixed(1)}%</span></span>
         </div>
       ))}
       {mix.outsideShare >= 0.5 && (
@@ -176,7 +176,7 @@ export function RunwayCard({ yyyymm, cashMinor, totalMinor, avgExpenseMinor }: {
   const fund = cashMinor !== null ? emergencyFund(cashMinor, avgExpenseMinor) : null;
   const w = (m: number | null) => `${Math.max(0, Math.min(100, ((m ?? 0) / 6) * 100))}%`;
   return (
-    <Block label="Runway" title="Runway — কত মাস চলবে" sub={`গড় মাসিক খরচ ${formatTaka(Math.round(avgExpenseMinor))} ধরে (শেষ ৬ মাস) · ${yyyymm} snapshot`}>
+    <Block label="Runway" title="Runway — কত মাস চলবে" sub={`গড় মাসিক খরচ ${formatTakaWhole(Math.round(avgExpenseMinor))} ধরে (শেষ ৬ মাস) · ${yyyymm} snapshot`}>
       {cash !== null && (
         <>
           <div className="flex justify-between text-sm"><span className="text-fg">শুধু নগদে</span><b className="text-expense">{cash.toFixed(1)} মাস</b></div>
@@ -190,7 +190,7 @@ export function RunwayCard({ yyyymm, cashMinor, totalMinor, avgExpenseMinor }: {
         </>
       )}
       <Foot>বার = ৬ মাসের জরুরি-তহবিল লক্ষ্য{fund ? ` · নগদে ${Math.floor(fund.pct)}% পূরণ` : ''}।</Foot>
-      {fund && fund.shortfallMinor > 0 && <Tip>জরুরি-তহবিল ৬ মাসের হতে আরও <b>{formatTaka(fund.shortfallMinor)}</b> নগদ দরকার।</Tip>}
+      {fund && fund.shortfallMinor > 0 && <Tip>জরুরি-তহবিল ৬ মাসের হতে আরও <b>{formatTakaWhole(fund.shortfallMinor)}</b> নগদ দরকার।</Tip>}
     </Block>
   );
 }

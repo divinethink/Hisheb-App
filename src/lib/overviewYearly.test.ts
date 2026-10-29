@@ -64,10 +64,13 @@ describe('realGrowth', () => {
     expect(g.latestYyyymm).toBe('2026-10');
     expect(g.nominalPct).toBeCloseTo(12, 5);
     expect(g.realPct).toBeCloseTo(2, 5);
+    expect(g.spanMonths).toBe(12);
     expect(g.purchasingPowerMinor).toBe(Math.round(56_000_000 / 1.1));
   });
   it('১২ মাস আগের মাস না থাকলে তার আগের সর্বশেষটা; কিছুই না থাকলে null', () => {
-    expect(realGrowth([{ yyyymm: '2025-08', totalAssetsMinor: 40_000_000 }, { yyyymm: '2026-10', totalAssetsMinor: 44_000_000 }], 5)!.baseYyyymm).toBe('2025-08');
+    const early = realGrowth([{ yyyymm: '2025-08', totalAssetsMinor: 40_000_000 }, { yyyymm: '2026-10', totalAssetsMinor: 44_000_000 }], 5)!;
+    expect(early.baseYyyymm).toBe('2025-08');
+    expect(early.spanMonths).toBe(14); // ১২ নয় — UI সতর্ক করে
     expect(realGrowth([{ yyyymm: '2026-03', totalAssetsMinor: 1 }, { yyyymm: '2026-10', totalAssetsMinor: 2 }], 5)).toBeNull();
     expect(realGrowth([{ yyyymm: '2026-10', totalAssetsMinor: 2 }], 5)).toBeNull();
     expect(realGrowth([], 5)).toBeNull();
@@ -90,6 +93,15 @@ describe('investmentHonest', () => {
   });
   it('খালি তালিকা → null', () => {
     expect(investmentHonest([])).toBeNull();
+  });
+  it('বার্ষিক হার: নিট ÷ (আসল × বছর); today/তারিখ না থাকলে বা ৩ মাসের কম গড়ে null', () => {
+    // ১০০০ টাকা, ১ বছর আগে, ১১০০ ফেরত (শেষ ফেরত ঠিক ১ বছর পরে) → ১০%
+    const one: InvestmentLite = { principalMinor: 100000, date: '2025-10-29', repayments: [{ amountMinor: 110000, date: '2026-10-29' }], investmentOutcome: 'running' };
+    expect(investmentHonest([one], '2026-10-29')!.annualRatePct).toBeCloseTo(10, 1);
+    expect(investmentHonest([one])!.annualRatePct).toBeNull();
+    expect(investmentHonest([{ ...one, date: undefined }], '2026-10-29')!.annualRatePct).toBeNull();
+    const fresh: InvestmentLite = { principalMinor: 100000, date: '2026-10-01', repayments: [], investmentOutcome: 'running' };
+    expect(investmentHonest([fresh], '2026-10-29')!.annualRatePct).toBeNull();
   });
 });
 

@@ -11,7 +11,7 @@ import { InvestmentHonestCard, LifestyleCreepCard, RealGrowthCard, SavingsRateCa
 import { AssetMixCard, GoalCard, NetWorthBridgeCard, RunwayCard } from './GoalCards';
 import { useInvestments, useMonthTransactions, useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
 import { currentMonth, monthEndDate, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
-import { formatAmount, formatNet, formatNetTaka, formatTaka } from '../../../lib/format';
+import { formatAmount, formatNet, formatNetTakaWhole, formatTakaWhole, roundWhole } from '../../../lib/format';
 import {
   addDays,
   allTimeRows,
@@ -83,17 +83,17 @@ function Totals({
         <div className="flex min-w-0 flex-col items-center gap-1">
           <IconBadge icon={TrendingUp} tone="income" size={32} />
           <p className="text-xs text-muted">Income</p>
-          <p className="whitespace-nowrap text-[15px] font-semibold text-income">{formatTaka(income)}</p>
+          <p className="whitespace-nowrap text-[15px] font-semibold text-income">{formatTakaWhole(income)}</p>
         </div>
         <div className="flex min-w-0 flex-col items-center gap-1">
           <IconBadge icon={TrendingDown} tone="expense" size={32} />
           <p className="text-xs text-muted">Expense</p>
-          <p className="whitespace-nowrap text-[15px] font-semibold text-expense">{formatTaka(expense)}</p>
+          <p className="whitespace-nowrap text-[15px] font-semibold text-expense">{formatTakaWhole(expense)}</p>
         </div>
         <div className="flex min-w-0 flex-col items-center gap-1">
           <IconBadge icon={PiggyBank} tone={savings < 0 ? 'expense' : 'income'} size={32} />
           <p className="text-xs text-muted">Savings</p>
-          <p className={`whitespace-nowrap text-[15px] font-semibold ${savings < 0 ? 'text-expense' : 'text-income'}`}>{formatNetTaka(savings)}</p>
+          <p className={`whitespace-nowrap text-[15px] font-semibold ${savings < 0 ? 'text-expense' : 'text-income'}`}>{formatNetTakaWhole(savings)}</p>
         </div>
       </div>
       {savingsPct != null && (
@@ -145,13 +145,13 @@ function KeyNumbers({
       <div className="grid grid-cols-2 gap-2">
         <div className={tile}>
           <p className="text-xs text-muted">Avg expense / month</p>
-          <p className="text-base font-semibold text-expense">{avgExpense != null ? formatTaka(Math.round(avgExpense)) : '—'}</p>
+          <p className="text-base font-semibold text-expense">{avgExpense != null ? formatTakaWhole(Math.round(avgExpense)) : '—'}</p>
           <p className="text-[10px] text-muted">last 3 months</p>
         </div>
         <div className={tile}>
           <p className="text-xs text-muted">Avg savings / month</p>
           <p className={`text-base font-semibold ${avgSavings != null && avgSavings < 0 ? 'text-expense' : 'text-income'}`}>
-            {avgSavings != null ? formatNetTaka(Math.round(avgSavings)) : '—'}
+            {avgSavings != null ? formatNetTakaWhole(Math.round(avgSavings)) : '—'}
           </p>
           <p className="text-[10px] text-muted">last 3 months</p>
         </div>
@@ -162,7 +162,7 @@ function KeyNumbers({
         </div>
         <div className={tile}>
           <p className="text-xs text-muted">Net Worth this year</p>
-          <p className={`text-base font-semibold ${ytd && ytd.deltaMinor < 0 ? 'text-expense' : 'text-income'}`}>{ytd ? formatNetTaka(ytd.deltaMinor) : '—'}</p>
+          <p className={`text-base font-semibold ${ytd && ytd.deltaMinor < 0 ? 'text-expense' : 'text-income'}`}>{ytd ? formatNetTakaWhole(ytd.deltaMinor) : '—'}</p>
           <p className="text-[10px] text-muted">
             {ytd ? `${ytd.deltaPct != null ? `${ytd.deltaPct >= 0 ? '↑' : '↓'}${Math.abs(ytd.deltaPct).toFixed(1)}% · ` : ''}since ${ytd.baseYyyymm}` : 'needs 2 snapshots'}
           </p>
@@ -272,7 +272,7 @@ function MonthlyBody({
   const prevSavings = prevT ? prevT.income - prevT.expense : null;
   const prevSavingsPct = prevT ? savingsRatePct(prevT.income, prevT.expense) : null;
   const savingsPctDeltaPt = savingsPct != null && prevSavingsPct != null ? savingsPct - prevSavingsPct : null;
-  const insight = savingsInsight(savings, prevSavings, formatNetTaka);
+  const insight = savingsInsight(savings, prevSavings, formatNetTakaWhole);
   const inProgress = month === today.slice(0, 7);
   const daysIn = Number(today.slice(8, 10));
 
@@ -409,6 +409,12 @@ function YearlyBody({
   const savingsPctDeltaPt = savingsPct != null && prevSavingsPct != null ? savingsPct - prevSavingsPct : null;
 
   const { best, worst } = useMemo(() => bestWorstMonth(months), [months]);
+  // সঞ্চয়-হার কার্ড: চলতি (অসম্পূর্ণ) মাস বাদ — নইলে আধা-মাসের হার টার্গেট-লাইনে মিথ্যা পতন দেখায়
+  const partialMonthNo = year === thisYear ? Number(currentMonth().slice(5, 7)) : undefined;
+  const savingsRows = useMemo<readonly MonthRow[]>(
+    () => (partialMonthNo ? months.map((r, i) => (i + 1 === partialMonthNo ? { ...r, incomeMinor: 0, expenseMinor: 0, savingsMinor: 0, txCount: 0, fromRecord: false } : r)) : months),
+    [months, partialMonthNo],
+  );
   // চলতি বছরে আগের বছরের শুধু একই মাসগুলো (জানু–এখন) দিয়ে তুলনা; সব মাসে ডেটা না থাকলে null → পুরো-বছরের গড়ে ফিরে যায়
   const monthsCur = year === thisYear ? Number(currentMonth().slice(5, 7)) : 12;
   const samePeriod = useMemo(() => (year === thisYear && prevMonths ? windowTotals(prevMonths, monthsCur) : null), [year, thisYear, prevMonths, monthsCur]);
@@ -425,11 +431,11 @@ function YearlyBody({
       />
       {(best || worst) && (
         <div className="mx-4 mt-3 grid grid-cols-2 gap-2 text-xs text-muted">
-          {best && <p>Best month: {monthLabel(best.yyyymm).split(' ')[0]} ({formatNet(best.savingsMinor)})</p>}
-          {worst && <p>Toughest month: {monthLabel(worst.yyyymm).split(' ')[0]} ({formatNet(worst.savingsMinor)})</p>}
+          {best && <p>Best month: {monthLabel(best.yyyymm).split(' ')[0]} ({formatNet(roundWhole(best.savingsMinor))})</p>}
+          {worst && <p>Toughest month: {monthLabel(worst.yyyymm).split(' ')[0]} ({formatNet(roundWhole(worst.savingsMinor))})</p>}
         </div>
       )}
-      <SavingsRateCard year={year} rows={months} targetPct={targetPct} />
+      <SavingsRateCard year={year} rows={savingsRows} targetPct={targetPct} partialMonth={partialMonthNo} />
       <LifestyleCreepCard
         year={year}
         prev={samePeriod ? samePeriod : { incomeMinor: prevRow.incomeMinor, expenseMinor: prevRow.expenseMinor }}
@@ -440,7 +446,7 @@ function YearlyBody({
         prevFromRecord={prevRow.source === 'historical'}
       />
       {year === thisYear && snapshots && <RealGrowthCard snapshots={snapshots} inflationPct={inflationPct} />}
-      {year === thisYear && investments && <InvestmentHonestCard investments={investments} />}
+      {year === thisYear && investments && <InvestmentHonestCard investments={investments} today={toDhakaDate(new Date())} />}
       {isHist && (
         <Note>
           Pre-app record — totals come from your saved yearly summary
@@ -505,7 +511,7 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
               <p className="truncate text-xs text-muted">Net Worth</p>
               <p className="truncate text-[10px] text-muted">{growth.latestYyyymm}</p>
             </div>
-            <p className="shrink-0 text-base font-semibold text-fg">{formatTaka(growth.latestMinor)}</p>
+            <p className="shrink-0 text-base font-semibold text-fg">{formatTakaWhole(growth.latestMinor)}</p>
             {growth.deltaPct != null && (
               <p className={`shrink-0 text-xs font-medium ${growth.deltaPct >= 0 ? 'text-income' : 'text-expense'}`} title={`vs ${growth.earliestYyyymm}`}>
                 {growth.deltaPct >= 0 ? '↑' : '↓'}{Math.abs(growth.deltaPct).toFixed(1)}%
