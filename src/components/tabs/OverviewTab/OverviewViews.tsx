@@ -7,8 +7,9 @@ import CategoryHistorySheet from './CategoryHistorySheet';
 import { YearlyBreakdown, YearsCard } from './BreakdownLists';
 import { CategoryBars, CategoryDonut, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
 import { HundredCard, LeakCard, NoSpendCalendarCard, ReportCard, WeekdayCard } from './MonthlyCards';
+import { InvestmentHonestCard, LifestyleCreepCard, RealGrowthCard, SavingsRateCard } from './YearlyCards';
 import { AssetMixCard, GoalCard, NetWorthBridgeCard, RunwayCard } from './GoalCards';
-import { useMonthTransactions, useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
+import { useInvestments, useMonthTransactions, useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
 import { currentMonth, monthEndDate, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
 import { formatAmount, formatNet, formatNetTaka, formatTaka } from '../../../lib/format';
 import {
@@ -29,6 +30,7 @@ import {
   savingsRatePct,
   snapshotAtOrBefore,
   type HistoricalLite,
+  type InvestmentLite,
   type NetWorthSnapshotLite,
   type TxLite,
   type YearRow,
@@ -314,6 +316,8 @@ export function YearlyView({ uid, historical }: { uid: string; historical: reado
   const isHist = historical.some((h) => h.year === year);
   // pre-app মাসের আয়/ব্যয় (snapshot.flow) — শুধু historical-doc বছরে; snapshots না এলে লাইভ-ই (graceful)
   const snaps = useNetWorthSnapshots(uid);
+  const inv = useInvestments(uid);
+  const settings = useSettings(uid);
   const flow = useMemo(
     () => (isHist && snaps.state.status === 'ready' ? flowByMonth(snaps.state.data, year) : new Map<string, { incomeMinor: number; expenseMinor: number }>()),
     [isHist, snaps.state, year],
@@ -342,6 +346,9 @@ export function YearlyView({ uid, historical }: { uid: string; historical: reado
           historical={historical}
           thisYear={thisYear}
           snapshots={snaps.state.status === 'ready' ? snaps.state.data : null}
+          investments={inv.state.status === 'ready' ? inv.state.data : null}
+          targetPct={settings.state.status === 'ready' ? settings.state.data.savingsTargetPct : null}
+          inflationPct={settings.state.status === 'ready' ? settings.state.data.inflationPct : null}
         />
       )}
     </>
@@ -359,11 +366,17 @@ function YearlyBody({
   historical,
   thisYear,
   snapshots,
+  investments,
+  targetPct,
+  inflationPct,
 }: {
   uid: string;
   historical: readonly HistoricalLite[];
   thisYear: number;
-  snapshots: readonly { yyyymm: string; flow?: { incomeMinor: number; expenseMinor: number } }[] | null;
+  snapshots: readonly { yyyymm: string; totalAssetsMinor: number; flow?: { incomeMinor: number; expenseMinor: number } }[] | null;
+  investments: readonly InvestmentLite[] | null;
+  targetPct: number | null;
+  inflationPct: number | null;
   row: YearRow;
   prevRow: YearRow;
   txs: readonly TxLite[];
@@ -396,6 +409,15 @@ function YearlyBody({
           {worst && <p>Toughest month: {monthLabel(worst.yyyymm).split(' ')[0]} ({formatNet(worst.savingsMinor)})</p>}
         </div>
       )}
+      <SavingsRateCard year={year} rows={months} targetPct={targetPct} />
+      <LifestyleCreepCard
+        year={year}
+        prev={{ incomeMinor: prevRow.incomeMinor, expenseMinor: prevRow.expenseMinor }}
+        cur={{ incomeMinor: row.incomeMinor, expenseMinor: row.expenseMinor }}
+        monthsCur={year === thisYear ? Number(currentMonth().slice(5, 7)) : 12}
+      />
+      {year === thisYear && snapshots && <RealGrowthCard snapshots={snapshots} inflationPct={inflationPct} />}
+      {year === thisYear && investments && <InvestmentHonestCard investments={investments} />}
       {isHist && (
         <Note>
           Pre-app record — totals come from your saved yearly summary

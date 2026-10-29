@@ -29,6 +29,8 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
   const savedGoal = settings.state.status === 'ready' ? settings.state.data.netWorthGoalMinor : null;
   const [pctInput, setPctInput] = useState('');
   const [goalInput, setGoalInput] = useState('');
+  const savedInflation = settings.state.status === 'ready' ? settings.state.data.inflationPct : null;
+  const [inflationInput, setInflationInput] = useState('');
 
   async function savePct() {
     if (busy) return;
@@ -51,6 +53,19 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
     try {
       await updateSettings(uid, { netWorthGoalMinor: minor });
       setGoalInput('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveInflation() {
+    if (busy) return;
+    const n = inflationInput.trim() === '' ? null : Number(inflationInput);
+    if (n !== null && (!Number.isFinite(n) || n < 0 || n > 100)) return;
+    setBusy(true);
+    try {
+      await updateSettings(uid, { inflationPct: n });
+      setInflationInput('');
     } finally {
       setBusy(false);
     }
@@ -110,6 +125,23 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
         />
         <button type="button" onClick={() => void saveGoal()} disabled={busy} className={btn}>Save</button>
       </div>
+      <p className="mt-4 text-xs text-muted">মূল্যস্ফীতি (বছরে): {savedInflation != null ? `${savedInflation}%` : 'সেট করা নেই'} — Yearly-তে "আসল বৃদ্ধি" হিসাবে লাগে</p>
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          inputMode="decimal"
+          aria-label="Inflation percent"
+          placeholder="মূল্যস্ফীতি % (যেমন 9)"
+          value={inflationInput}
+          onChange={(e) => setInflationInput(e.target.value.replace(/[^0-9.]/g, '').slice(0, 5))}
+          className={field}
+        />
+        <button type="button" onClick={() => void saveInflation()} disabled={busy} className={btn}>Save</button>
+      </div>
+      {savedInflation != null && (
+        <button type="button" onClick={() => void updateSettings(uid, { inflationPct: null })} className="mt-3 min-h-11 text-sm text-muted underline">
+          মূল্যস্ফীতি মুছুন
+        </button>
+      )}
       {(savedPct != null || savedGoal != null) && (
         <button type="button" onClick={() => void updateSettings(uid, { savingsTargetPct: null, netWorthGoalMinor: null })} className="mt-3 min-h-11 text-sm text-muted underline">
           লক্ষ্য মুছে ডিফল্টে ফিরুন

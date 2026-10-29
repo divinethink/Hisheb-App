@@ -735,3 +735,169 @@ export function monthReport(
   if (leak) lines.push([{ text: `সবচেয়ে বড় ছোট-ফাঁক: ${leak.name}, মাসে ${fmtTaka(leak.totalMinor)}` }]);
   return lines;
 }
+
+// ───────── Overview → Yearly ধাপ ৩ ─────────
+// মাসিক সঞ্চয়-হার, লাইফস্টাইল ক্রিপ, আসল বৃদ্ধি, বিনিয়োগের সৎ রিপোর্ট। বিদ্যমান ডেটা থেকে derive, নতুন query/write নেই।
+
+export interface SavingsPoint {
+  yyyymm: string;
+  month: number; // ১..১২
+  pct: number | null; // আয় ০ (ডেটা নেই) হলে null
+}
+
+export interface SavingsRateStats {
+  points: SavingsPoint[];
+  /** আজ/শেষ ডেটা-মাস থেকে পেছনে টানা কত মাস সঞ্চয়-হার ≥ টার্গেট */
+  streakAbove: number;
+  monthsAbove: number;
+  /** সর্বোচ্চ হার (পূর্ণসংখ্যায় গোল) ও সেই মাস/মাসগুলো (সর্বোচ্চ ২টা) */
+  best: { pct: number; months: number[] } | null;
+  /** টার্গেটে পৌঁছাতে মাসে আরও যত জমাতে হবে (গড় আয় ধরে); ≤ ০ হলে null */
+  extraNeededMinor: number | null;
+  avgIncomeMinor: number | null;
+}
+
+/** বছরের মাসভিত্তিক সঞ্চয়-হার ও টার্গেট-পরিসংখ্যান। ডেটা-শূন্য মাস (আয় ≤ ০) বাদ। */
+export function savingsRateStats(rows: readonly MonthRow[], targetPct: number): SavingsRateStats {
+  const points: SavingsPoint[] = rows.map((r, i) => ({ yyyymm: r.yyyymm, month: i + 1, pct: savingsRatePct(r.incomeMinor, r.expenseMinor) }));
+  const withData = points.filter((p): p is SavingsPoint & { pct: number } => p.pct != null);
+  let streakAbove = 0;
+  for (let i = withData.length - 1; i >= 0; i--) {
+    if (withData[i].pct >= targetPct) streakAbove += 1;
+    else break;
+  }
+  const monthsAbove = withData.filter((p) => p.pct >= targetPct).length;
+  let best: SavingsRateStats['best'] = null;
+  if (withData.length > 0) {
+    const maxRounded = Math.round(Math.max(...withData.map((p) => p.pct)));
+    best = { pct: maxRounded, months: withData.filter((p) => Math.round(p.pct) === maxRounded).slice(0, 2).map((p) => p.month) };
+  }
+  const dataRows = rows.filter((r) => r.incomeMinor > 0);
+  let extraNeededMinor: number | null = null;
+  let avgIncomeMinor: number | null = null;
+  if (dataRows.length > 0) {
+    avgIncomeMinor = Math.round(dataRows.reduce((a, r) => a + r.incomeMinor, 0) / dataRows.length);
+    const avgSavings = dataRows.reduce((a, r) => a + r.savingsMinor, 0) / dataRows.length;
+    const need = Math.round((targetPct / 100) * avgIncomeMinor - avgSavings);
+    extraNeededMinor = need > 0 ? need : null;
+  }
+  return { points, streakAbove, monthsAbove, best, extraNeededMinor, avgIncomeMinor };
+}
+
+// ── লাইফস্টাইল ক্রিপ ──
+export type CreepVerdict = 'income_fell_expense_stuck' | 'expense_outpaced' | 'expense_slower' | 'both_down_good' | 'flat';
+export interface LifestyleCreep {
+  incomeAvgPrev: number;
+  incomeAvgCur: number;
+  expenseAvgPrev: number;
+  expenseAvgCur: number;
+  incomeChangePct: number | null;
+  expenseChangePct: number | null;
+  verdict: CreepVerdict;
+}
+
+const changePct = (prev: number, cur: number): number | null => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
+
+/** বছরের গড় মাসিক আয়/ব্যয় — আগের বছরের সাথে। `monthsCur` = চলতি বছরে গোনা মাস (অন্যথায় ১২)। আগের বছরে আয়-ব্যয় দুটোই ০ হলে null। */
+export function lifestyleCreep(prev: { incomeMinor: number; expenseMinor: number }, cur: { incomeMinor: number; expenseMinor: number }, monthsCur: number, monthsPrev = 12): LifestyleCreep | null {
+  if (prev.incomeMinor <= 0 && prev.expenseMinor <= 0) return null;
+  if (monthsCur <= 0 || monthsPrev <= 0) return null;
+  const incomeAvgPrev = Math.round(prev.incomeMinor / monthsPrev);
+  const expenseAvgPrev = Math.round(prev.expenseMinor / monthsPrev);
+  const incomeAvgCur = Math.round(cur.incomeMinor / monthsCur);
+  const expenseAvgCur = Math.round(cur.expenseMinor / monthsCur);
+  const incomeChangePct = changePct(incomeAvgPrev, incomeAvgCur);
+  const expenseChangePct = changePct(expenseAvgPrev, expenseAvgCur);
+  let verdict: CreepVerdict = 'flat';
+  if (incomeChangePct != null && expenseChangePct != null) {
+    if (incomeChangePct < -1 && expenseChangePct > incomeChangePct) verdict = 'income_fell_expense_stuck';
+    else if (incomeChangePct < -1 && expenseChangePct <= incomeChangePct) verdict = 'both_down_good';
+    else if (expenseChangePct > incomeChangePct + 1) verdict = 'expense_outpaced';
+    else if (incomeChangePct > 1 && expenseChangePct < incomeChangePct - 1) verdict = 'expense_slower';
+  }
+  return { incomeAvgPrev, incomeAvgCur, expenseAvgPrev, expenseAvgCur, incomeChangePct, expenseChangePct, verdict };
+}
+
+// ── আসল বৃদ্ধি (মূল্যস্ফীতি বাদে) ──
+export interface RealGrowth {
+  baseYyyymm: string;
+  latestYyyymm: string;
+  baseMinor: number;
+  latestMinor: number;
+  nominalPct: number;
+  inflationPct: number;
+  realPct: number;
+  /** আজকের মোট সম্পদ = এক বছর আগের প্রায় কত টাকার সমান ক্রয়ক্ষমতা */
+  purchasingPowerMinor: number;
+}
+
+/** শেষ snapshot বনাম ১২ মাস আগের (বা তার আগের সর্বশেষ) snapshot। দুটো আলাদা না থাকলে/ভিত্তি ≤ ০ হলে null। আসল = নামমাত্র % − মূল্যস্ফীতি % (সরল বিয়োগ, UI-তেও তাই দেখায়)। */
+export function realGrowth(snapshots: readonly NetWorthSnapshotLite[], inflationPct: number): RealGrowth | null {
+  if (snapshots.length === 0) return null;
+  const latest = snapshots.reduce((a, b) => (b.yyyymm > a.yyyymm ? b : a));
+  const base = snapshotAtOrBefore(snapshots, shiftMonth(latest.yyyymm, -12));
+  if (!base || base.yyyymm === latest.yyyymm || base.totalAssetsMinor <= 0) return null;
+  const nominalPct = ((latest.totalAssetsMinor - base.totalAssetsMinor) / base.totalAssetsMinor) * 100;
+  return {
+    baseYyyymm: base.yyyymm,
+    latestYyyymm: latest.yyyymm,
+    baseMinor: base.totalAssetsMinor,
+    latestMinor: latest.totalAssetsMinor,
+    nominalPct,
+    inflationPct,
+    realPct: nominalPct - inflationPct,
+    purchasingPowerMinor: Math.round(latest.totalAssetsMinor / (1 + inflationPct / 100)),
+  };
+}
+
+// ── বিনিয়োগের সৎ রিপোর্ট ──
+export interface InvestmentLite {
+  principalMinor: number;
+  repayments: readonly { amountMinor: number }[];
+  investmentOutcome: 'running' | 'doubtful' | 'written_off';
+}
+export interface InvestmentHonest {
+  totalMinor: number;
+  /** আসল-এর ভাগ: ফেরত + এখনো বাকি (running/doubtful/written_off); যোগফল = totalMinor */
+  runningMinor: number;
+  returnedMinor: number;
+  doubtfulMinor: number;
+  writtenOffMinor: number;
+  /** আসলের বেশি ফেরত (মুনাফা) */
+  profitMinor: number;
+  /** written_off-এর অশোধিত আসল */
+  lossMinor: number;
+  netMinor: number;
+  netPctOfTotal: number | null;
+  atRiskPct: number | null; // doubtful-এর ভাগ %
+}
+
+/** সব investment-এর আসল-ভাগ ও লাভ/ক্ষতি। কোনো investment না থাকলে null। */
+export function investmentHonest(list: readonly InvestmentLite[]): InvestmentHonest | null {
+  if (list.length === 0) return null;
+  let total = 0, running = 0, returned = 0, doubtful = 0, written = 0, profit = 0;
+  for (const inv of list) {
+    const paid = inv.repayments.reduce((a, r) => a + r.amountMinor, 0);
+    const back = Math.min(paid, inv.principalMinor);
+    const left = inv.principalMinor - back;
+    total += inv.principalMinor;
+    returned += back;
+    profit += Math.max(0, paid - inv.principalMinor);
+    if (inv.investmentOutcome === 'doubtful') doubtful += left;
+    else if (inv.investmentOutcome === 'written_off') written += left;
+    else running += left;
+  }
+  const net = profit - written;
+  return {
+    totalMinor: total,
+    runningMinor: running,
+    returnedMinor: returned,
+    doubtfulMinor: doubtful,
+    writtenOffMinor: written,
+    profitMinor: profit,
+    lossMinor: written,
+    netMinor: net,
+    netPctOfTotal: total > 0 ? (net / total) * 100 : null,
+    atRiskPct: total > 0 ? (doubtful / total) * 100 : null,
+  };
+}
