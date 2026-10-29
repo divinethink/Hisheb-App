@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Paperclip } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronDown, Paperclip, X } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import AmountInput from '../../common/AmountInput';
 import CompanyLogo from '../../common/CompanyLogo';
@@ -29,6 +29,33 @@ const DRIVE_CLIENT_ID = getEnv().googleDriveClientId;
 // গ (Owner-approved ২০২৬-১০-২৯): UTC-substring নয়, ঢাকার তারিখ — রাত ১২টা–ভোর ৬টায়ও সঠিক দিন (§৯)
 function today(): string {
   return toDhakaDate(new Date());
+}
+
+const INPUT = 'block min-h-8 w-full bg-transparent text-base text-fg outline-none placeholder:text-muted/60';
+
+// কার্ড-ফিল্ড: লেবেল কার্ডের ভেতরে, পুরো কার্ড ট্যাপে ইনপুটে ফোকাস
+function FieldCard({
+  label,
+  htmlFor,
+  invalid = false,
+  className = '',
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  invalid?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className={`block rounded-xl border bg-surface px-3 pb-2 pt-2 focus-within:border-primary ${invalid ? 'border-expense' : 'border-muted/25'} ${className}`}
+    >
+      <span className="block truncate text-xs text-muted">{label}</span>
+      {children}
+    </label>
+  );
 }
 
 export default function InvestmentSheet({
@@ -254,18 +281,17 @@ export default function InvestmentSheet({
       <div className="flex flex-col gap-4">
         {legacy ? (
           <div>
-            <label htmlFor="inv-to" className="mb-1 block text-sm text-muted">
-              Invested To
-            </label>
-            <input
-              id="inv-to"
-              autoFocus
-              value={investedTo}
-              maxLength={60}
-              onChange={(e) => setInvestedTo(e.target.value)}
-              aria-invalid={submitted && !trimmedName}
-              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-            />
+            <FieldCard label="Invested To" htmlFor="inv-to" invalid={submitted && !trimmedName}>
+              <input
+                id="inv-to"
+                autoFocus
+                value={investedTo}
+                maxLength={60}
+                onChange={(e) => setInvestedTo(e.target.value)}
+                aria-invalid={submitted && !trimmedName}
+                className={INPUT}
+              />
+            </FieldCard>
             {submitted && !trimmedName && (
               <p role="alert" className="mt-1 text-sm text-expense">
                 Enter a name.
@@ -280,7 +306,7 @@ export default function InvestmentSheet({
                 type="button"
                 onClick={() => setPickerOpen(true)}
                 aria-invalid={submitted && companyMissing}
-                className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-muted/40 bg-surface px-3 text-left"
+                className={`flex min-h-14 w-full items-center gap-3 rounded-xl border bg-surface px-3 text-left ${submitted && companyMissing ? 'border-expense' : 'border-muted/25'}`}
               >
                 {companyId ? (
                   <>
@@ -299,101 +325,73 @@ export default function InvestmentSheet({
               )}
             </div>
 
-            {companyId && (
-              <div>
-                <label htmlFor="inv-to" className="mb-1 block text-sm text-muted">
-                  Name
-                </label>
-                <input
-                  id="inv-to"
-                  value={investedTo}
-                  maxLength={60}
-                  onChange={(e) => setInvestedTo(e.target.value)}
-                  aria-invalid={submitted && (!trimmedName || doubleTag)}
-                  className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-                />
-                {submitted && !trimmedName && (
-                  <p role="alert" className="mt-1 text-sm text-expense">
-                    Enter a name.
-                  </p>
+            {/* Name ও Round — এক লাইনে, আলাদা কার্ডে */}
+            <div>
+              <div className="flex gap-2">
+                {companyId && (
+                  <FieldCard label="Name" htmlFor="inv-to" invalid={submitted && (!trimmedName || doubleTag)} className="min-w-0 flex-1">
+                    <input
+                      id="inv-to"
+                      value={investedTo}
+                      maxLength={60}
+                      onChange={(e) => setInvestedTo(e.target.value)}
+                      aria-invalid={submitted && (!trimmedName || doubleTag)}
+                      className={INPUT}
+                    />
+                  </FieldCard>
                 )}
-                {submitted && doubleTag && (
-                  <p role="alert" className="mt-1 text-sm text-expense">
-                    Remove the [n] from the name — Round adds it.
-                  </p>
-                )}
+                <FieldCard label="Round (optional)" htmlFor="inv-round" invalid={submitted && roundInvalid} className={companyId ? 'w-32 shrink-0' : 'min-w-0 flex-1'}>
+                  <input
+                    id="inv-round"
+                    inputMode="numeric"
+                    value={round}
+                    maxLength={3}
+                    placeholder="9"
+                    onChange={(e) => setRound(e.target.value)}
+                    aria-invalid={submitted && roundInvalid}
+                    className={INPUT}
+                  />
+                </FieldCard>
               </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label htmlFor="inv-round" className="mb-1 block text-sm text-muted">
-                  Round (optional)
-                </label>
-                <input
-                  id="inv-round"
-                  inputMode="numeric"
-                  value={round}
-                  maxLength={3}
-                  placeholder="9"
-                  onChange={(e) => setRound(e.target.value)}
-                  aria-invalid={submitted && roundInvalid}
-                  className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-                />
-                {submitted && roundInvalid ? (
-                  <p role="alert" className="mt-1 text-xs text-expense">
-                    Digits only (1–999).
-                  </p>
-                ) : (
-                  lastRound !== null && <p className="mt-1 text-xs text-muted">Last: {lastRound}</p>
-                )}
-              </div>
-              <div>
-                <label htmlFor="inv-no" className="mb-1 block text-sm text-muted">
-                  Investment No (optional)
-                </label>
-                <input
-                  id="inv-no"
-                  value={platformNo}
-                  maxLength={30}
-                  placeholder="#74874"
-                  onChange={(e) => setPlatformNo(e.target.value)}
-                  className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-                />
-              </div>
+              {submitted && companyId && !trimmedName && (
+                <p role="alert" className="mt-1 text-sm text-expense">
+                  Enter a name.
+                </p>
+              )}
+              {submitted && doubleTag && (
+                <p role="alert" className="mt-1 text-sm text-expense">
+                  Remove the [n] from the name — Round adds it.
+                </p>
+              )}
+              {submitted && roundInvalid ? (
+                <p role="alert" className="mt-1 text-xs text-expense">
+                  Digits only (1–999).
+                </p>
+              ) : (
+                lastRound !== null && <p className="mt-1 text-xs text-muted">Last round: {lastRound}</p>
+              )}
             </div>
           </>
         )}
 
-        {legacy && (
-          <div>
-            <label htmlFor="inv-no" className="mb-1 block text-sm text-muted">
-              Investment No (optional)
-            </label>
-            <input
-              id="inv-no"
-              value={platformNo}
-              maxLength={30}
-              placeholder="#74874"
-              onChange={(e) => setPlatformNo(e.target.value)}
-              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-            />
-          </div>
-        )}
-
+        {/* Medium ও Investment No — এক লাইনে */}
         <div>
-          <label htmlFor="inv-medium" className="mb-1 block text-sm text-muted">
-            Medium (optional)
-          </label>
-          <input
-            id="inv-medium"
-            value={medium}
-            maxLength={60}
-            onChange={(e) => setMedium(e.target.value)}
-            onFocus={() => setMediumFocus(true)}
-            onBlur={() => setMediumFocus(false)}
-            className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-          />
+          <div className="grid grid-cols-2 gap-2">
+            <FieldCard label="Medium (optional)" htmlFor="inv-medium">
+              <input
+                id="inv-medium"
+                value={medium}
+                maxLength={60}
+                onChange={(e) => setMedium(e.target.value)}
+                onFocus={() => setMediumFocus(true)}
+                onBlur={() => setMediumFocus(false)}
+                className={INPUT}
+              />
+            </FieldCard>
+            <FieldCard label="Investment No (optional)" htmlFor="inv-no">
+              <input id="inv-no" value={platformNo} maxLength={30} placeholder="#74874" onChange={(e) => setPlatformNo(e.target.value)} className={INPUT} />
+            </FieldCard>
+          </div>
           {mediumFocus && suggestions.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2" role="list" aria-label="Medium suggestions">
               {suggestions.map((m, idx) => (
@@ -422,82 +420,60 @@ export default function InvestmentSheet({
         <AmountInput value={amount} onChange={setAmount} showError={submitted} />
 
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label htmlFor="inv-date" className="mb-1 block text-sm text-muted">
-              Date
-            </label>
-            <input
-              id="inv-date"
-              type="date"
-              lang="en-GB"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-            />
-          </div>
-          <div>
-            <label htmlFor="inv-note" className="mb-1 block text-sm text-muted">
-              Note (optional)
-            </label>
-            <input
-              id="inv-note"
-              value={note}
-              maxLength={200}
-              onChange={(e) => setNote(e.target.value)}
-              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-            />
-          </div>
+          <FieldCard label="Date" htmlFor="inv-date">
+            <input id="inv-date" type="date" lang="en-GB" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT} />
+          </FieldCard>
+          <FieldCard label="Note (optional)" htmlFor="inv-note">
+            <input id="inv-note" value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} className={INPUT} />
+          </FieldCard>
         </div>
 
+        {/* Duration ও Contract PDF — এক লাইনে */}
         <div>
-          <label htmlFor="inv-duration" className="mb-1 block text-sm text-muted">
-            Duration (optional)
-          </label>
-          <input
-            id="inv-duration"
-            value={duration}
-            maxLength={40}
-            onChange={(e) => setDuration(e.target.value)}
-            className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-          />
-        </div>
-
-        <div>
-          <span className="mb-1 block text-sm text-muted">Contract (PDF, optional)</span>
           <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" aria-label="Contract PDF file" onChange={(e) => void pickPdf(e.target.files?.[0])} />
-          {pdfFile ? (
-            <div className="flex min-h-12 items-center gap-2 rounded-lg border border-muted/40 bg-surface px-3 text-sm">
-              <Paperclip aria-hidden size={16} className="shrink-0 text-muted" />
-              <span className="min-w-0 flex-1 truncate text-fg">{pdfFile.name}</span>
-              <button type="button" onClick={() => setPdfFile(null)} className="min-h-9 shrink-0 px-2 text-expense">
-                Remove
-              </button>
-            </div>
-          ) : hasSavedContract && initial?.contractFileId ? (
-            <div className="flex flex-col gap-2">
-              <ContractLink fileId={initial.contractFileId} name={initial.contractName} />
-              <div className="flex gap-2">
-                <button type="button" disabled={!driveReady} onClick={() => fileRef.current?.click()} className="min-h-10 flex-1 rounded-lg border border-muted/40 text-sm text-fg disabled:opacity-60">
-                  Replace PDF
-                </button>
-                <button type="button" onClick={() => setRemoveContract(true)} className="min-h-10 flex-1 rounded-lg border border-expense/40 text-sm text-expense">
-                  Detach
-                </button>
+          <div className="grid grid-cols-2 items-start gap-2">
+            <FieldCard label="Duration (optional)" htmlFor="inv-duration">
+              <input id="inv-duration" value={duration} maxLength={40} onChange={(e) => setDuration(e.target.value)} className={INPUT} />
+            </FieldCard>
+            {pdfFile ? (
+              <div className="rounded-xl border border-muted/25 bg-surface px-3 pb-2 pt-2">
+                <span className="block truncate text-xs text-muted">Contract PDF</span>
+                <div className="flex min-h-8 items-center gap-1.5">
+                  <Paperclip aria-hidden size={16} className="shrink-0 text-muted" />
+                  <span className="min-w-0 flex-1 truncate text-sm text-fg">{pdfFile.name}</span>
+                  <button type="button" aria-label="Remove PDF" onClick={() => setPdfFile(null)} className="-mr-1 flex size-8 shrink-0 items-center justify-center text-expense">
+                    <X aria-hidden size={16} />
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <>
+            ) : hasSavedContract && initial?.contractFileId ? (
+              <div className="flex flex-col gap-2">
+                <ContractLink fileId={initial.contractFileId} name={initial.contractName} />
+                <div className="flex gap-2">
+                  <button type="button" disabled={!driveReady} onClick={() => fileRef.current?.click()} className="min-h-10 flex-1 rounded-lg border border-muted/40 text-sm text-fg disabled:opacity-60">
+                    Replace
+                  </button>
+                  <button type="button" onClick={() => setRemoveContract(true)} className="min-h-10 flex-1 rounded-lg border border-expense/40 text-sm text-expense">
+                    Detach
+                  </button>
+                </div>
+              </div>
+            ) : (
               <button
                 type="button"
                 disabled={!driveReady}
                 onClick={() => fileRef.current?.click()}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 text-sm font-medium text-primary disabled:opacity-60"
+                className="rounded-xl border-2 border-dashed border-primary/50 bg-primary/5 px-3 pb-2 pt-2 text-left disabled:opacity-60"
               >
-                <Paperclip aria-hidden size={16} /> Attach PDF · saved to your Google Drive
+                <span className="block truncate text-xs text-muted">Contract PDF (optional)</span>
+                <span className="flex min-h-8 items-center gap-1.5 text-sm font-medium text-primary">
+                  <Paperclip aria-hidden size={16} className="shrink-0" /> Attach PDF
+                </span>
               </button>
-              {removeContract && <p className="mt-1 text-xs text-muted">PDF will be detached on Save (the Drive file stays).</p>}
-            </>
-          )}
+            )}
+          </div>
+          {!hasSavedContract && !pdfFile && driveReady && <p className="mt-1 text-xs text-muted">PDF is saved to your Google Drive.</p>}
+          {removeContract && !pdfFile && <p className="mt-1 text-xs text-muted">PDF will be detached on Save (the Drive file stays).</p>}
           {!driveReady && <p className="mt-1 text-xs text-muted">Google Drive not ready: {driveNotReadyReason(DRIVE_CLIENT_ID)}</p>}
           {pdfError && (
             <p role="alert" className="mt-1 text-xs text-expense">
