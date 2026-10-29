@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import Card from '../../common/Card';
+import { useMemo, useState } from 'react';
+import { CalendarDays, ClipboardList, Droplets, Target, Wallet, Zap, BarChart3 } from 'lucide-react';
+import { Block, Tip } from './OverviewBits';
 import BottomSheet from '../../common/BottomSheet';
 import { formatDisplayDate } from '../../../lib/date';
 import { categoryColorIndex, formatSigned, formatTakaWhole, roundWhole as roundMinor } from '../../../lib/format';
@@ -20,27 +21,17 @@ import {
 
 const MONTHS_BN_GEN = ['জানুয়ারির', 'ফেব্রুয়ারির', 'মার্চের', 'এপ্রিলের', 'মে-র', 'জুনের', 'জুলাইয়ের', 'আগস্টের', 'সেপ্টেম্বরের', 'অক্টোবরের', 'নভেম্বরের', 'ডিসেম্বরের'];
 const MONTHS_BN = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
-const WEEKDAYS_EN = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']; // শনি = ০
+const WEEKDAYS_SHORT_BN = ['শনি', 'রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র']; // শনি = ০
 const WEEKDAYS_BN = ['শনিবার', 'রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার'];
 const monthIdx = (yyyymm: string) => Number(yyyymm.slice(5, 7)) - 1;
 const chartColor = (name: string) => `rgb(var(--chart-${categoryColorIndex(name, 8) + 1}))`;
-
-const Block = ({ title, sub, children, label }: { title: string; sub?: string; children: ReactNode; label: string }) => (
-  <Card as="section" ariaLabel={label} className="mx-4 mt-3 p-4">
-    <h2 className="text-sm font-medium text-fg">{title}</h2>
-    {sub && <p className="mb-3 mt-0.5 text-xs text-muted">{sub}</p>}
-    {children}
-  </Card>
-);
-
-const Tip = ({ children }: { children: ReactNode }) => <p className="mt-3 rounded-xl bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning">{children}</p>;
 
 /** ১. মাসের রিপোর্ট কার্ড — ৩ লাইনের নিয়ম-ভিত্তিক সারাংশ */
 export function ReportCard({ month, txs, prevTxs, targetPct, essential }: { month: string; txs: readonly TxLite[]; prevTxs: readonly TxLite[] | null; targetPct: number | null; essential: readonly string[] }) {
   const lines = useMemo(() => monthReport(txs, prevTxs, targetPct, formatTakaWhole, essential), [txs, prevTxs, targetPct, essential]);
   if (lines.length === 0) return null;
   return (
-    <Block label="Monthly report card" title={`${MONTHS_BN_GEN[monthIdx(month)]} রিপোর্ট কার্ড`} sub="আপনার হিসাব থেকে নিজে-নিজে তৈরি">
+    <Block icon={ClipboardList} title={`${MONTHS_BN_GEN[monthIdx(month)]} রিপোর্ট কার্ড`} sub="আপনার হিসাব থেকে নিজে-নিজে তৈরি">
       <ul className="flex flex-col gap-2 text-sm text-fg">
         {lines.map((line, i) => (
           <li key={i} className="border-t border-muted/10 pt-2 first:border-t-0 first:pt-0">
@@ -61,7 +52,7 @@ export function TargetGapCard({ txs, targetPct }: { txs: readonly TxLite[]; targ
   const g = useMemo(() => targetGap(txs, target), [txs, target]);
   if (!g) return null;
   return (
-    <Block label="What would have hit the target" title="কী ঠিক করলে টার্গেট ছোঁয়া যেত" sub={`সঞ্চয় টার্গেট ${target}% ছুঁতে খরচ ${formatTakaWhole(g.needMinor)} কম হওয়া দরকার ছিল`}>
+    <Block icon={Target} tone="income" title="কী ঠিক করলে টার্গেট ছোঁয়া যেত" sub={`সঞ্চয় টার্গেট ${target}% ছুঁতে খরচ ${formatTakaWhole(g.needMinor)} কম হওয়া দরকার ছিল`}>
       {g.options.length === 0 ? (
         <p className="text-xs text-muted">একটা খাত কমিয়ে এটা হতো না — কয়েকটা খাতে মিলিয়ে কমাতে হতো।</p>
       ) : (
@@ -87,7 +78,7 @@ export function BigOneOffCard({ txs }: { txs: readonly TxLite[] }) {
   const b = useMemo(() => bigOneOffs(txs), [txs]);
   if (!b) return null;
   return (
-    <Block label="Big one-off expenses" title="বড় একবারের খরচ" sub="মোট খরচের ২০% বা বেশি একটি লেনদেন">
+    <Block icon={Zap} tone="warning" title="বড় একবারের খরচ" sub="মোট খরচের ২০% বা বেশি একটি লেনদেন">
       <ul>
         {b.items.map((t, i) => (
           <li key={i} className="flex items-center justify-between gap-3 border-t border-muted/10 py-2 first:border-t-0">
@@ -114,7 +105,7 @@ export function HundredCard({ month, txs }: { month: string; txs: readonly TxLit
   const total = r.segments.reduce((a, s) => a + s.value, 0);
   const colorOf = (s: { kind: string; key: string }) => (s.kind === 'savings' ? 'rgb(var(--color-income))' : s.kind === 'others' ? 'rgb(var(--color-muted))' : chartColor(s.key));
   return (
-    <Block label="Where my 100 taka goes" title="আমার ১০০ টাকা কোথায় যায়" sub={`${MONTHS_BN[monthIdx(month)]} মাসে প্রতি ১০০ টাকা ${r.basis === 'expense' ? 'খরচে' : 'আয়ে'}`}>
+    <Block icon={Wallet} title="আমার ১০০ টাকা কোথায় যায়" sub={`${MONTHS_BN[monthIdx(month)]} মাসে প্রতি ১০০ টাকা ${r.basis === 'expense' ? 'খরচে' : 'আয়ে'}`}>
       <div className="mb-3 flex h-3 overflow-hidden rounded-full bg-surface" role="img" aria-label={r.basis === 'expense' ? 'খরচের প্রতি ১০০ টাকার ভাগ' : 'আয়ের প্রতি ১০০ টাকার ভাগ'}>
         {r.segments.map((s) => (
           <div key={s.key} style={{ width: `${(s.value / total) * 100}%`, background: colorOf(s) }} />
@@ -147,7 +138,7 @@ export function LeakCard({ txs, essential }: { txs: readonly TxLite[]; essential
   const sum = items.reduce((a, x) => a + x.totalMinor, 0);
   const pctIncome = income > 0 ? Math.round((sum / income) * 1000) / 10 : null;
   return (
-    <Block label="Leak finder" title="ছোট ফাঁক (Leak finder)" sub="বেশি বার, ছোট অঙ্ক — সবচেয়ে বেশি অজান্তে যায়">
+    <Block icon={Droplets} tone="expense" title="ছোট ফাঁক" sub="বেশি বার, ছোট অঙ্ক — সবচেয়ে বেশি অজান্তে যায়">
       <ul>
         {items.map((x) => (
           <li key={x.name} className="flex items-center justify-between gap-3 border-t border-muted/10 py-2">
@@ -174,7 +165,7 @@ export function WeekdayCard({ txs, end }: { txs: readonly TxLite[] | null; end: 
   if (!w) return null;
   const max = Math.max(...w.avgMinor, 1);
   return (
-    <Block label="Spending by weekday" title="বারভিত্তিক খরচ" sub={`গত ৯০ দিনের গড় দৈনিক খরচ${w.daysCovered < 90 ? ` (ডেটা আছে ${w.daysCovered} দিনের)` : ''}`}>
+    <Block icon={BarChart3} title="বারভিত্তিক খরচ" sub={`গত ৯০ দিনের গড় দৈনিক খরচ${w.daysCovered < 90 ? ` (ডেটা আছে ${w.daysCovered} দিনের)` : ''}`}>
       <div className="flex h-40 items-end gap-2">
         {w.avgMinor.map((v, i) => {
           const isPeak = w.peak?.index === i;
@@ -182,7 +173,7 @@ export function WeekdayCard({ txs, end }: { txs: readonly TxLite[] | null; end: 
             <div key={i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
               <span className={`text-[10px] ${isPeak ? 'font-semibold text-expense' : 'text-muted'}`}>{formatTakaWhole(v)}</span>
               <div className={`w-full rounded-t ${isPeak ? 'bg-expense' : 'bg-income/50'}`} style={{ height: `${Math.max(2, (v / max) * 100)}px`, maxHeight: '100px' }} />
-              <span className="text-[10px] text-muted">{WEEKDAYS_EN[i]}</span>
+              <span className="text-[10px] text-muted">{WEEKDAYS_SHORT_BN[i]}</span>
             </div>
           );
         })}
@@ -247,9 +238,9 @@ export function NoSpendCalendarCard({ month, txs, today }: { month: string; txs:
   const lead = c.days[0]?.weekday ?? 0;
   const picked = c.days.find((d) => d.date === sel && d.level !== 'future');
   return (
-    <Block label="No-spend calendar" title="নো-স্পেন্ড ক্যালেন্ডার" sub="দিনের ঘরে ট্যাপ করলে সেদিনের লেনদেন দেখবেন">
+    <Block icon={CalendarDays} tone="income" title="নো-স্পেন্ড ক্যালেন্ডার" sub="দিনের ঘরে ট্যাপ করলে সেদিনের লেনদেন দেখবেন">
       <div className="grid grid-cols-7 gap-1.5 text-center">
-        {WEEKDAYS_EN.map((d) => (
+        {WEEKDAYS_SHORT_BN.map((d) => (
           <span key={d} className="pb-1 text-[10px] text-muted">{d}</span>
         ))}
         {Array.from({ length: lead }, (_, i) => (

@@ -21,9 +21,9 @@ import type { HistoricalYearlyTotal } from '../../../validation/historicalSchema
 
 type View = 'monthly' | 'yearly' | 'all';
 const VIEWS: { key: View; label: string }[] = [
-  { key: 'monthly', label: 'Monthly' },
-  { key: 'yearly', label: 'Yearly' },
-  { key: 'all', label: 'All-Time' },
+  { key: 'monthly', label: 'মাসিক' },
+  { key: 'yearly', label: 'বার্ষিক' },
+  { key: 'all', label: 'সর্বকাল' },
 ];
 
 /** subscribeX (realtime) থেকে প্রথম snapshot নিয়ে সাথে সাথে unsubscribe — export-এর জন্য one-shot। */
@@ -84,18 +84,18 @@ export default function OverviewTab({ uid }: { uid: string }) {
   return (
     <div className="h-full overflow-y-auto pb-24">
       <header className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
-        <h1 className="text-lg font-semibold text-fg">Overview</h1>
+        <h1 className="text-xl font-semibold text-fg">Overview</h1>
         <button
           type="button"
           onClick={() => void handleExportWorkbook()}
           disabled={exportBusy}
-          className="flex h-9 items-center gap-1 rounded-lg border border-muted/40 px-2.5 text-xs font-medium text-fg disabled:opacity-50"
+          className="flex h-10 items-center gap-1.5 rounded-xl border border-muted/30 bg-canvas px-3 text-xs font-medium text-fg shadow-sm disabled:opacity-50"
         >
           <Download aria-hidden size={14} />
           {exportBusy ? '…' : 'Excel'}
         </button>
       </header>
-      <div role="tablist" aria-label="Overview period" className="mx-4 grid grid-cols-3 gap-1 rounded-2xl border border-muted/10 bg-surface p-1">
+      <div role="tablist" aria-label="সময়কাল" className="mx-4 grid grid-cols-3 gap-1 rounded-2xl border border-muted/10 bg-surface p-1">
         {VIEWS.map((v) => (
           <button
             key={v.key}
@@ -112,8 +112,8 @@ export default function OverviewTab({ uid }: { uid: string }) {
 
       {hist.state.status === 'error' && (
         <div role="alert" className="m-4 rounded-2xl border border-muted/10 bg-canvas p-4 text-center">
-          <p className="text-sm text-fg">Couldn’t load yearly records.</p>
-          <button type="button" onClick={hist.retry} className="mt-2 min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas">Retry</button>
+          <p className="text-sm text-fg">বার্ষিক রেকর্ড লোড করা যায়নি।</p>
+          <button type="button" onClick={hist.retry} className="mt-2 min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas">আবার চেষ্টা করুন</button>
         </div>
       )}
       {hist.state.status === 'loading' && <div className="mx-4 mt-4 h-24 animate-pulse rounded-2xl border border-muted/10 bg-canvas" aria-hidden />}

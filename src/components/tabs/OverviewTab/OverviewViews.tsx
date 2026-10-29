@@ -1,17 +1,18 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown, PiggyBank, Wallet } from 'lucide-react';
+import { BarChart3, ChevronLeft, ChevronRight, Hash, PieChart, TrendingUp, TrendingDown, PiggyBank, Trophy, Wallet, type LucideIcon } from 'lucide-react';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
 import CategoryHistorySheet from './CategoryHistorySheet';
 import { YearlyBreakdown, YearsCard } from './BreakdownLists';
+import { Block, Callout } from './OverviewBits';
 import { CategoryBars, CategoryDonut, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
 import { BigOneOffCard, HundredCard, LeakCard, NoSpendCalendarCard, ReportCard, TargetGapCard, WeekdayCard } from './MonthlyCards';
 import { InvestmentHonestCard, LifestyleCreepCard, RealGrowthCard, SavingsRateCard } from './YearlyCards';
 import { AssetMixCard, GoalCard, NetWorthBridgeCard, RunwayCard } from './GoalCards';
 import { useInvestments, useMonthTransactions, useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
-import { currentMonth, monthEndDate, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
-import { formatAmount, formatNet, formatNetTakaWhole, formatTakaWhole, roundWhole } from '../../../lib/format';
+import { currentMonth, monthEndDate, monthLabelBn, shiftMonth, toDhakaDate } from '../../../lib/date';
+import { formatAmount, formatNetTakaWhole, formatTakaWhole } from '../../../lib/format';
 import {
   addDays,
   allTimeRows,
@@ -45,15 +46,15 @@ import {
 const NO_ESSENTIAL: readonly string[] = [];
 
 export function PeriodNav({ label, onPrev, onNext, prevDisabled, nextDisabled, right }: { label: string; onPrev: () => void; onNext: () => void; prevDisabled?: boolean; nextDisabled?: boolean; right?: ReactNode }) {
-  const btn = 'flex h-11 w-11 items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary';
+  const btn = 'flex h-11 w-11 items-center justify-center rounded-full bg-surface text-fg transition-opacity disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary';
   return (
-    <div className="flex items-center gap-2 px-2 py-2">
-      <div className="flex flex-1 items-center justify-center gap-2">
-        <button type="button" aria-label="Previous" onClick={onPrev} disabled={prevDisabled} className={btn}>
+    <div className="flex items-center gap-2 px-2 py-3">
+      <div className="flex flex-1 items-center justify-center gap-3">
+        <button type="button" aria-label="আগের" onClick={onPrev} disabled={prevDisabled} className={btn}>
           <ChevronLeft aria-hidden size={20} />
         </button>
-        <span className="min-w-28 text-center font-medium text-fg">{label}</span>
-        <button type="button" aria-label="Next" onClick={onNext} disabled={nextDisabled} className={btn}>
+        <span className="min-w-36 text-center text-base font-semibold text-fg">{label}</span>
+        <button type="button" aria-label="পরের" onClick={onNext} disabled={nextDisabled} className={btn}>
           <ChevronRight aria-hidden size={20} />
         </button>
       </div>
@@ -68,7 +69,7 @@ function Totals({
   savings,
   savingsPct,
   savingsPctDeltaPt,
-  deltaLabel = 'last month',
+  deltaLabel = 'গত মাসের',
 }: {
   income: number;
   expense: number;
@@ -76,7 +77,7 @@ function Totals({
   /** Overview Enrichment ধাপ ১/২ — ঐচ্ছিক, না দিলে সাবটাইটেল-রো দেখাবে না (All-Time অপরিবর্তিত)। */
   savingsPct?: number | null;
   savingsPctDeltaPt?: number | null;
-  /** "vs {deltaLabel}" — Monthly-তে "last month" (ডিফল্ট), Yearly-তে "last year"। */
+  /** "{deltaLabel} তুলনায়" — Monthly-তে "গত মাসের" (ডিফল্ট), Yearly-তে "গত বছরের"। */
   deltaLabel?: string;
 }) {
   return (
@@ -84,26 +85,26 @@ function Totals({
       <div className="grid grid-cols-3 gap-1.5 px-3 py-4 text-center">
         <div className="flex min-w-0 flex-col items-center gap-1">
           <IconBadge icon={TrendingUp} tone="income" size={32} />
-          <p className="text-xs text-muted">Income</p>
+          <p className="text-xs text-muted">আয়</p>
           <p className="whitespace-nowrap text-[15px] font-semibold text-income">{formatTakaWhole(income)}</p>
         </div>
         <div className="flex min-w-0 flex-col items-center gap-1">
           <IconBadge icon={TrendingDown} tone="expense" size={32} />
-          <p className="text-xs text-muted">Expense</p>
+          <p className="text-xs text-muted">খরচ</p>
           <p className="whitespace-nowrap text-[15px] font-semibold text-expense">{formatTakaWhole(expense)}</p>
         </div>
         <div className="flex min-w-0 flex-col items-center gap-1">
           <IconBadge icon={PiggyBank} tone={savings < 0 ? 'expense' : 'income'} size={32} />
-          <p className="text-xs text-muted">Savings</p>
+          <p className="text-xs text-muted">সঞ্চয়</p>
           <p className={`whitespace-nowrap text-[15px] font-semibold ${savings < 0 ? 'text-expense' : 'text-income'}`}>{formatNetTakaWhole(savings)}</p>
         </div>
       </div>
       {savingsPct != null && (
-        <p className="border-t border-muted/10 px-4 pb-3 pt-2 text-center text-xs text-muted">
-          Savings rate {savingsPct.toFixed(1)}%
+        <p className="border-t border-muted/10 px-4 pb-3 pt-2.5 text-center text-xs text-muted">
+          সঞ্চয়-হার <span className="font-semibold text-fg">{savingsPct.toFixed(1)}%</span>
           {savingsPctDeltaPt != null && (
             <span className={savingsPctDeltaPt >= 0 ? 'text-income' : 'text-expense'}>
-              {' '}· vs {deltaLabel} {savingsPctDeltaPt >= 0 ? '↑' : '↓'}{Math.abs(savingsPctDeltaPt).toFixed(1)}pt
+              {' '}· {deltaLabel} তুলনায় {savingsPctDeltaPt >= 0 ? '↑' : '↓'}{Math.abs(savingsPctDeltaPt).toFixed(1)} পয়েন্ট
             </span>
           )}
         </p>
@@ -112,17 +113,11 @@ function Totals({
   );
 }
 
-const Section = ({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) => (
-  <Card as="section" className="mx-4 mt-3 p-4">
-    <div className="mb-2 flex items-center justify-between gap-2">
-      <h2 className="text-sm font-medium text-fg">{title}</h2>
-      {right}
-    </div>
-    {children}
-  </Card>
+const Section = ({ title, icon, children, right }: { title: string; icon: LucideIcon; children: ReactNode; right?: ReactNode }) => (
+  <Block title={title} icon={icon} right={right}>{children}</Block>
 );
 
-const Note = ({ children }: { children: ReactNode }) => <p className="mx-4 mt-2 text-xs text-muted">ℹ️ {children}</p>;
+const Note = Callout;
 
 /** Monthly: কয়েকটা কাজের সংখ্যা (Expense by category-র নিচে)। নতুন query নেই — বিদ্যমান ৩-মাসের ডেটা ও snapshot থেকে। */
 function KeyNumbers({
@@ -142,48 +137,47 @@ function KeyNumbers({
   const vsAvg = avgExpense && avgExpense > 0 ? ((thisExpense - avgExpense) / avgExpense) * 100 : null;
   const tile = 'rounded-xl bg-surface p-3';
   return (
-    <Card as="section" ariaLabel="Key numbers" className="mx-4 mt-3 p-4">
-      <h2 className="mb-2 text-sm font-medium text-fg">Key numbers</h2>
+    <Block icon={Hash} tone="warning" title="প্রধান সংখ্যা">
       <div className="grid grid-cols-2 gap-2">
         <div className={tile}>
-          <p className="text-xs text-muted">Avg expense / month</p>
+          <p className="text-xs text-muted">মাসিক গড় খরচ</p>
           <p className="text-base font-semibold text-expense">{avgExpense != null ? formatTakaWhole(Math.round(avgExpense)) : '—'}</p>
-          <p className="text-[10px] text-muted">last 3 months</p>
+          <p className="text-[10px] text-muted">শেষ ৩ মাস</p>
         </div>
         <div className={tile}>
-          <p className="text-xs text-muted">Avg savings / month</p>
+          <p className="text-xs text-muted">মাসিক গড় সঞ্চয়</p>
           <p className={`text-base font-semibold ${avgSavings != null && avgSavings < 0 ? 'text-expense' : 'text-income'}`}>
             {avgSavings != null ? formatNetTakaWhole(Math.round(avgSavings)) : '—'}
           </p>
-          <p className="text-[10px] text-muted">last 3 months</p>
+          <p className="text-[10px] text-muted">শেষ ৩ মাস</p>
         </div>
         <div className={tile}>
-          <p className="text-xs text-muted">Runway</p>
-          <p className="text-base font-semibold text-fg">{runway != null ? `${runway.toFixed(1)} months` : '—'}</p>
-          <p className="text-[10px] text-muted">Total Assets ÷ avg expense</p>
+          <p className="text-xs text-muted">কত মাস চলবে</p>
+          <p className="text-base font-semibold text-fg">{runway != null ? `${runway.toFixed(1)} মাস` : '—'}</p>
+          <p className="text-[10px] text-muted">মোট সম্পদ ÷ গড় খরচ</p>
         </div>
         <div className={tile}>
-          <p className="text-xs text-muted">Net Worth this year</p>
+          <p className="text-xs text-muted">এ বছর সম্পদ বৃদ্ধি</p>
           <p className={`text-base font-semibold ${ytd && ytd.deltaMinor < 0 ? 'text-expense' : 'text-income'}`}>{ytd ? formatNetTakaWhole(ytd.deltaMinor) : '—'}</p>
           <p className="text-[10px] text-muted">
-            {ytd ? `${ytd.deltaPct != null ? `${ytd.deltaPct >= 0 ? '↑' : '↓'}${Math.abs(ytd.deltaPct).toFixed(1)}% · ` : ''}since ${ytd.baseYyyymm}` : 'needs 2 snapshots'}
+            {ytd ? `${ytd.deltaPct != null ? `${ytd.deltaPct >= 0 ? '↑' : '↓'}${Math.abs(ytd.deltaPct).toFixed(1)}% · ` : ''}${monthLabelBn(ytd.baseYyyymm)} থেকে` : 'অন্তত ২টি মাসের হিসাব লাগবে'}
           </p>
         </div>
       </div>
       {vsAvg != null && Math.abs(vsAvg) >= 1 && (
         <p className="mt-2 text-xs text-muted">
-          This month’s expense is <span className={vsAvg > 0 ? 'text-expense' : 'text-income'}>{Math.round(Math.abs(vsAvg))}% {vsAvg > 0 ? 'above' : 'below'}</span> your 3-month average.
+          এ মাসের খরচ আপনার ৩ মাসের গড়ের চেয়ে <span className={vsAvg > 0 ? 'font-semibold text-expense' : 'font-semibold text-income'}>{Math.round(Math.abs(vsAvg))}% {vsAvg > 0 ? 'বেশি' : 'কম'}</span>।
         </p>
       )}
-    </Card>
+    </Block>
   );
 }
 
 function ErrorBox({ onRetry }: { onRetry: () => void }) {
   return (
     <Card role="alert" className="m-4 p-4 text-center">
-      <p className="text-sm text-fg">Couldn’t load data.</p>
-      <button type="button" onClick={onRetry} className="mt-2 min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas">Retry</button>
+      <p className="text-sm text-fg">ডেটা লোড করা যায়নি।</p>
+      <button type="button" onClick={onRetry} className="mt-2 min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas">আবার চেষ্টা করুন</button>
     </Card>
   );
 }
@@ -209,7 +203,7 @@ export function MonthlyView({ uid, historical }: { uid: string; historical: read
   return (
     <>
       <PeriodNav
-        label={monthLabel(month)}
+        label={monthLabelBn(month)}
         onPrev={() => setMonth(shiftMonth(month, -1))}
         onNext={() => setMonth(shiftMonth(month, 1))}
         nextDisabled={month >= now}
@@ -218,7 +212,7 @@ export function MonthlyView({ uid, historical }: { uid: string; historical: read
       {tx.state.status === 'error' && <ErrorBox onRetry={tx.retry} />}
       {tx.state.status === 'ready' && (
         tx.state.data.length === 0 ? (
-          <p className="px-6 py-12 text-center text-sm text-muted">No data for this month.</p>
+          <p className="px-6 py-12 text-center text-sm text-muted">এই মাসে কোনো লেনদেন নেই।</p>
         ) : (
           <MonthlyBody
             month={month}
@@ -292,12 +286,12 @@ function MonthlyBody({
       <Totals income={t.income} expense={t.expense} savings={savings} savingsPct={savingsPct} savingsPctDeltaPt={savingsPctDeltaPt} />
       {inProgress && <Note>মাস চলছে ({daysIn} দিন) — হিসাব এখনো অসম্পূর্ণ, তাই গত মাসের সাথে তুলনা পুরো মাসের নয়।</Note>}
       {insight && <Note>{insight}</Note>}
-      {partial && <Note>Partial data — this period may include days recorded before the app was used.</Note>}
+      {partial && <Note>আংশিক ডেটা — এই সময়ের কিছু দিন অ্যাপ ব্যবহারের আগের, তাই হিসাব অসম্পূর্ণ হতে পারে।</Note>}
       <ReportCard month={month} txs={txs} prevTxs={prevTxs} targetPct={targetPct} essential={essential} />
       <TargetGapCard txs={txs} targetPct={targetPct} />
       <BigOneOffCard txs={txs} />
       <HundredCard month={month} txs={txs} />
-      <Section title="Expense by category">
+      <Section title="খাতভিত্তিক খরচ" icon={PieChart}>
         <CategoryDonut items={cats} totalMinor={t.expense} />
         <CategoryBars items={cats} onSelect={setSelCat} />
       </Section>
@@ -434,12 +428,22 @@ function YearlyBody({
         savings={row.savingsMinor}
         savingsPct={savingsPct}
         savingsPctDeltaPt={savingsPctDeltaPt}
-        deltaLabel="last year"
+        deltaLabel="গত বছরের"
       />
       {(best || worst) && (
-        <div className="mx-4 mt-3 grid grid-cols-2 gap-2 text-xs text-muted">
-          {best && <p>Best month: {monthLabel(best.yyyymm).split(' ')[0]} ({formatNet(roundWhole(best.savingsMinor))})</p>}
-          {worst && <p>Toughest month: {monthLabel(worst.yyyymm).split(' ')[0]} ({formatNet(roundWhole(worst.savingsMinor))})</p>}
+        <div className="mx-4 mt-3 grid grid-cols-2 gap-2">
+          {best && (
+            <Card className="flex items-center gap-2 px-3 py-2.5">
+              <IconBadge icon={Trophy} tone="income" size={28} />
+              <p className="min-w-0 text-xs leading-tight text-muted">সেরা মাস<span className="block truncate text-sm font-semibold text-income">{monthLabelBn(best.yyyymm).split(' ')[0]} · {formatNetTakaWhole(best.savingsMinor)}</span></p>
+            </Card>
+          )}
+          {worst && (
+            <Card className="flex items-center gap-2 px-3 py-2.5">
+              <IconBadge icon={TrendingDown} tone="expense" size={28} />
+              <p className="min-w-0 text-xs leading-tight text-muted">কঠিন মাস<span className="block truncate text-sm font-semibold text-expense">{monthLabelBn(worst.yyyymm).split(' ')[0]} · {formatNetTakaWhole(worst.savingsMinor)}</span></p>
+            </Card>
+          )}
         </div>
       )}
       <SavingsRateCard year={year} rows={savingsRows} targetPct={targetPct} partialMonth={partialMonthNo} />
@@ -456,16 +460,16 @@ function YearlyBody({
       {year === thisYear && investments && <InvestmentHonestCard investments={investments} today={toDhakaDate(new Date())} />}
       {isHist && (
         <Note>
-          Pre-app record — totals come from your saved yearly summary
-          {row.depositMinor !== null ? ` (Total Deposit ${formatAmount(row.depositMinor)})` : ''}. Charts below show only data recorded in the app (Partial data).
+          অ্যাপ-পূর্ব রেকর্ড — মোট অঙ্ক আপনার সংরক্ষিত বার্ষিক সারাংশ থেকে
+          {row.depositMinor !== null ? ` (মোট জমা ${formatAmount(row.depositMinor)})` : ''}। নিচের চার্টে শুধু অ্যাপে এন্ট্রি-করা ডেটা আছে (আংশিক ডেটা)।
         </Note>
       )}
-      {!isHist && txs.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted">No data for this year.</p>}
+      {!isHist && txs.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted">এই বছরে কোনো লেনদেন নেই।</p>}
       {(txs.length > 0 || flow.size > 0) && (
         <>
-          <Section title="Income vs expense by month" right={<IncomeExpenseLegend />}><IncomeExpenseBars rows={months} /></Section>
+          <Section title="মাসভিত্তিক আয় ও খরচ" icon={BarChart3} right={<IncomeExpenseLegend />}><IncomeExpenseBars rows={months} /></Section>
           {txs.length > 0 && (
-            <Section title="Expense by category">
+            <Section title="খাতভিত্তিক খরচ" icon={PieChart}>
               <CategoryDonut items={cats} totalMinor={row.expenseMinor} />
               <CategoryBars items={cats} onSelect={setSelCat} />
             </Section>
@@ -505,9 +509,7 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
 
   return (
     <>
-      <div className="mx-4 flex items-center justify-between gap-2 pt-3">
-        <span className="font-medium text-fg">All-Time</span>
-      </div>
+      <div className="px-2 py-3 text-center text-base font-semibold text-fg">সর্বকালের হিসাব</div>
       <Totals income={sum.i} expense={sum.e} savings={sum.i - sum.e} savingsPct={savingsRatePct(sum.i, sum.e)} />
       {snaps.state.status === 'ready' && (() => {
         const growth = netWorthGrowthAllTime(snaps.state.data);
@@ -515,14 +517,14 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
           <Card as="section" ariaLabel="Net worth growth" className="mx-4 mt-3 flex items-center gap-2 px-3 py-2.5">
             <IconBadge icon={Wallet} tone="primary" size={28} />
             <div className="min-w-0 flex-1 leading-tight">
-              <p className="truncate text-xs text-muted">Net Worth</p>
-              <p className="truncate text-[10px] text-muted">{growth.latestYyyymm}</p>
+              <p className="truncate text-xs text-muted">মোট সম্পদ</p>
+              <p className="truncate text-[10px] text-muted">{monthLabelBn(growth.latestYyyymm)}</p>
             </div>
             <p className="shrink-0 text-base font-semibold text-fg">{formatTakaWhole(growth.latestMinor)}</p>
             {growth.deltaPct != null && (
-              <p className={`shrink-0 text-xs font-medium ${growth.deltaPct >= 0 ? 'text-income' : 'text-expense'}`} title={`vs ${growth.earliestYyyymm}`}>
+              <p className={`shrink-0 text-xs font-medium ${growth.deltaPct >= 0 ? 'text-income' : 'text-expense'}`} title={`${monthLabelBn(growth.earliestYyyymm)}-এর তুলনায়`}>
                 {growth.deltaPct >= 0 ? '↑' : '↓'}{Math.abs(growth.deltaPct).toFixed(1)}%
-                <span className="sr-only"> vs {growth.earliestYyyymm}</span>
+                <span className="sr-only"> {monthLabelBn(growth.earliestYyyymm)}-এর তুলনায়</span>
               </p>
             )}
           </Card>
@@ -541,10 +543,10 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
         </>
       )}
       {allTxs.length > 0 && (
-        <Section title="Expense by category">
+        <Section title="খাতভিত্তিক খরচ" icon={PieChart}>
           <CategoryDonut items={cats} totalMinor={catTotal} />
           <CategoryBars items={cats} onSelect={setSelCat} />
-          <p className="mt-2 text-xs text-muted">All years, entries recorded in the app only — pre-app years may not add up to the yearly totals.</p>
+          <p className="mt-3 text-xs leading-relaxed text-muted">সব বছর মিলিয়ে, শুধু অ্যাপে এন্ট্রি-করা লেনদেন — অ্যাপ-পূর্ব বছরগুলো বার্ষিক মোটের সাথে নাও মিলতে পারে।</p>
         </Section>
       )}
       {selCat && <CategoryHistorySheet name={selCat} txs={allTxs} cats={cats} onClose={() => setSelCat(null)} />}

@@ -1,5 +1,6 @@
-import { useMemo, type ReactNode } from 'react';
-import Card from '../../common/Card';
+import { useMemo } from 'react';
+import { Flag, Gauge, Layers, TrendingUp } from 'lucide-react';
+import { Block, Foot, Tip } from './OverviewBits';
 import { formatDisplayDate, monthLabelBn } from '../../../lib/date';
 import { formatNetTakaWhole, formatTakaWhole } from '../../../lib/format';
 import {
@@ -23,20 +24,6 @@ export const DEFAULT_NET_WORTH_GOAL_MINOR = 100_000_000;
 /** "মাসে আরও এত জমালে" তুলনার ধাপ: ৳5,000 (minor)। */
 const BOOST_MINOR = 500_000;
 
-const Block = ({ title, sub, children, label }: { title: string; sub?: string; children: ReactNode; label: string }) => (
-  <Card as="section" ariaLabel={label} className="mx-4 mt-3 p-4">
-    <h2 className="text-sm font-medium text-fg">{title}</h2>
-    {sub && <p className="mb-3 mt-0.5 text-xs text-muted">{sub}</p>}
-    {children}
-  </Card>
-);
-
-const Tip = ({ children, tone = 'warning' }: { children: ReactNode; tone?: 'warning' | 'income' }) => (
-  <p className={`mt-3 rounded-xl px-3 py-2 text-xs leading-relaxed ${tone === 'income' ? 'bg-income/10 text-income' : 'bg-warning/10 text-warning'}`}>{children}</p>
-);
-
-const Foot = ({ children }: { children: ReactNode }) => <p className="mt-2 text-[11px] leading-relaxed text-muted">{children}</p>;
-
 /** ১. সম্পদ কোথা থেকে বাড়ল */
 export function NetWorthBridgeCard({ snapshots, txs }: { snapshots: readonly SnapshotWithFlow[]; txs: readonly TxLite[] }) {
   const b = useMemo(() => netWorthBridge(snapshots, txs), [snapshots, txs]);
@@ -45,7 +32,7 @@ export function NetWorthBridgeCard({ snapshots, txs }: { snapshots: readonly Sna
   const split = b.deltaMinor > 0 && b.ownMinor >= 0 && b.otherMinor >= 0;
   const ownPct = split ? Math.round((b.ownMinor / b.deltaMinor) * 100) : null;
   return (
-    <Block label="Net worth growth sources" title="সম্পদ কোথা থেকে বাড়ল" sub={`${b.baseDate ? formatDisplayDate(b.baseDate) : b.baseYyyymm} → ${b.curDate ? formatDisplayDate(b.curDate) : b.curYyyymm} (snapshot) · ${b.monthsSpan} মাস`}>
+    <Block icon={TrendingUp} tone="income" title="সম্পদ কোথা থেকে বাড়ল" sub={`${b.baseDate ? formatDisplayDate(b.baseDate) : monthLabelBn(b.baseYyyymm)} → ${b.curDate ? formatDisplayDate(b.curDate) : monthLabelBn(b.curYyyymm)} (সংরক্ষিত হিসাব) · ${b.monthsSpan} মাস`}>
       <p className={`text-2xl font-semibold ${up ? 'text-income' : 'text-expense'}`}>{formatNetTakaWhole(b.deltaMinor)}</p>
       <p className="mb-3 text-xs text-muted">{formatTakaWhole(b.baseMinor)} থেকে {formatTakaWhole(b.curMinor)}</p>
       {split && (
@@ -64,8 +51,8 @@ export function NetWorthBridgeCard({ snapshots, txs }: { snapshots: readonly Sna
       </div>
       {ownPct !== null && ownPct > 0 && <Tip tone="income">বৃদ্ধির <b>{ownPct}%</b> এসেছে আপনার নিজের জমা থেকে।</Tip>}
       {b.deltaMinor > 0 && b.ownMinor < 0 && <Tip>এই সময়ে খরচ আয়ের চেয়ে বেশি ছিল — বৃদ্ধি এসেছে অন্য খাত (বিনিয়োগ/পাওনা ইত্যাদি) থেকে।</Tip>}
-      {b.uncoveredMonths > 0 && <Foot>{b.monthsSpan} মাসের মধ্যে {b.uncoveredMonths} মাসের আয়-ব্যয় অ্যাপে নেই — "নিজের জমা" আংশিক (Partial data)।</Foot>}
-      <Foot>অন্যান্য = বিনিয়োগ-মান বদল, পাওনা আদায়, Cross-check অমিল ইত্যাদি।</Foot>
+      {b.uncoveredMonths > 0 && <Foot>{b.monthsSpan} মাসের মধ্যে {b.uncoveredMonths} মাসের আয়-ব্যয় অ্যাপে নেই — "নিজের জমা" আংশিক (আংশিক ডেটা)।</Foot>}
+      <Foot>অন্যান্য = বিনিয়োগ-মান বদল, পাওনা আদায়, হিসাব-মিলানোর (Cross-check) অমিল ইত্যাদি।</Foot>
     </Block>
   );
 }
@@ -90,7 +77,7 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
       <p className="text-xs text-muted">{rate !== null && rate > 0 ? '৫০ বছরের বেশি' : 'পৌঁছানো যাচ্ছে না'}</p>
     );
   return (
-    <Block label="Net worth goal" title="লক্ষ্য ও পূর্বাভাস" sub={`লক্ষ্য ${formatTakaWhole(goal)}${goalMinor === null ? ' (ডিফল্ট)' : ''} · Menu → Monthly Target-এ বদলান`}>
+    <Block icon={Flag} title="সম্পদের লক্ষ্য ও পূর্বাভাস" sub={`লক্ষ্য ${formatTakaWhole(goal)}${goalMinor === null ? ' (ডিফল্ট)' : ''} · Menu → Monthly Target-এ বদলান`}>
       <div className="mb-1.5 flex justify-between text-sm">
         <b className="text-fg">{formatTakaWhole(currentMinor)}</b>
         <span className="text-muted">{Math.floor(pct)}% পূরণ</span>
@@ -101,7 +88,7 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
       {p.reached ? (
         <Tip tone="income">লক্ষ্য পূর্ণ হয়েছে। নতুন লক্ষ্য বসাতে পারেন।</Tip>
       ) : avgSavingsMinor === null && !pace ? (
-        <Foot>শেষ ৬ মাসের আয়-ব্যয় ও দুটি snapshot অ্যাপে নেই, তাই পূর্বাভাস দেখানো যাচ্ছে না।</Foot>
+        <Foot>শেষ ৬ মাসের আয়-ব্যয় ও দুটি মাসের সংরক্ষিত হিসাব অ্যাপে নেই, তাই পূর্বাভাস দেখানো যাচ্ছে না।</Foot>
       ) : (
         <>
           {avgSavingsMinor !== null && (
@@ -132,7 +119,7 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
 }
 
 const MIX_META: Record<AssetKey, { label: string; bar: string; text: string }> = {
-  accounts: { label: 'নগদ / Accounts', bar: 'bg-chart2', text: 'text-chart2' },
+  accounts: { label: 'নগদ / অ্যাকাউন্ট', bar: 'bg-chart2', text: 'text-chart2' },
   investment: { label: 'বিনিয়োগ', bar: 'bg-chart7', text: 'text-chart7' },
   receivable: { label: 'পাওনা', bar: 'bg-chart4', text: 'text-chart4' },
   homeDeposit: { label: 'Home Deposit', bar: 'bg-chart1', text: 'text-chart1' },
@@ -145,7 +132,7 @@ export function AssetMixCard({ yyyymm, breakdown }: { yyyymm: string; breakdown:
   if (!mix) return null;
   const pct = (n: number) => Math.round(n * 100);
   return (
-    <Block label="Asset mix" title="সম্পদের মিশ্রণ" sub={`${yyyymm} snapshot · মোট ${formatTakaWhole(mix.totalMinor)}`}>
+    <Block icon={Layers} tone="warning" title="সম্পদের মিশ্রণ" sub={`${monthLabelBn(yyyymm)}-এর সংরক্ষিত হিসাব · মোট ${formatTakaWhole(mix.totalMinor)}`}>
       <div className="mb-2 flex h-4 overflow-hidden rounded-full bg-surface" role="img" aria-label="সম্পদের ভাগ">
         {mix.items.map((i) => (
           <div key={i.key} className={MIX_META[i.key].bar} style={{ width: `${i.share * 100}%` }} />
@@ -172,7 +159,7 @@ export function RunwayCard({ yyyymm, cashMinor, totalMinor, avgExpenseMinor }: {
   const fund = cashMinor !== null ? emergencyFund(cashMinor, avgExpenseMinor) : null;
   const w = (m: number | null) => `${Math.max(0, Math.min(100, ((m ?? 0) / 6) * 100))}%`;
   return (
-    <Block label="Runway" title="Runway — কত মাস চলবে" sub={`গড় মাসিক খরচ ${formatTakaWhole(Math.round(avgExpenseMinor))} ধরে (শেষ ৬ মাস) · ${yyyymm} snapshot`}>
+    <Block icon={Gauge} tone="expense" title="কত মাস চলবে (Runway)" sub={`গড় মাসিক খরচ ${formatTakaWhole(Math.round(avgExpenseMinor))} ধরে (শেষ ৬ মাস) · ${monthLabelBn(yyyymm)}-এর সংরক্ষিত হিসাব`}>
       {cash !== null ? (
         <p className="mb-3 text-sm text-fg">
           <b>নগদে {cash.toFixed(1)} মাস</b> চলবে{total !== null ? <span className="text-muted"> · বিনিয়োগ/পাওনা ফেরত এলে মোট {total.toFixed(1)} মাস</span> : null}।

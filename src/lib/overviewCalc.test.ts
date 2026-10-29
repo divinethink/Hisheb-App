@@ -82,17 +82,17 @@ describe('Overview Enrichment ধাপ ১ (Monthly)', () => {
   });
 
   it('savingsInsight — %-পার্থক্য, ছোট/অজানা হলে null', () => {
-    expect(savingsInsight(1200, 1000)).toBe('Savings 20% higher than last month');
-    expect(savingsInsight(800, 1000)).toBe('Savings 20% lower than last month');
+    expect(savingsInsight(1200, 1000)).toBe('গত মাসের চেয়ে সঞ্চয় 20% বেশি');
+    expect(savingsInsight(800, 1000)).toBe('গত মাসের চেয়ে সঞ্চয় 20% কম');
     expect(savingsInsight(1005, 1000)).toBeNull();
     expect(savingsInsight(500, 0)).toBeNull();
     expect(savingsInsight(500, null)).toBeNull();
   });
   it('savingsInsight — চিহ্ন বদলালে টাকার বাক্য (অর্থহীন % নয়)', () => {
     const f = (m: number) => `${m >= 0 ? '+' : '−'}${Math.abs(m)}`;
-    expect(savingsInsight(-1720800, 387000, f)).toBe('Savings turned negative: +387000 last month → −1720800 this month');
-    expect(savingsInsight(5000, -2000, f)).toBe('Savings turned positive: −2000 last month → +5000 this month');
-    expect(savingsInsight(-200, -100, f)).toBe('Savings 100% lower than last month');
+    expect(savingsInsight(-1720800, 387000, f)).toBe('সঞ্চয় ঋণাত্মক হয়েছে: গত মাস +387000 → এ মাস −1720800');
+    expect(savingsInsight(5000, -2000, f)).toBe('সঞ্চয় ধনাত্মক হয়েছে: গত মাস −2000 → এ মাস +5000');
+    expect(savingsInsight(-200, -100, f)).toBe('গত মাসের চেয়ে সঞ্চয় 100% কম');
   });
 });
 

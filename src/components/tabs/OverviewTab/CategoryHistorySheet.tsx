@@ -3,6 +3,7 @@ import BottomSheet from '../../common/BottomSheet';
 import { formatAmount, formatSigned } from '../../../lib/format';
 import { formatDisplayDate } from '../../../lib/date';
 import type { CategoryShare, TxLite } from '../../../lib/overviewCalc';
+import { catLabel } from './OverviewBits';
 
 // Read-only: Overview-তে ইতিমধ্যে লোড-হওয়া `txs` থেকেই filter — নতুন query/write/schema নেই।
 // "Others" সারিতে top-N-এর বাইরের সব ক্যাটেগরি দেখায় (categoryBreakdown-এর সাথে মিল রেখে)।
@@ -39,16 +40,16 @@ export default function CategoryHistorySheet({
 
   return (
     <BottomSheet
-      title={name}
+      title={catLabel(name)}
       onRequestClose={onClose}
       footer={
         <button type="button" onClick={onClose} className="min-h-11 w-full rounded-lg border border-muted/40 text-base">
-          Close
+          বন্ধ করুন
         </button>
       }
     >
-      <p className="mb-3 text-sm text-muted">Total: {formatAmount(total)}</p>
-      {groups.length === 0 && <p className="text-sm text-muted">No transactions.</p>}
+      <p className="mb-3 text-sm text-muted">মোট: {formatAmount(total)}</p>
+      {groups.length === 0 && <p className="text-sm text-muted">কোনো লেনদেন নেই।</p>}
       <ul className="flex flex-col gap-3">
         {groups.map(([date, g]) => (
           <li key={date}>

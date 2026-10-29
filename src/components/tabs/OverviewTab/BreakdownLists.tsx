@@ -23,7 +23,7 @@ import {
   type YearRow,
 } from '../../../lib/overviewCalc';
 
-// Overview-এর দুটো collapsible তালিকা: Yearly → "Monthly breakdown", All-Time → "Years"।
+// Overview-এর দুটো collapsible তালিকা: Yearly → "বছরভিত্তিক হিসাব", All-Time → "বছরভিত্তিক হিসাব"।
 // কোনো নতুন query/schema/rule নেই — Yearly লোড-হওয়া txs থেকে derive; All-Time-এ বছর খুললে তবেই সেই বছরের
 // date-range query (lazy)। ডিফল্টে সব বন্ধ; একটা খুললে আরেকটা বন্ধ হয় না। হিসাব src/lib/overviewCalc.ts-এ (pure)।
 
@@ -42,9 +42,9 @@ function ColumnHeads({ first, indent = false }: { first: string; indent?: boolea
   return (
     <div aria-hidden className={`${ROW_GRID} ${indent ? 'pl-7 pr-4' : 'px-4'} pb-1 pt-2 text-[11px] text-muted`}>
       <span>{first}</span>
-      <span className="text-right">Income</span>
-      <span className="text-right">Expense</span>
-      <span className="text-right">Savings</span>
+      <span className="text-right">আয়</span>
+      <span className="text-right">খরচ</span>
+      <span className="text-right">সঞ্চয়</span>
       <span />
     </div>
   );
@@ -106,7 +106,7 @@ function CategoryList({
     <div className="mt-2">
       <h3 className="mb-1 text-xs text-muted">{title}</h3>
       {items.length === 0 ? (
-        <p className="text-xs text-muted">None this period.</p>
+        <p className="text-xs text-muted">এই সময়ে কিছু নেই।</p>
       ) : (
         <ul className="flex flex-col">
           {items.map((c) => (
@@ -145,7 +145,7 @@ interface Sel {
   type: 'income' | 'expense';
 }
 
-/** খোলা মাস/বছরের ভেতর: Income by category + Expense by category (সব category, Others ছাড়া)। */
+/** খোলা মাস/বছরের ভেতর: খাতভিত্তিক আয় + খাতভিত্তিক খরচ (সব category, Others ছাড়া)। */
 function DetailBody({ id, txs, children }: { id: string; txs: readonly TxLite[]; children?: ReactNode }) {
   const [sel, setSel] = useState<Sel | null>(null);
   const income = useMemo(() => categoryList(txs, 'income'), [txs]);
@@ -153,8 +153,8 @@ function DetailBody({ id, txs, children }: { id: string; txs: readonly TxLite[];
   return (
     <div id={id} className="border-t border-muted/10 bg-surface px-4 pb-3 pt-2">
       {children}
-      <CategoryList title="Income by category" type="income" items={income} onSelect={(name, type) => setSel({ name, type })} />
-      <CategoryList title="Expense by category" type="expense" items={expense} onSelect={(name, type) => setSel({ name, type })} />
+      <CategoryList title="খাতভিত্তিক আয়" type="income" items={income} onSelect={(name, type) => setSel({ name, type })} />
+      <CategoryList title="খাতভিত্তিক খরচ" type="expense" items={expense} onSelect={(name, type) => setSel({ name, type })} />
       {sel && <CategoryHistorySheet name={sel.name} type={sel.type} txs={txs} onClose={() => setSel(null)} />}
     </div>
   );
@@ -187,25 +187,25 @@ function YearMonths({
   if (tx.state.status === 'error') {
     return (
       <div role="alert" className="border-t border-muted/10 px-4 py-3 text-center text-sm text-fg">
-        Couldn’t load this year.
-        <button type="button" onClick={tx.retry} className="ml-2 min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas">Retry</button>
+        এই বছরের ডেটা লোড করা যায়নি।
+        <button type="button" onClick={tx.retry} className="ml-2 min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas">আবার চেষ্টা করুন</button>
       </div>
     );
   }
   if (txs.length === 0 && flow.size === 0) {
-    return <div className="border-t border-muted/10 bg-surface px-4 py-3 text-xs text-muted">Pre-app record — monthly details not available.</div>;
+    return <div className="border-t border-muted/10 bg-surface px-4 py-3 text-xs text-muted">অ্যাপ-পূর্ব রেকর্ড — মাসভিত্তিক বিস্তারিত নেই।</div>;
   }
   return (
     <div className="border-t border-muted/10 bg-surface/50">
-      {isHist && <p className="px-4 pt-2 text-xs text-muted">Year totals come from your saved yearly record. Months without saved figures show only data recorded in the app.</p>}
-      <ColumnHeads first="Month" indent />
+      {isHist && <p className="px-4 pt-2 text-xs text-muted">বছরের মোট আপনার সংরক্ষিত বার্ষিক রেকর্ড থেকে। সংরক্ষিত অঙ্ক নেই এমন মাসে শুধু অ্যাপে এন্ট্রি-করা ডেটা দেখাবে।</p>}
+      <ColumnHeads first="মাস" indent />
       {rows.map((r) => {
         const label = monthLabel(r.yyyymm).split(' ')[0];
         if (r.txCount === 0 && !r.fromRecord) {
           return (
             <div key={r.yyyymm} className={`${ROW_GRID} min-h-11 border-t border-muted/10 pl-7 pr-4 py-1 text-sm text-muted`}>
               <span className="min-w-0">{label}</span>
-              <span className="col-span-3 text-center text-xs">No data</span>
+              <span className="col-span-3 text-center text-xs">ডেটা নেই</span>
               <span />
             </div>
           );
@@ -217,7 +217,7 @@ function YearMonths({
             <SummaryRow
               indent
               label={label}
-              tag={r.fromRecord && r.txCount === 0 ? 'Pre-app record' : undefined}
+              tag={r.fromRecord && r.txCount === 0 ? 'অ্যাপ-পূর্ব রেকর্ড' : undefined}
               income={r.incomeMinor}
               expense={r.expenseMinor}
               savings={r.savingsMinor}
@@ -227,13 +227,13 @@ function YearMonths({
             />
             {isOpen &&
               (r.txCount === 0 ? (
-                <div id={id} className="border-t border-muted/10 bg-surface px-4 py-3 text-xs text-muted">Pre-app record — category details not available.</div>
+                <div id={id} className="border-t border-muted/10 bg-surface px-4 py-3 text-xs text-muted">অ্যাপ-পূর্ব রেকর্ড — খাতভিত্তিক বিস্তারিত নেই।</div>
               ) : (
                 <DetailBody id={id} txs={txsInMonth(txs, r.yyyymm)}>
                   {r.fromRecord && (
                     <p className="text-xs text-muted">
-                      <span className="mr-2 rounded-full border border-muted/40 px-2 py-0.5 text-[10px]">Partial data</span>
-                      Month totals come from your saved record. These category lists use only entries recorded in the app, so they won’t add up to those totals.
+                      <span className="mr-2 rounded-full border border-muted/40 px-2 py-0.5 text-[10px]">আংশিক ডেটা</span>
+                      মাসের মোট সংরক্ষিত রেকর্ড থেকে। খাতভিত্তিক তালিকায় শুধু অ্যাপে এন্ট্রি-করা ডেটা আছে, তাই এগুলোর যোগফল ওই মোটের সাথে নাও মিলতে পারে।
                     </p>
                   )}
                 </DetailBody>
@@ -270,7 +270,7 @@ function YearBlock({ row, ...p }: YearBlockProps & { row: YearRow | null }) {
     return (
       <div className={plain}>
         <span>{p.year}</span>
-        <span className="col-span-3 text-center text-xs">No data</span>
+        <span className="col-span-3 text-center text-xs">ডেটা নেই</span>
         <span />
       </div>
     );
@@ -280,7 +280,7 @@ function YearBlock({ row, ...p }: YearBlockProps & { row: YearRow | null }) {
     <div>
       <SummaryRow
         label={String(p.year)}
-        tag={p.isHist ? 'Pre-app record' : undefined}
+        tag={p.isHist ? 'অ্যাপ-পূর্ব রেকর্ড' : undefined}
         income={row.incomeMinor}
         expense={row.expenseMinor}
         savings={row.savingsMinor}
@@ -322,10 +322,10 @@ export function YearlyBreakdown({
   const minYear = historical.length ? Math.min(thisYear, ...historical.map((h) => h.year)) : thisYear;
   const years = Array.from({ length: thisYear - minYear + 1 }, (_, i) => thisYear - i);
   return (
-    <Card as="section" ariaLabel="Yearly breakdown" className="mx-4 mt-3 overflow-hidden pt-4">
-      <h2 className="px-4 text-sm font-medium text-fg">Yearly breakdown</h2>
-      <p className="px-4 pb-2 text-xs text-muted">Tap a year to see its months.</p>
-      <ColumnHeads first="Year" />
+    <Card as="section" ariaLabel="বছরভিত্তিক হিসাব" className="mx-4 mt-3 overflow-hidden pt-4">
+      <h2 className="px-4 text-[15px] font-semibold text-fg">বছরভিত্তিক হিসাব</h2>
+      <p className="px-4 pb-2 mt-0.5 text-xs text-muted">বছরে ট্যাপ করলে মাসগুলো দেখবেন।</p>
+      <ColumnHeads first="বছর" />
       {years.map((y) => {
         const isHist = historical.some((h) => h.year === y);
         const props = { uid, year: y, isHist, snapshots, historical, open: open.has(String(y)), onToggle: () => setOpen((s) => toggled(s, String(y))) };
@@ -338,15 +338,15 @@ export function YearlyBreakdown({
 function YearDetail({ id, kind, txs }: { id: string; kind: YearDetailKind; txs: readonly TxLite[] }) {
   if (kind === 'none') {
     return (
-      <div id={id} className="border-t border-muted/10 bg-surface px-4 py-3 text-xs text-muted">Pre-app record — category details not available.</div>
+      <div id={id} className="border-t border-muted/10 bg-surface px-4 py-3 text-xs text-muted">অ্যাপ-পূর্ব রেকর্ড — খাতভিত্তিক বিস্তারিত নেই।</div>
     );
   }
   return (
     <DetailBody id={id} txs={txs}>
       {kind === 'partial' && (
         <p className="text-xs text-muted">
-          <span className="mr-2 rounded-full border border-muted/40 px-2 py-0.5 text-[10px]">Partial data</span>
-          Year totals come from your saved yearly record. These category lists use only entries recorded in the app, so they won’t add up to those totals.
+          <span className="mr-2 rounded-full border border-muted/40 px-2 py-0.5 text-[10px]">আংশিক ডেটা</span>
+          বছরের মোট সংরক্ষিত বার্ষিক রেকর্ড থেকে। খাতভিত্তিক তালিকায় শুধু অ্যাপে এন্ট্রি-করা ডেটা আছে, তাই এগুলোর যোগফল ওই মোটের সাথে নাও মিলতে পারে।
         </p>
       )}
     </DetailBody>
@@ -361,8 +361,8 @@ function HistoricalYearDetail({ uid, year }: { uid: string; year: number }) {
   if (tx.state.status === 'error') {
     return (
       <div role="alert" className="border-t border-muted/10 px-4 py-3 text-center text-sm text-fg">
-        Couldn’t load this year.
-        <button type="button" onClick={tx.retry} className="ml-2 min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas">Retry</button>
+        এই বছরের ডেটা লোড করা যায়নি।
+        <button type="button" onClick={tx.retry} className="ml-2 min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas">আবার চেষ্টা করুন</button>
       </div>
     );
   }
@@ -385,15 +385,15 @@ export function YearsCard({
   if (rows.length === 0) {
     return (
       <Card as="section" className="mx-4 mt-3 p-4">
-        <h2 className="mb-2 text-sm font-medium text-fg">Years</h2>
-        <p className="text-sm text-muted">No data yet.</p>
+        <h2 className="mb-2 text-[15px] font-semibold text-fg">বছরভিত্তিক হিসাব</h2>
+        <p className="text-sm text-muted">এখনো কোনো ডেটা নেই।</p>
       </Card>
     );
   }
   return (
-    <Card as="section" ariaLabel="Years" className="mx-4 mt-3 overflow-hidden pt-4">
-      <h2 className="px-4 pb-2 text-sm font-medium text-fg">Years</h2>
-      <ColumnHeads first="Year" />
+    <Card as="section" ariaLabel="বছরভিত্তিক হিসাব" className="mx-4 mt-3 overflow-hidden pt-4">
+      <h2 className="px-4 pb-2 text-[15px] font-semibold text-fg">বছরভিত্তিক হিসাব</h2>
+      <ColumnHeads first="বছর" />
       {rows.map((r) => {
         const key = String(r.year);
         const isOpen = open.has(key);
@@ -402,7 +402,7 @@ export function YearsCard({
           <div key={key}>
             <SummaryRow
               label={key}
-              tag={r.source === 'historical' ? 'Pre-app record' : undefined}
+              tag={r.source === 'historical' ? 'অ্যাপ-পূর্ব রেকর্ড' : undefined}
               income={r.incomeMinor}
               expense={r.expenseMinor}
               savings={r.savingsMinor}

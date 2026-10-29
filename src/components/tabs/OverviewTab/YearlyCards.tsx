@@ -1,7 +1,8 @@
 import { useMemo, type ReactNode } from 'react';
-import Card from '../../common/Card';
+import { LineChart, PiggyBank, Scale, TrendingUp } from 'lucide-react';
+import { Block, Tip } from './OverviewBits';
 import { formatNetTakaWhole, formatTakaWhole } from '../../../lib/format';
-import { monthShortBn } from '../../../lib/date';
+import { monthLabelBn, monthShortBn } from '../../../lib/date';
 import {
   investmentHonest,
   lifestyleCreep,
@@ -13,7 +14,7 @@ import {
   type NetWorthSnapshotLite,
 } from '../../../lib/overviewCalc';
 
-// Overview → Yearly ধাপ ৩: মাসিক সঞ্চয়-হার / লাইফস্টাইল ক্রিপ / আসল বৃদ্ধি / বিনিয়োগের সৎ রিপোর্ট।
+// Overview → Yearly ধাপ ৩: মাসিক সঞ্চয়-হার / জীবনযাত্রার খরচ-বৃদ্ধি / আসল বৃদ্ধি / বিনিয়োগ রিপোর্ট।
 // বিদ্যমান ডেটা থেকে derive — নতুন schema-write নেই (শুধু Settings-এ ঐচ্ছিক inflationPct)। হিসাব lib/overviewCalc.ts-এ (pure, tested)।
 
 const MONTH_INITIALS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
@@ -21,15 +22,6 @@ const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 const pct1 = (v: number) => (Math.round(v * 10) / 10).toString();
 const signed = (v: number) => `${v >= 0 ? '+' : '−'}${pct1(Math.abs(v))}%`;
 
-const Block = ({ title, sub, children, label }: { title: string; sub?: ReactNode; children: ReactNode; label: string }) => (
-  <Card as="section" ariaLabel={label} className="mx-4 mt-3 p-4">
-    <h2 className="text-sm font-medium text-fg">{title}</h2>
-    {sub && <p className="mb-3 mt-0.5 text-xs text-muted">{sub}</p>}
-    {children}
-  </Card>
-);
-
-const Tip = ({ children }: { children: ReactNode }) => <p className="mt-3 rounded-xl bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning">{children}</p>;
 const Chip = ({ children, tone }: { children: ReactNode; tone: 'good' | 'bad' | 'warn' }) => (
   <span className={`rounded-full px-2.5 py-1 text-xs ${tone === 'good' ? 'bg-income/10 text-income' : tone === 'bad' ? 'bg-expense/10 text-expense' : 'bg-warning/10 text-warning'}`}>{children}</span>
 );
@@ -59,7 +51,7 @@ export function SavingsRateCard({ year, rows, targetPct, partialMonth }: { year:
   const summary = withData.map((p) => `${MONTH_SHORT[p.month - 1]} ${pct1(p.pct as number)}%`).join(', ');
 
   return (
-    <Block label="Monthly savings rate" title="মাসিক সঞ্চয়-হার" sub={`${year} · প্রতি মাসের (আয় − ব্যয়) ÷ আয়`}>
+    <Block icon={PiggyBank} tone="income" title="মাসিক সঞ্চয়-হার" sub={`${year} · প্রতি মাসের (আয় − ব্যয়) ÷ আয়`}>
       <svg viewBox={`0 0 ${W} ${H + 12}`} className="w-full" role="img" aria-label={`Monthly savings rate vs target ${target}%. ${summary}`}>
         <line x1={PADX} x2={W - PADX} y1={y(target)} y2={y(target)} stroke="rgb(var(--color-income))" strokeWidth={1} strokeDasharray="4 3" />
         <text x={W - PADX} y={y(target) - 3} textAnchor="end" fontSize={8} className="fill-income">টার্গেট {target}%</text>
@@ -112,7 +104,7 @@ function CreepRow({ label, a, b, pct, max, color, upGood }: { label: string; a: 
 
 const CREEP_TIP: Record<string, string> = {
   income_fell_expense_stuck: 'আয় যতটা কমেছে, খরচ ততটা কমেনি — এটাই সঞ্চয়-হার নামার মূল কারণ।',
-  expense_outpaced: 'আয়ের চেয়ে খরচ দ্রুত বেড়েছে — এটাই লাইফস্টাইল ক্রিপ।',
+  expense_outpaced: 'আয়ের চেয়ে খরচ দ্রুত বেড়েছে — একেই বলে জীবনযাত্রার খরচ-বৃদ্ধি (লাইফস্টাইল ক্রিপ)।',
   expense_slower: 'আয় বেড়েছে, খরচ তার চেয়ে কম বেড়েছে — ভালো লক্ষণ।',
   both_down_good: 'আয় কমলেও খরচ তার চেয়ে বেশি কমেছে — ভালো সামাল দিয়েছেন।',
 };
@@ -124,7 +116,7 @@ export function LifestyleCreepCard({ year, prev, cur, monthsCur, monthsPrev = 12
   const maxInc = Math.max(c.incomeAvgPrev, c.incomeAvgCur, 1);
   const maxExp = Math.max(c.expenseAvgPrev, c.expenseAvgCur, 1);
   return (
-    <Block label="Lifestyle creep" title="লাইফস্টাইল ক্রিপ" sub={`গড় মাসিক · ${year - 1} → ${year}${samePeriod ? ` (একই সময়: জানু–${monthShortBn(monthsCur)})` : monthsCur < 12 ? ` (${year}: ${monthsCur} মাস)` : ''}`}>
+    <Block icon={Scale} tone="warning" title="জীবনযাত্রার খরচ-বৃদ্ধি" sub={`আয় বাড়লে খরচও কতটা বাড়ল — গড় মাসিক · ${year - 1} → ${year}${samePeriod ? ` (একই সময়: জানু–${monthShortBn(monthsCur)})` : monthsCur < 12 ? ` (${year}: ${monthsCur} মাস)` : ''}`}>
       <CreepRow label="আয়" a={c.incomeAvgPrev} b={c.incomeAvgCur} pct={c.incomeChangePct} max={maxInc} color="rgb(var(--color-income))" upGood />
       <CreepRow label="খরচ" a={c.expenseAvgPrev} b={c.expenseAvgCur} pct={c.expenseChangePct} max={maxExp} color="rgb(var(--color-expense))" upGood={false} />
       {CREEP_TIP[c.verdict] && <Tip>{CREEP_TIP[c.verdict]}</Tip>}
@@ -139,7 +131,7 @@ export function RealGrowthCard({ snapshots, inflationPct }: { snapshots: readonl
   const g = useMemo(() => (inflationPct != null ? realGrowth(snapshots, inflationPct) : null), [snapshots, inflationPct]);
   if (inflationPct == null) {
     return (
-      <Block label="Real growth" title="আসল বৃদ্ধি" sub="মূল্যস্ফীতি বাদ দিয়ে সম্পদ আসলে কতটা বাড়ল">
+      <Block icon={LineChart} title="আসল বৃদ্ধি" sub="মূল্যস্ফীতি বাদ দিয়ে সম্পদ আসলে কতটা বাড়ল">
         <p className="text-xs text-muted">মূল্যস্ফীতি % সেট করুন (Menu → Monthly Target → মূল্যস্ফীতি), তারপর এখানে হিসাব আসবে।</p>
       </Block>
     );
@@ -147,7 +139,7 @@ export function RealGrowthCard({ snapshots, inflationPct }: { snapshots: readonl
   if (!g) return null;
   const tile = 'flex-1 rounded-xl bg-surface px-2 py-3 text-center';
   return (
-    <Block label="Real growth" title="আসল বৃদ্ধি" sub={`মূল্যস্ফীতি বাদে · ${g.baseYyyymm} → ${g.latestYyyymm} · মূল্যস্ফীতি ${pct1(g.inflationPct)}%`}>
+    <Block icon={LineChart} title="আসল বৃদ্ধি" sub={`মূল্যস্ফীতি বাদে · ${monthLabelBn(g.baseYyyymm)} → ${monthLabelBn(g.latestYyyymm)} · মূল্যস্ফীতি ${pct1(g.inflationPct)}%`}>
       <div className="flex items-center gap-1.5">
         <div className={tile}>
           <p className="text-[11px] text-muted">সম্পদ বেড়েছে</p>
@@ -170,18 +162,18 @@ export function RealGrowthCard({ snapshots, inflationPct }: { snapshots: readonl
   );
 }
 
-/** ৪. বিনিয়োগের সৎ রিপোর্ট */
+/** ৪. বিনিয়োগ রিপোর্ট */
 export function InvestmentHonestCard({ investments, today }: { investments: readonly InvestmentLite[]; today?: string }) {
   const r = useMemo(() => investmentHonest(investments, today), [investments, today]);
   if (!r || r.totalMinor <= 0) return null;
   const parts = [
     { key: 'running', label: 'চলমান', v: r.runningMinor, color: 'rgb(var(--chart-1))' },
     { key: 'returned', label: 'ফেরত এসেছে', v: r.returnedMinor, color: 'rgb(var(--color-income))' },
-    { key: 'doubtful', label: 'Doubtful', v: r.doubtfulMinor, color: 'rgb(var(--chart-7))' },
-    { key: 'written', label: 'Written-off', v: r.writtenOffMinor, color: 'rgb(var(--color-expense))' },
+    { key: 'doubtful', label: 'সন্দেহজনক', v: r.doubtfulMinor, color: 'rgb(var(--chart-7))' },
+    { key: 'written', label: 'অনাদায়ী', v: r.writtenOffMinor, color: 'rgb(var(--color-expense))' },
   ];
   return (
-    <Block label="Investment honest report" title="বিনিয়োগের সৎ রিপোর্ট" sub={`মোট বিনিয়োগ ${formatTakaWhole(r.totalMinor)}`}>
+    <Block icon={TrendingUp} tone="income" title="বিনিয়োগ রিপোর্ট" sub={`মোট বিনিয়োগ ${formatTakaWhole(r.totalMinor)}`}>
       <div className="mb-2 flex h-3 overflow-hidden rounded-full bg-surface" role="img" aria-label="বিনিয়োগের আসল কোথায় আছে">
         {parts.map((p) => (p.v > 0 ? <div key={p.key} style={{ width: `${(p.v / r.totalMinor) * 100}%`, background: p.color }} /> : null))}
       </div>
@@ -198,11 +190,11 @@ export function InvestmentHonestCard({ investments, today }: { investments: read
       </ul>
       <div className="mt-3 flex gap-2">
         <div className="flex-1 rounded-xl bg-income/10 px-3 py-2">
-          <p className="text-[11px] text-muted">লাভ পেয়েছেন</p>
+          <p className="text-[11px] text-muted">লাভ</p>
           <p className="text-base font-semibold text-income">{formatNetTakaWhole(r.profitMinor)}</p>
         </div>
         <div className="flex-1 rounded-xl bg-expense/10 px-3 py-2">
-          <p className="text-[11px] text-muted">ডুবেছে</p>
+          <p className="text-[11px] text-muted">ক্ষতি</p>
           <p className="text-base font-semibold text-expense">{formatNetTakaWhole(-r.lossMinor)}</p>
         </div>
       </div>
@@ -210,7 +202,7 @@ export function InvestmentHonestCard({ investments, today }: { investments: read
         <p className="mt-2 text-[11px] leading-relaxed text-muted">আনুমানিক বার্ষিক হার: <b className={r.annualRatePct >= 0 ? 'text-income' : 'text-expense'}>{signed(r.annualRatePct)}</b> (আসল যতদিন আটকে ছিল ততদিন ধরে; এখনো চলমান অংশের সম্ভাব্য লাভ ধরা হয়নি)।</p>
       )}
       <Tip>
-        <b>আসল ফল: {formatNetTakaWhole(r.netMinor)}</b>
+        <b>নিট ফলাফল: {formatNetTakaWhole(r.netMinor)}</b>
         {r.netPctOfTotal != null ? ` (${pct1(r.netPctOfTotal)}%)` : ''}
         {r.atRiskPct != null && r.atRiskPct > 0 ? ` — ঝুঁকিতে আছে আরও ${pct1(r.atRiskPct)}%` : ''}।
       </Tip>

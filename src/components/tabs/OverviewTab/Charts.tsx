@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { categoryColorIndex, formatAmount, formatTakaWhole } from '../../../lib/format';
 import { getCategoryIcon } from '../../../lib/categoryIcons';
 import type { CategoryShare } from '../../../lib/overviewCalc';
+import { catLabel } from './OverviewBits';
 
 // SVG url(#id) reference-এ React-এর useId() ফেরানো কোলন (":r0:") কিছু browser-এ ভাঙতে পারে —
 // তাই gradient-id বানানোর সময় সবসময় এই helper দিয়ে sanitize করা হবে (alnum+dash-ই থাকবে)।
@@ -14,9 +15,9 @@ const CHART_VARS = ['--chart-1', '--chart-2', '--chart-3', '--chart-4', '--chart
 const chartVar = (name: string) => CHART_VARS[categoryColorIndex(name, CHART_VARS.length)];
 
 export function CategoryBars({ items, onSelect }: { items: readonly CategoryShare[]; onSelect?: (name: string) => void }) {
-  if (items.length === 0) return <p className="text-sm text-muted">No expenses in this period.</p>;
+  if (items.length === 0) return <p className="text-sm text-muted">এই সময়ে কোনো খরচ নেই।</p>;
   return (
-    <ul aria-label="Expense by category" className="flex flex-col gap-2">
+    <ul aria-label="খাতভিত্তিক খরচ" className="flex flex-col gap-2.5">
       {items.map((c) => {
         const v = chartVar(c.name);
         return (
@@ -30,7 +31,7 @@ export function CategoryBars({ items, onSelect }: { items: readonly CategoryShar
             <div className="flex justify-between gap-3 text-sm">
               <span className="flex min-w-0 items-center gap-2">
                 <span aria-hidden className="shrink-0 text-sm leading-none">{getCategoryIcon(c.name, 'expense')}</span>
-                <span className="min-w-0 truncate text-fg">{c.name}</span>
+                <span className="min-w-0 truncate text-fg">{catLabel(c.name)}</span>
               </span>
               <span className="shrink-0 text-fg">
                 {formatAmount(c.totalMinor)} <span className="text-muted">· {Math.round(c.share * 100)}%</span>
@@ -140,19 +141,19 @@ export function CategoryDonut({ items, totalMinor }: { items: readonly CategoryS
           <circle cx={cx} cy={cy} r={r - sw / 2 - 2} fill="transparent" />
           {sel ? (
             <>
-              <text x={cx} y={cy - 12} textAnchor="middle" fontSize={9} className="fill-muted">{clip(sel.c.name, 14)}</text>
+              <text x={cx} y={cy - 12} textAnchor="middle" fontSize={9} className="fill-muted">{clip(catLabel(sel.c.name), 14)}</text>
               <text x={cx} y={cy + 5} textAnchor="middle" fontSize={centerSize} fontWeight={700} className="fill-fg">{centerAmt}</text>
               <text x={cx} y={cy + 19} textAnchor="middle" fontSize={9} className="fill-muted">{Math.round(sel.c.share * 100)}%</text>
             </>
           ) : (
             <>
-              <text x={cx} y={cy - 8} textAnchor="middle" fontSize={9} className="fill-muted">Total</text>
+              <text x={cx} y={cy - 8} textAnchor="middle" fontSize={9} className="fill-muted">মোট</text>
               <text x={cx} y={cy + 10} textAnchor="middle" fontSize={centerSize} fontWeight={700} className="fill-fg">{centerAmt}</text>
             </>
           )}
         </g>
       </svg>
-      <span className="sr-only">Expense breakdown by category: {summary}. Total expense {formatAmount(totalMinor)}</span>
+      <span className="sr-only">খাতভিত্তিক খরচ: {summary}। মোট খরচ {formatAmount(totalMinor)}</span>
     </div>
   );
 }
@@ -163,8 +164,8 @@ const MONTH_INITIALS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', '
 export function IncomeExpenseLegend() {
   return (
     <span className="flex gap-3 text-[11px] text-muted" aria-hidden>
-      <span><span className="text-income">■</span> Income</span>
-      <span><span className="text-expense">■</span> Expense</span>
+      <span><span className="text-income">■</span> আয়</span>
+      <span><span className="text-expense">■</span> খরচ</span>
     </span>
   );
 }
@@ -174,9 +175,9 @@ export function IncomeExpenseBars({ rows }: { rows: readonly { yyyymm: string; i
   const gid = svgId(useId());
   const max = Math.max(1, ...rows.flatMap((r) => [r.incomeMinor, r.expenseMinor]));
   const H = 44;
-  const summary = rows.map((r) => `${r.yyyymm}: income ${formatAmount(r.incomeMinor)}, expense ${formatAmount(r.expenseMinor)}`).join('; ');
+  const summary = rows.map((r) => `${r.yyyymm}: আয় ${formatAmount(r.incomeMinor)}, খরচ ${formatAmount(r.expenseMinor)}`).join('; ');
   return (
-    <svg viewBox="0 0 240 62" className="w-full" role="img" aria-label={`Monthly income and expense. ${summary}`}>
+    <svg viewBox="0 0 240 62" className="w-full" role="img" aria-label={`মাসভিত্তিক আয় ও খরচ। ${summary}`}>
       <defs>
         <linearGradient id={`${gid}-income`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="rgb(var(--color-income))" stopOpacity={0.95} />
