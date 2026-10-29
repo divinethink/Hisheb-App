@@ -659,10 +659,12 @@ export interface LeakItem {
   avgMinor: number;
 }
 
-/** বেশি বার কিন্তু ছোট অঙ্কের খরচ-খাত: count ≥ LEAK_MIN_COUNT ও গড় ≤ LEAK_MAX_AVG_MINOR; মোটের বড় → ছোট, শীর্ষ topN। */
-export function leakFinder(txs: readonly TxLite[], topN = 3): LeakItem[] {
+/** বেশি বার কিন্তু ছোট অঙ্কের খরচ-খাত (`excludeCategories` = প্রয়োজনীয় খাত, বাদ): count ≥ LEAK_MIN_COUNT ও গড় ≤ LEAK_MAX_AVG_MINOR; মোটের বড় → ছোট, শীর্ষ topN। */
+export function leakFinder(txs: readonly TxLite[], topN = 3, excludeCategories: readonly string[] = []): LeakItem[] {
+  const skip = new Set(excludeCategories.map((n) => n.trim().toLowerCase()));
   const map = new Map<string, { count: number; total: number }>();
   for (const t of expenseOnly(txs)) {
+    if (skip.has(t.categoryName.trim().toLowerCase())) continue; // প্রয়োজনীয় খাত — কমানোর বিষয় নয়
     const e = map.get(t.categoryName) ?? { count: 0, total: 0 };
     e.count += 1;
     e.total += t.amountMinor;
@@ -785,6 +787,7 @@ export function monthReport(
   prevTxs: readonly TxLite[] | null,
   targetPct: number | null,
   fmtTaka: (minor: number) => string,
+  essentialCategories: readonly string[] = [],
 ): ReportLine[] {
   const lines: ReportLine[] = [];
   let income = 0;
@@ -831,7 +834,7 @@ export function monthReport(
     if (best) lines.push([{ text: 'সবচেয়ে বেড়েছে: ' }, { text: best.name, tone: undefined }, { text: ` (+${best.pct}%)`, tone: 'bad' }]);
   }
 
-  const leak = leakFinder(txs, 1)[0];
+  const leak = leakFinder(txs, 1, essentialCategories)[0];
   if (leak) lines.push([{ text: `সবচেয়ে বড় ছোট-ফাঁক: ${leak.name}, মাসে ${fmtTaka(leak.totalMinor)}` }]);
   return lines;
 }

@@ -15,6 +15,7 @@ export const SettingsSchema = z.object({
   overallMonthlyBudgetMinor: minorOrNull, // B1
   savingsTargetPct: z.number().int().min(1).max(100).nullish().transform((v) => v ?? null), // Overview ধাপ ১: সঞ্চয়-হার টার্গেট % (null = ডিফল্ট ২০%)
   inflationPct: z.number().min(0).max(100).nullish().transform((v) => v ?? null), // Overview ধাপ ৩: মূল্যস্ফীতি % (আসল বৃদ্ধির জন্য; null = সেট করা হয়নি)
+  essentialCategories: z.array(z.string().min(1).max(60)).max(50).nullish().transform((v) => v ?? []), // Overview আইডিয়া ৬: "প্রয়োজনীয় খাত" — ছোট-ফাঁক ও রিপোর্ট কার্ড থেকে বাদ (না থাকলে খালি)
   netWorthGoalMinor: minorOrNull, // Overview ধাপ ১: সম্পদ লক্ষ্য (null = ডিফল্ট ৳10,00,000)
   lastReminderShownDate: dateOrNull, // C4
   lastBudgetThresholdShownDate: dateOrNull, // C4

@@ -42,6 +42,8 @@ import {
 
 // Overview — Monthly / Yearly / All-Time (UI Mockup §৭, Architecture §২ historicalYearlyTotals precedence C17)।
 
+const NO_ESSENTIAL: readonly string[] = [];
+
 export function PeriodNav({ label, onPrev, onNext, prevDisabled, nextDisabled, right }: { label: string; onPrev: () => void; onNext: () => void; prevDisabled?: boolean; nextDisabled?: boolean; right?: ReactNode }) {
   const btn = 'flex h-11 w-11 items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary';
   return (
@@ -230,6 +232,7 @@ export function MonthlyView({ uid, historical }: { uid: string; historical: read
             weekdayEnd={weekdayEnd}
             today={today}
             targetPct={settings.state.status === 'ready' ? settings.state.data.savingsTargetPct : null}
+            essential={settings.state.status === 'ready' ? settings.state.data.essentialCategories : NO_ESSENTIAL}
           />
         )
       )}
@@ -249,7 +252,9 @@ function MonthlyBody({
   weekdayEnd,
   today,
   targetPct,
+  essential,
 }: {
+  essential: readonly string[];
   month: string;
   txs: readonly TxLite[];
   partial: boolean;
@@ -288,7 +293,7 @@ function MonthlyBody({
       {inProgress && <Note>মাস চলছে ({daysIn} দিন) — হিসাব এখনো অসম্পূর্ণ, তাই গত মাসের সাথে তুলনা পুরো মাসের নয়।</Note>}
       {insight && <Note>{insight}</Note>}
       {partial && <Note>Partial data — this period may include days recorded before the app was used.</Note>}
-      <ReportCard month={month} txs={txs} prevTxs={prevTxs} targetPct={targetPct} />
+      <ReportCard month={month} txs={txs} prevTxs={prevTxs} targetPct={targetPct} essential={essential} />
       <TargetGapCard txs={txs} targetPct={targetPct} />
       <BigOneOffCard txs={txs} />
       <HundredCard month={month} txs={txs} />
@@ -298,7 +303,7 @@ function MonthlyBody({
       </Section>
       {selCat && <CategoryHistorySheet name={selCat} txs={txs} cats={cats} onClose={() => setSelCat(null)} />}
       <KeyNumbers avgExpense={avgExpense} avgSavings={avgSavings} runway={runway} ytd={ytd} thisExpense={t.expense} />
-      <LeakCard txs={txs} />
+      <LeakCard txs={txs} essential={essential} />
       <WeekdayCard txs={weekdayTxs} end={weekdayEnd} />
       <NoSpendCalendarCard month={month} txs={txs} today={today} />
     </>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import FullScreenPage from '../../common/FullScreenPage';
-import { useSettings } from '../../../hooks/useData';
+import { useCategories, useSettings } from '../../../hooks/useData';
 import { updateSettings } from '../../../data/settingsRepo';
 import { minorToInput, parseAmountToMinor } from '../../../lib/money';
 import { formatTaka } from '../../../lib/format';
@@ -29,6 +29,9 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
   const savedGoal = settings.state.status === 'ready' ? settings.state.data.netWorthGoalMinor : null;
   const [pctInput, setPctInput] = useState('');
   const [goalInput, setGoalInput] = useState('');
+  const cats = useCategories(uid);
+  const essential = settings.state.status === 'ready' ? settings.state.data.essentialCategories : [];
+  const catNames = cats.state.status === 'ready' ? cats.state.data.filter((c) => !c.archived && c.type !== 'income').map((c) => c.name) : [];
   const savedInflation = settings.state.status === 'ready' ? settings.state.data.inflationPct : null;
   const [inflationInput, setInflationInput] = useState('');
 
@@ -66,6 +69,17 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
     try {
       await updateSettings(uid, { inflationPct: n });
       setInflationInput('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggleEssential(name: string) {
+    if (busy) return;
+    const next = essential.includes(name) ? essential.filter((n) => n !== name) : [...essential, name];
+    setBusy(true);
+    try {
+      await updateSettings(uid, { essentialCategories: next });
     } finally {
       setBusy(false);
     }
@@ -141,6 +155,29 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
         <button type="button" onClick={() => void updateSettings(uid, { inflationPct: null })} className="mt-3 min-h-11 text-sm text-muted underline">
           মূল্যস্ফীতি মুছুন
         </button>
+      )}
+      {catNames.length > 0 && (
+        <>
+          <h2 className="mt-8 text-sm font-medium text-fg">প্রয়োজনীয় খাত</h2>
+          <p className="mt-1 text-xs text-muted">যেগুলো কমানো যায় না (যেমন বাসা-ভাড়া, বাজার) সেগুলো বেছে রাখুন — Overview-র "ছোট ফাঁক"-এ এগুলো আসবে না।</p>
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="প্রয়োজনীয় খাত">
+            {catNames.map((n) => {
+              const on = essential.includes(n);
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  aria-pressed={on}
+                  disabled={busy}
+                  onClick={() => void toggleEssential(n)}
+                  className={`min-h-11 rounded-full border px-3 text-sm disabled:opacity-60 ${on ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-muted/40 text-fg'}`}
+                >
+                  {on ? '✓ ' : ''}{n}
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
       {(savedPct != null || savedGoal != null) && (
         <button type="button" onClick={() => void updateSettings(uid, { savingsTargetPct: null, netWorthGoalMinor: null })} className="mt-3 min-h-11 text-sm text-muted underline">

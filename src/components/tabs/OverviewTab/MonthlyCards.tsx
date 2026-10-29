@@ -36,8 +36,8 @@ const Block = ({ title, sub, children, label }: { title: string; sub?: string; c
 const Tip = ({ children }: { children: ReactNode }) => <p className="mt-3 rounded-xl bg-warning/10 px-3 py-2 text-xs leading-relaxed text-warning">{children}</p>;
 
 /** ১. মাসের রিপোর্ট কার্ড — ৩ লাইনের নিয়ম-ভিত্তিক সারাংশ */
-export function ReportCard({ month, txs, prevTxs, targetPct }: { month: string; txs: readonly TxLite[]; prevTxs: readonly TxLite[] | null; targetPct: number | null }) {
-  const lines = useMemo(() => monthReport(txs, prevTxs, targetPct, formatTakaWhole), [txs, prevTxs, targetPct]);
+export function ReportCard({ month, txs, prevTxs, targetPct, essential }: { month: string; txs: readonly TxLite[]; prevTxs: readonly TxLite[] | null; targetPct: number | null; essential: readonly string[] }) {
+  const lines = useMemo(() => monthReport(txs, prevTxs, targetPct, formatTakaWhole, essential), [txs, prevTxs, targetPct, essential]);
   if (lines.length === 0) return null;
   return (
     <Block label="Monthly report card" title={`${MONTHS_BN_GEN[monthIdx(month)]} রিপোর্ট কার্ড`} sub="আপনার হিসাব থেকে নিজে-নিজে তৈরি">
@@ -141,8 +141,8 @@ export function HundredCard({ month, txs }: { month: string; txs: readonly TxLit
 }
 
 /** ৩. ছোট ফাঁক (Leak finder) */
-export function LeakCard({ txs }: { txs: readonly TxLite[] }) {
-  const { items, income } = useMemo(() => ({ items: leakFinder(txs), income: txs.reduce((a, t) => (t.type === 'income' ? a + t.amountMinor : a), 0) }), [txs]);
+export function LeakCard({ txs, essential }: { txs: readonly TxLite[]; essential: readonly string[] }) {
+  const { items, income } = useMemo(() => ({ items: leakFinder(txs, 3, essential), income: txs.reduce((a, t) => (t.type === 'income' ? a + t.amountMinor : a), 0) }), [txs, essential]);
   if (items.length === 0) return null;
   const sum = items.reduce((a, x) => a + x.totalMinor, 0);
   const pctIncome = income > 0 ? Math.round((sum / income) * 1000) / 10 : null;
@@ -162,6 +162,7 @@ export function LeakCard({ txs }: { txs: readonly TxLite[] }) {
       <Tip>
         {items.length > 1 ? `${items.length}টি মিলে` : 'এটি'} {formatTakaWhole(sum)}
         {pctIncome != null ? ` = আয়ের ${pctIncome}%` : ''}। ৩০% কমালে মাসে {formatTakaWhole(Math.round(sum * 0.3))} বাঁচে।
+        {essential.length > 0 ? ` (প্রয়োজনীয় ${essential.length}টি খাত বাদ)` : ''}
       </Tip>
     </Block>
   );

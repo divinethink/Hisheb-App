@@ -15,8 +15,12 @@ describe('SettingsSchema', () => {
   it('Overview লক্ষ্য-ঘর: ডিফল্ট null; অবৈধ মান বাতিল', () => {
     const s = SettingsSchema.parse({});
     expect(s.savingsTargetPct).toBeNull();
+    expect(s.essentialCategories).toEqual([]); // পুরনো doc-এ না থাকলে খালি (backward-compatible)
     expect(s.netWorthGoalMinor).toBeNull();
     expect(SettingsSchema.parse({ savingsTargetPct: 25, netWorthGoalMinor: 100000000 })).toMatchObject({ savingsTargetPct: 25, netWorthGoalMinor: 100000000 });
+    expect(SettingsSchema.parse({ essentialCategories: ['Groceries'] }).essentialCategories).toEqual(['Groceries']);
+    expect(SettingsSchema.parse({ essentialCategories: null }).essentialCategories).toEqual([]);
+    expect(SettingsSchema.safeParse({ essentialCategories: [''] }).success).toBe(false);
     expect(SettingsSchema.safeParse({ savingsTargetPct: 0 }).success).toBe(false);
     expect(SettingsSchema.safeParse({ savingsTargetPct: 101 }).success).toBe(false);
     expect(SettingsSchema.safeParse({ netWorthGoalMinor: 0 }).success).toBe(false);

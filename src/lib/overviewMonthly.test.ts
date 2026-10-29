@@ -54,6 +54,11 @@ describe('leakFinder', () => {
     expect(r.map((x) => x.name)).toEqual(['চা', 'রিকশা']);
     expect(r[0]).toMatchObject({ count: 20, totalMinor: 100000, avgMinor: 5000 });
   });
+  it('প্রয়োজনীয় খাত বাদ (নাম মেলানো case/space-নিরপেক্ষ)', () => {
+    const txs = [...many('চা', 20, 5000), ...many('Groceries', 10, 6000)];
+    expect(leakFinder(txs, 3, [' groceries ']).map((x) => x.name)).toEqual(['চা']);
+    expect(leakFinder(txs, 3, []).map((x) => x.name)).toEqual(['চা', 'Groceries']);
+  });
   it('income গোনে না', () => {
     expect(leakFinder(Array.from({ length: 10 }, () => tx('2026-10-01', 'income', 100)))).toEqual([]);
   });
