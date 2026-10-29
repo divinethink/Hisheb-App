@@ -42,7 +42,7 @@ export default function AppShell({ user }: { user: SessionUser }) {
           }}
         />
       )}
-      <main className="min-h-0 flex-1">
+      <main className="min-h-0 flex-1 overflow-hidden">
         <Suspense fallback={<SkeletonLoader />}>
           {tab === 'home' && <HomeTab uid={user.uid} autoOpenAdd={autoOpenAdd} />}
           {tab === 'ledger' && <LedgerTab uid={user.uid} />}

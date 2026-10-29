@@ -15,7 +15,7 @@ export default function BottomNav({ active, onChange }: { active: TabId; onChang
   return (
     <nav
       aria-label="Main"
-      className="grid shrink-0 grid-cols-5 border-t border-muted/10"
+      className="grid shrink-0 grid-cols-5 border-t border-muted/10 relative z-30"
       // থিম ঐচ্ছিক --nav-* টোকেন বসালে সেটা, নইলে আগের canvas/muted/primary (অন্য থিমে চেহারা অপরিবর্তিত)
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)', background: 'rgb(var(--nav-bg, var(--color-canvas)))' }}
     >
