@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allTimeRows, categoryList, flowByMonth, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, avgMonthlySavings, netWorthYtd, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
+import { allTimeRows, categoryList, flowByMonth, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, avgMonthlySavings, netWorthYtd, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, netWorthBridge, recentMonths, goalProjection, assetMix, emergencyFund, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
 
 const tx = (date: string, type: 'income' | 'expense', amountMinor: number, categoryName = 'A'): TxLite => ({ date, type, amountMinor, categoryName });
 const h2025: HistoricalLite = { year: 2025, totalIncomeMinor: 900, totalExpenseMinor: 600, totalDepositMinor: 5000 };
@@ -219,5 +219,87 @@ describe('Monthly Key numbers helpers', () => {
     expect(netWorthYtd(snaps, '2026-10')?.baseYyyymm).toBe('2026-03');
     expect(netWorthYtd([{ yyyymm: '2026-10', totalAssetsMinor: 150 }], '2026-10')).toBeNull();
     expect(netWorthYtd([], '2026-10')).toBeNull();
+  });
+});
+
+describe('netWorthBridge — সম্পদ কোথা থেকে বাড়ল', () => {
+  const snaps = [
+    { yyyymm: '2025-10', totalAssetsMinor: 1000 },
+    { yyyymm: '2026-01', totalAssetsMinor: 1100 },
+    { yyyymm: '2026-10', totalAssetsMinor: 1500 },
+  ];
+  it('১২ মাস আগের base; own = লাইভ tx-এর (আয় − ব্যয়), বাকিটা other; ডেটা-শূন্য মাস uncovered', () => {
+    const r = netWorthBridge(snaps, [tx('2026-02-01', 'income', 300), tx('2026-02-02', 'expense', 100), tx('2026-03-05', 'expense', 50)]);
+    expect(r).toMatchObject({ baseYyyymm: '2025-10', curYyyymm: '2026-10', deltaMinor: 500, ownMinor: 150, otherMinor: 350, monthsSpan: 12, uncoveredMonths: 10 });
+  });
+  it('snapshot.flow থাকলে সেটা tx-এর আগে ব্যবহার হয় (double-count নয়)', () => {
+    const withFlow = [{ yyyymm: '2025-10', totalAssetsMinor: 1000 }, { yyyymm: '2025-11', totalAssetsMinor: 1010, flow: { incomeMinor: 90, expenseMinor: 40 } }, { yyyymm: '2025-12', totalAssetsMinor: 1100 }];
+    const r = netWorthBridge(withFlow, [tx('2025-11-02', 'expense', 999)], 12);
+    expect(r?.ownMinor).toBe(50);
+    expect(r?.deltaMinor).toBe(100);
+  });
+  it('১২ মাসের কম ইতিহাস হলে সবচেয়ে পুরনো snapshot base', () => {
+    const r = netWorthBridge([{ yyyymm: '2026-08', totalAssetsMinor: 10 }, { yyyymm: '2026-10', totalAssetsMinor: 40 }], []);
+    expect(r).toMatchObject({ baseYyyymm: '2026-08', monthsSpan: 2, uncoveredMonths: 2, ownMinor: 0, otherMinor: 30 });
+  });
+  it('২টার কম snapshot হলে null', () => {
+    expect(netWorthBridge([{ yyyymm: '2026-10', totalAssetsMinor: 10 }], [])).toBeNull();
+    expect(netWorthBridge([], [])).toBeNull();
+  });
+});
+
+describe('recentMonths', () => {
+  it('আগের n মাস, চলতি মাস বাদ, পুরনো → নতুন', () => {
+    expect(recentMonths('2026-02', 3)).toEqual(['2025-11', '2025-12', '2026-01']);
+  });
+});
+
+describe('goalProjection', () => {
+  it('গড় জমায় মাস ও তারিখ; boost হলে কম মাস', () => {
+    const r = goalProjection(61216900, 100000000, 486200, '2026-10', 500000);
+    expect(r.remainingMinor).toBe(38783100);
+    expect(r.monthsAtPace).toBe(80);
+    expect(r.paceYyyymm).toBe('2033-06');
+    expect(r.monthsBoosted).toBe(40);
+    expect(r.monthsSaved).toBe(40);
+  });
+  it('লক্ষ্য পূর্ণ হলে reached', () => {
+    expect(goalProjection(200, 100, 5, '2026-10', 1)).toMatchObject({ reached: true, remainingMinor: 0, monthsAtPace: null });
+  });
+  it('জমা ≤ 0 বা null হলে pace null (fabricate না), boost হিসাব থাকে', () => {
+    const r = goalProjection(0, 1000, -50, '2026-10', 100);
+    expect(r.monthsAtPace).toBeNull();
+    expect(r.monthsBoosted).toBe(10);
+    expect(r.monthsSaved).toBeNull();
+    expect(goalProjection(0, 1000, null, '2026-10', 0).monthsBoosted).toBeNull();
+  });
+  it('৫০ বছরের বেশি লাগলে null', () => {
+    expect(goalProjection(0, 1_000_000, 1, '2026-10', 0).monthsAtPace).toBeNull();
+  });
+});
+
+describe('assetMix', () => {
+  it('ভাগ, outside (বিনিয়োগ + পাওনা) ও cash share', () => {
+    const m = assetMix({ accountsMinor: 100, receivableMinor: 200, investmentMinor: 300, homeDepositMinor: 0, gpfMinor: 400 });
+    expect(m?.totalMinor).toBe(1000);
+    expect(m?.items.map((i) => i.key)).toEqual(['accounts', 'investment', 'receivable', 'gpf']);
+    expect(m?.outsideShare).toBeCloseTo(0.5);
+    expect(m?.cashShare).toBeCloseTo(0.1);
+  });
+  it('ঋণাত্মক খাত বাদ; breakdown না থাকলে/মোট ≤ 0 হলে null', () => {
+    expect(assetMix({ accountsMinor: -50, receivableMinor: 0, investmentMinor: 100, homeDepositMinor: 0, gpfMinor: 0 })?.totalMinor).toBe(100);
+    expect(assetMix(undefined)).toBeNull();
+    expect(assetMix({ accountsMinor: -5, receivableMinor: 0, investmentMinor: 0, homeDepositMinor: 0, gpfMinor: 0 })).toBeNull();
+  });
+});
+
+describe('emergencyFund', () => {
+  it('৬ মাসের লক্ষ্য, pct ও ঘাটতি', () => {
+    expect(emergencyFund(10500000, 4707100)).toEqual({ targetMinor: 28242600, pct: expect.closeTo(37.18, 1), shortfallMinor: 17742600 });
+  });
+  it('pct সর্বোচ্চ ১০০; গড় খরচ null/≤0 হলে null', () => {
+    expect(emergencyFund(10000, 100)?.pct).toBe(100);
+    expect(emergencyFund(10000, null)).toBeNull();
+    expect(emergencyFund(10000, 0)).toBeNull();
   });
 });

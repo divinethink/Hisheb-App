@@ -1,0 +1,177 @@
+import { useMemo, type ReactNode } from 'react';
+import Card from '../../common/Card';
+import { monthLabel } from '../../../lib/date';
+import { formatNetTaka, formatTaka } from '../../../lib/format';
+import {
+  assetMix,
+  emergencyFund,
+  goalProjection,
+  netWorthBridge,
+  runwayMonths,
+  type AssetKey,
+  type SnapshotWithFlow,
+  type TxLite,
+} from '../../../lib/overviewCalc';
+import type { SnapshotBreakdown } from '../../../validation/netWorthSchema';
+
+// Overview → All-Time ধাপ ১: সম্পদ কোথা থেকে বাড়ল / লক্ষ্য ও পূর্বাভাস / সম্পদের মিশ্রণ / Runway।
+// শুধু বিদ্যমান snapshot + লেনদেন থেকে derive — নতুন query/write নেই। হিসাব lib/overviewCalc.ts-এ (pure, tested)।
+
+/** সম্পদ লক্ষ্যের ডিফল্ট (Settings-এ না বসালে): ৳10,00,000 (minor)। */
+export const DEFAULT_NET_WORTH_GOAL_MINOR = 100_000_000;
+/** "মাসে আরও এত জমালে" তুলনার ধাপ: ৳5,000 (minor)। */
+const BOOST_MINOR = 500_000;
+
+const Block = ({ title, sub, children, label }: { title: string; sub?: string; children: ReactNode; label: string }) => (
+  <Card as="section" ariaLabel={label} className="mx-4 mt-3 p-4">
+    <h2 className="text-sm font-medium text-fg">{title}</h2>
+    {sub && <p className="mb-3 mt-0.5 text-xs text-muted">{sub}</p>}
+    {children}
+  </Card>
+);
+
+const Tip = ({ children, tone = 'warning' }: { children: ReactNode; tone?: 'warning' | 'income' }) => (
+  <p className={`mt-3 rounded-xl px-3 py-2 text-xs leading-relaxed ${tone === 'income' ? 'bg-income/10 text-income' : 'bg-warning/10 text-warning'}`}>{children}</p>
+);
+
+const Foot = ({ children }: { children: ReactNode }) => <p className="mt-2 text-[11px] leading-relaxed text-muted">{children}</p>;
+
+/** ১. সম্পদ কোথা থেকে বাড়ল */
+export function NetWorthBridgeCard({ snapshots, txs }: { snapshots: readonly SnapshotWithFlow[]; txs: readonly TxLite[] }) {
+  const b = useMemo(() => netWorthBridge(snapshots, txs), [snapshots, txs]);
+  if (!b) return null;
+  const up = b.deltaMinor >= 0;
+  const split = b.deltaMinor > 0 && b.ownMinor >= 0 && b.otherMinor >= 0;
+  const ownPct = split ? Math.round((b.ownMinor / b.deltaMinor) * 100) : null;
+  return (
+    <Block label="Net worth growth sources" title="সম্পদ কোথা থেকে বাড়ল" sub={`${b.baseYyyymm} → ${b.curYyyymm} · ${b.monthsSpan} মাস`}>
+      <p className={`text-2xl font-semibold ${up ? 'text-income' : 'text-expense'}`}>{formatNetTaka(b.deltaMinor)}</p>
+      <p className="mb-3 text-xs text-muted">{formatTaka(b.baseMinor)} থেকে {formatTaka(b.curMinor)}</p>
+      {split && (
+        <div className="mb-2 flex h-3 overflow-hidden rounded-full bg-surface" role="img" aria-label={`নিজের জমা ${ownPct}%`}>
+          <div className="bg-income" style={{ width: `${(b.ownMinor / b.deltaMinor) * 100}%` }} />
+          <div className="bg-chart7" style={{ width: `${(b.otherMinor / b.deltaMinor) * 100}%` }} />
+        </div>
+      )}
+      <div className="flex items-center justify-between border-t border-muted/10 py-2 text-sm">
+        <span className="text-fg"><span className="text-income">■</span> নিজের জমা (আয় − ব্যয়)</span>
+        <span className={`font-semibold ${b.ownMinor >= 0 ? 'text-income' : 'text-expense'}`}>{formatNetTaka(b.ownMinor)}</span>
+      </div>
+      <div className="flex items-center justify-between border-t border-muted/10 py-2 text-sm">
+        <span className="text-fg"><span className="text-chart7">■</span> অন্যান্য</span>
+        <span className="font-semibold text-fg">{formatNetTaka(b.otherMinor)}</span>
+      </div>
+      {ownPct !== null && ownPct > 0 && <Tip tone="income">বৃদ্ধির <b>{ownPct}%</b> এসেছে আপনার নিজের জমা থেকে।</Tip>}
+      {b.deltaMinor > 0 && b.ownMinor < 0 && <Tip>এই সময়ে খরচ আয়ের চেয়ে বেশি ছিল — বৃদ্ধি এসেছে অন্য খাত (বিনিয়োগ/পাওনা ইত্যাদি) থেকে।</Tip>}
+      {b.uncoveredMonths > 0 && <Foot>{b.monthsSpan} মাসের মধ্যে {b.uncoveredMonths} মাসের আয়-ব্যয় অ্যাপে নেই — "নিজের জমা" আংশিক (Partial data)।</Foot>}
+      <Foot>অন্যান্য = বিনিয়োগ-মান বদল, পাওনা আদায়, Cross-check অমিল ইত্যাদি।</Foot>
+    </Block>
+  );
+}
+
+/** ৩. লক্ষ্য ও পূর্বাভাস */
+export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMinor }: { currentMinor: number; latestYyyymm: string; goalMinor: number | null; avgSavingsMinor: number | null }) {
+  const goal = goalMinor ?? DEFAULT_NET_WORTH_GOAL_MINOR;
+  const p = useMemo(() => goalProjection(currentMinor, goal, avgSavingsMinor, latestYyyymm, BOOST_MINOR), [currentMinor, goal, avgSavingsMinor, latestYyyymm]);
+  const pct = Math.max(0, Math.min(100, (currentMinor / goal) * 100));
+  const tile = 'flex-1 rounded-xl p-3';
+  return (
+    <Block label="Net worth goal" title="লক্ষ্য ও পূর্বাভাস" sub={`লক্ষ্য ${formatTaka(goal)}${goalMinor === null ? ' (ডিফল্ট)' : ''} · Menu → Monthly Target-এ বদলান`}>
+      <div className="mb-1.5 flex justify-between text-sm">
+        <b className="text-fg">{formatTaka(currentMinor)}</b>
+        <span className="text-muted">{Math.floor(pct)}% পূরণ</span>
+      </div>
+      <div className="h-3 overflow-hidden rounded-full bg-surface" role="img" aria-label={`লক্ষ্যের ${Math.floor(pct)}% পূরণ`}>
+        <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+      </div>
+      {p.reached ? (
+        <Tip tone="income">লক্ষ্য পূর্ণ হয়েছে। নতুন লক্ষ্য বসাতে পারেন।</Tip>
+      ) : avgSavingsMinor === null ? (
+        <Foot>শেষ ৬ মাসের আয়-ব্যয় অ্যাপে নেই, তাই পূর্বাভাস দেখানো যাচ্ছে না।</Foot>
+      ) : (
+        <>
+          <p className="mb-2 mt-3 text-xs text-muted">গড় জমা (শেষ ৬ মাস): <b className={avgSavingsMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTaka(Math.round(avgSavingsMinor))}</b>/মাস</p>
+          {p.monthsAtPace === null ? (
+            <Tip>{avgSavingsMinor <= 0 ? 'এই গতিতে লক্ষ্যে পৌঁছানো যাচ্ছে না — আগে মাসিক জমা ধনাত্মক করুন।' : 'এই গতিতে ৫০ বছরের বেশি লাগবে — মাসিক জমা বাড়ান।'}</Tip>
+          ) : (
+            <div className="flex gap-2">
+              <div className={`${tile} bg-surface`}>
+                <p className="text-xs text-muted">এই গতিতে</p>
+                <p className="text-base font-semibold text-fg">{monthLabel(p.paceYyyymm as string)}</p>
+                <p className="text-xs text-muted">{p.monthsAtPace} মাস</p>
+              </div>
+              {p.monthsBoosted !== null && p.monthsSaved !== null && p.monthsSaved > 0 && (
+                <div className={`${tile} bg-income/10`}>
+                  <p className="text-xs text-income">মাসে +{formatTaka(BOOST_MINOR)} হলে</p>
+                  <p className="text-base font-semibold text-income">{monthLabel(p.boostYyyymm as string)}</p>
+                  <p className="text-xs text-income">{p.monthsSaved} মাস আগে</p>
+                </div>
+              )}
+            </div>
+          )}
+          <Foot>শুধু অনুমান — আয়-ব্যয় বদলালে ফল বদলাবে, নিশ্চয়তা নয়।</Foot>
+        </>
+      )}
+    </Block>
+  );
+}
+
+const MIX_META: Record<AssetKey, { label: string; bar: string; text: string }> = {
+  accounts: { label: 'নগদ / Accounts', bar: 'bg-chart2', text: 'text-chart2' },
+  investment: { label: 'বিনিয়োগ', bar: 'bg-chart7', text: 'text-chart7' },
+  receivable: { label: 'পাওনা', bar: 'bg-chart4', text: 'text-chart4' },
+  homeDeposit: { label: 'Home Deposit', bar: 'bg-chart1', text: 'text-chart1' },
+  gpf: { label: 'GPF', bar: 'bg-chart3', text: 'text-chart3' },
+};
+
+/** ৫. সম্পদের মিশ্রণ ও ঝুঁকি */
+export function AssetMixCard({ yyyymm, breakdown }: { yyyymm: string; breakdown: SnapshotBreakdown | undefined }) {
+  const mix = useMemo(() => assetMix(breakdown), [breakdown]);
+  if (!mix) return null;
+  const pct = (n: number) => Math.round(n * 100);
+  return (
+    <Block label="Asset mix" title="সম্পদের মিশ্রণ" sub={`${yyyymm} snapshot · মোট ${formatTaka(mix.totalMinor)}`}>
+      <div className="mb-2 flex h-4 overflow-hidden rounded-full bg-surface" role="img" aria-label="সম্পদের ভাগ">
+        {mix.items.map((i) => (
+          <div key={i.key} className={MIX_META[i.key].bar} style={{ width: `${i.share * 100}%` }} />
+        ))}
+      </div>
+      {mix.items.map((i) => (
+        <div key={i.key} className="flex items-center justify-between border-t border-muted/10 py-2 text-sm">
+          <span className="text-fg"><span className={MIX_META[i.key].text}>■</span> {MIX_META[i.key].label}</span>
+          <span><b className="text-fg">{formatTaka(i.minor)}</b> <span className="text-xs text-muted">· {(i.share * 100).toFixed(1)}%</span></span>
+        </div>
+      ))}
+      {mix.outsideShare >= 0.5 && (
+        <Tip><b>সতর্কতা:</b> বিনিয়োগ + পাওনা = {pct(mix.outsideShare)}% — টাকা অন্যের হাতে। নগদ মাত্র {pct(mix.cashShare)}%।</Tip>
+      )}
+    </Block>
+  );
+}
+
+/** Runway — কত মাস চলবে */
+export function RunwayCard({ cashMinor, totalMinor, avgExpenseMinor }: { cashMinor: number | null; totalMinor: number; avgExpenseMinor: number | null }) {
+  if (avgExpenseMinor === null || avgExpenseMinor <= 0) return null;
+  const total = runwayMonths(totalMinor, avgExpenseMinor);
+  const cash = cashMinor !== null ? runwayMonths(Math.max(cashMinor, 0), avgExpenseMinor) : null;
+  const fund = cashMinor !== null ? emergencyFund(cashMinor, avgExpenseMinor) : null;
+  const w = (m: number | null) => `${Math.max(0, Math.min(100, ((m ?? 0) / 6) * 100))}%`;
+  return (
+    <Block label="Runway" title="Runway — কত মাস চলবে" sub={`গড় মাসিক খরচ ${formatTaka(Math.round(avgExpenseMinor))} ধরে (শেষ ৬ মাস)`}>
+      {cash !== null && (
+        <>
+          <div className="flex justify-between text-sm"><span className="text-fg">শুধু নগদে</span><b className="text-expense">{cash.toFixed(1)} মাস</b></div>
+          <div className="mb-3 mt-1 h-3 overflow-hidden rounded-full bg-surface"><div className="h-full rounded-full bg-expense" style={{ width: w(cash) }} /></div>
+        </>
+      )}
+      {total !== null && (
+        <>
+          <div className="flex justify-between text-sm"><span className="text-fg">মোট সম্পদে</span><b className="text-income">{total.toFixed(1)} মাস</b></div>
+          <div className="mt-1 h-3 overflow-hidden rounded-full bg-surface"><div className="h-full rounded-full bg-primary" style={{ width: w(total) }} /></div>
+        </>
+      )}
+      <Foot>বার = ৬ মাসের জরুরি-তহবিল লক্ষ্য{fund ? ` · নগদে ${Math.floor(fund.pct)}% পূরণ` : ''}।</Foot>
+      {fund && fund.shortfallMinor > 0 && <Tip>জরুরি-তহবিল ৬ মাসের হতে আরও <b>{formatTaka(fund.shortfallMinor)}</b> নগদ দরকার।</Tip>}
+    </Block>
+  );
+}

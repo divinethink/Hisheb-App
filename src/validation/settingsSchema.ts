@@ -13,6 +13,8 @@ export const SettingsSchema = z.object({
   appLockEnabled: z.boolean().default(false), // flag only — implement হচ্ছে না
   baseCurrency: z.string().default('BDT'),
   overallMonthlyBudgetMinor: minorOrNull, // B1
+  savingsTargetPct: z.number().int().min(1).max(100).nullish().transform((v) => v ?? null), // Overview ধাপ ১: সঞ্চয়-হার টার্গেট % (null = ডিফল্ট ২০%)
+  netWorthGoalMinor: minorOrNull, // Overview ধাপ ১: সম্পদ লক্ষ্য (null = ডিফল্ট ৳10,00,000)
   lastReminderShownDate: dateOrNull, // C4
   lastBudgetThresholdShownDate: dateOrNull, // C4
   lastBudgetThresholdShownLevel: z.enum(['70', '80', '90', '100']).nullish().transform((v) => v ?? null), // C4

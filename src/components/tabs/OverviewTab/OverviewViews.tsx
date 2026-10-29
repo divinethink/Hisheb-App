@@ -5,8 +5,9 @@ import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
 import CategoryHistorySheet from './CategoryHistorySheet';
 import { YearlyBreakdown, YearsCard } from './BreakdownLists';
-import { CategoryBars, CategoryDonut, IncomeExpenseBars, IncomeExpenseLegend, SavingsRateBars, TrendLine } from './Charts';
-import { useMonthTransactions, useNetWorthSnapshots, useRangeTransactions } from '../../../hooks/useData';
+import { CategoryBars, CategoryDonut, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
+import { AssetMixCard, GoalCard, NetWorthBridgeCard, RunwayCard } from './GoalCards';
+import { useMonthTransactions, useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
 import { currentMonth, monthEndDate, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
 import { formatAmount, formatNet, formatNetTaka, formatTaka } from '../../../lib/format';
 import {
@@ -19,13 +20,12 @@ import {
   monthRows,
   netWorthGrowthAllTime,
   netWorthYtd,
+  recentMonths,
   resolveYear,
   runwayMonths,
   savingsInsight,
   savingsRatePct,
   snapshotAtOrBefore,
-  trendSeries,
-  yearlySavingsRates,
   type HistoricalLite,
   type NetWorthSnapshotLite,
   type TxLite,
@@ -405,11 +405,18 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
   const cats = useMemo(() => categoryBreakdown(allTxs), [allTxs]);
   const catTotal = useMemo(() => allTxs.reduce((a, t) => (t.type === 'expense' ? a + t.amountMinor : a), 0), [allTxs]);
   const [selCat, setSelCat] = useState<string | null>(null);
+  const settings = useSettings(uid);
+  // গড় খরচ/জমা: শেষ ৬টা সম্পূর্ণ মাস (চলতি মাস অসম্পূর্ণ, তাই বাদ); ডেটা-শূন্য মাস গড়ে ধরা হয় না।
+  const recent = useMemo(() => recentMonths(currentMonth(), 6), []);
+  const avgExp = useMemo(() => avgMonthlyExpense(allTxs, recent), [allTxs, recent]);
+  const avgSav = useMemo(() => avgMonthlySavings(allTxs, recent), [allTxs, recent]);
 
   if (tx.state.status === 'loading') return <SkeletonLoader />;
   if (tx.state.status === 'error') return <ErrorBox onRetry={tx.retry} />;
 
   const rows = allTimeRows(historical, tx.state.data);
+  const latestSnap = snaps.state.status === 'ready' && snaps.state.data.length > 0 ? snaps.state.data.reduce((a, b) => (b.yyyymm > a.yyyymm ? b : a)) : null;
+  const goalMinor = settings.state.status === 'ready' ? settings.state.data.netWorthGoalMinor : null;
   const sum = rows.reduce((a, r) => ({ i: a.i + r.incomeMinor, e: a.e + r.expenseMinor }), { i: 0, e: 0 });
 
   return (
@@ -437,6 +444,14 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
           </Card>
         ) : null;
       })()}
+      {snaps.state.status === 'ready' && latestSnap && (
+        <>
+          <NetWorthBridgeCard snapshots={snaps.state.data} txs={allTxs} />
+          <GoalCard currentMinor={latestSnap.totalAssetsMinor} latestYyyymm={latestSnap.yyyymm} goalMinor={goalMinor} avgSavingsMinor={avgSav} />
+          <AssetMixCard yyyymm={latestSnap.yyyymm} breakdown={latestSnap.breakdown} />
+          <RunwayCard cashMinor={latestSnap.breakdown ? latestSnap.breakdown.accountsMinor : null} totalMinor={latestSnap.totalAssetsMinor} avgExpenseMinor={avgExp} />
+        </>
+      )}
       {allTxs.length > 0 && (
         <Section title="Expense by category">
           <CategoryDonut items={cats} totalMinor={catTotal} />
@@ -446,12 +461,6 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
       )}
       {selCat && <CategoryHistorySheet name={selCat} txs={allTxs} cats={cats} onClose={() => setSelCat(null)} />}
       <YearsCard uid={uid} rows={rows} historical={historical} liveTxs={tx.state.data} />
-      <Section title="Net Worth Trend (Total Assets)">
-        {snaps.state.status === 'ready' ? <TrendLine points={trendSeries(snaps.state.data)} /> : snaps.state.status === 'error' ? <p role="alert" className="text-sm text-muted">Couldn’t load snapshots.</p> : <SkeletonLoader />}
-      </Section>
-      <Section title="Savings rate by year">
-        <SavingsRateBars items={yearlySavingsRates(rows)} />
-      </Section>
     </>
   );
 }

@@ -25,6 +25,40 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
     }
   }
 
+  const savedPct = settings.state.status === 'ready' ? settings.state.data.savingsTargetPct : null;
+  const savedGoal = settings.state.status === 'ready' ? settings.state.data.netWorthGoalMinor : null;
+  const [pctInput, setPctInput] = useState('');
+  const [goalInput, setGoalInput] = useState('');
+
+  async function savePct() {
+    if (busy) return;
+    const n = pctInput.trim() === '' ? null : Number(pctInput);
+    if (n !== null && (!Number.isInteger(n) || n < 1 || n > 100)) return;
+    setBusy(true);
+    try {
+      await updateSettings(uid, { savingsTargetPct: n });
+      setPctInput('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveGoal() {
+    if (busy) return;
+    const minor = goalInput.trim() === '' ? null : parseAmountToMinor(goalInput);
+    if (goalInput.trim() !== '' && minor === null) return;
+    setBusy(true);
+    try {
+      await updateSettings(uid, { netWorthGoalMinor: minor });
+      setGoalInput('');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const field = 'min-h-11 flex-1 rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none';
+  const btn = 'min-h-11 rounded-lg bg-primary px-4 text-sm font-medium text-canvas disabled:opacity-60';
+
   return (
     <FullScreenPage title="Monthly Target" onBack={onClose}>
       <p className="text-sm text-muted">
@@ -48,6 +82,37 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
       {saved != null && (
         <button type="button" onClick={() => void updateSettings(uid, { overallMonthlyBudgetMinor: null })} className="mt-3 min-h-11 text-sm text-muted underline">
           Clear target (current: {minorToInput(saved)})
+        </button>
+      )}
+      <h2 className="mt-8 text-sm font-medium text-fg">Overview লক্ষ্য</h2>
+      <p className="mt-1 text-xs text-muted">
+        সঞ্চয়-হার টার্গেট: {savedPct != null ? `${savedPct}%` : 'ডিফল্ট ২০%'} · সম্পদ লক্ষ্য: {savedGoal != null ? formatTaka(savedGoal) : 'ডিফল্ট ৳10,00,000'}
+      </p>
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          inputMode="numeric"
+          aria-label="Savings rate target percent"
+          placeholder="সঞ্চয়-হার টার্গেট % (যেমন 20)"
+          value={pctInput}
+          onChange={(e) => setPctInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+          className={field}
+        />
+        <button type="button" onClick={() => void savePct()} disabled={busy} className={btn}>Save</button>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          inputMode="decimal"
+          aria-label="Net worth goal"
+          placeholder="সম্পদ লক্ষ্য (যেমন 1000000)"
+          value={goalInput}
+          onChange={(e) => setGoalInput(e.target.value.replace(/[^0-9.,]/g, ''))}
+          className={field}
+        />
+        <button type="button" onClick={() => void saveGoal()} disabled={busy} className={btn}>Save</button>
+      </div>
+      {(savedPct != null || savedGoal != null) && (
+        <button type="button" onClick={() => void updateSettings(uid, { savingsTargetPct: null, netWorthGoalMinor: null })} className="mt-3 min-h-11 text-sm text-muted underline">
+          লক্ষ্য মুছে ডিফল্টে ফিরুন
         </button>
       )}
     </FullScreenPage>

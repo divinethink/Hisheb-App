@@ -12,6 +12,15 @@ describe('SettingsSchema', () => {
     expect(s.displayMode).toBe('system');
     expect(s.appLockEnabled).toBe(false);
   });
+  it('Overview লক্ষ্য-ঘর: ডিফল্ট null; অবৈধ মান বাতিল', () => {
+    const s = SettingsSchema.parse({});
+    expect(s.savingsTargetPct).toBeNull();
+    expect(s.netWorthGoalMinor).toBeNull();
+    expect(SettingsSchema.parse({ savingsTargetPct: 25, netWorthGoalMinor: 100000000 })).toMatchObject({ savingsTargetPct: 25, netWorthGoalMinor: 100000000 });
+    expect(SettingsSchema.safeParse({ savingsTargetPct: 0 }).success).toBe(false);
+    expect(SettingsSchema.safeParse({ savingsTargetPct: 101 }).success).toBe(false);
+    expect(SettingsSchema.safeParse({ netWorthGoalMinor: 0 }).success).toBe(false);
+  });
   it('rejects non-positive budget', () => {
     expect(SettingsSchema.safeParse({ overallMonthlyBudgetMinor: 0 }).success).toBe(false);
   });

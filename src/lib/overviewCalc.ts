@@ -1,6 +1,8 @@
 // Overview অ্যাগ্রিগেশন — pure, platform-independent (lib/ purity, Architecture Plan §০/§২)।
 // Yearly/All-Time precedence (C17): যে বছরের historicalYearlyTotals doc আছে, সেই বছরের টোটাল শুধু ওই doc থেকে —
 // লাইভ transactions যোগ হয় না (CSV overlap-এ double-count এড়াতে)। doc না থাকা বছরে লাইভ।
+import { shiftMonth } from './date';
+
 export interface TxLite {
   date: string; // YYYY-MM-DD
   type: 'income' | 'expense';
@@ -318,4 +320,154 @@ export type YearDetailKind = 'full' | 'partial' | 'none';
 export function yearDetailKind(isHistorical: boolean, liveTxCount: number): YearDetailKind {
   if (liveTxCount === 0) return 'none';
   return isHistorical ? 'partial' : 'full';
+}
+
+
+// ---- All-Time ধাপ ১ (Net Worth Bridge / Goal / Asset Mix / Runway) — সব pure, নতুন query/schema নেই ----
+
+export interface SnapshotWithFlow {
+  yyyymm: string;
+  totalAssetsMinor: number;
+  flow?: { incomeMinor: number; expenseMinor: number };
+}
+
+export interface NetWorthBridge {
+  baseYyyymm: string;
+  curYyyymm: string;
+  baseMinor: number;
+  curMinor: number;
+  deltaMinor: number;
+  /** নিজের জমা = সময়টায় (আয় − ব্যয়); ডেটা-শূন্য মাস বাদ (fabricate না) */
+  ownMinor: number;
+  /** বাকিটা: বিনিয়োগ-মান বদল, পাওনা আদায়, Cross-check অমিল ইত্যাদি */
+  otherMinor: number;
+  monthsSpan: number;
+  uncoveredMonths: number;
+}
+
+/** শেষ snapshot বনাম ~`months` মাস আগের snapshot (না থাকলে সবচেয়ে পুরনোটা)। মাসের আয়-ব্যয়ের উৎস: snapshot.flow, না থাকলে লাইভ tx।
+ *  তুলনার ২টা আলাদা snapshot না থাকলে null। */
+export function netWorthBridge(snapshots: readonly SnapshotWithFlow[], txs: readonly TxLite[], months = 12): NetWorthBridge | null {
+  if (snapshots.length < 2) return null;
+  const sorted = [...snapshots].sort((a, b) => a.yyyymm.localeCompare(b.yyyymm));
+  const cur = sorted[sorted.length - 1];
+  const base = snapshotAtOrBefore(sorted.filter((s) => s.yyyymm < cur.yyyymm), shiftMonth(cur.yyyymm, -months)) ?? sorted[0];
+  if (base.yyyymm >= cur.yyyymm) return null;
+  const flowOf = new Map(sorted.filter((s) => s.flow).map((s) => [s.yyyymm, s.flow as { incomeMinor: number; expenseMinor: number }]));
+  let own = 0;
+  let uncovered = 0;
+  let span = 0;
+  for (let m = shiftMonth(base.yyyymm, 1); m <= cur.yyyymm; m = shiftMonth(m, 1)) {
+    span += 1;
+    const f = flowOf.get(m);
+    if (f) {
+      own += f.incomeMinor - f.expenseMinor;
+      continue;
+    }
+    const inMonth = txs.filter((t) => t.date.startsWith(m));
+    if (inMonth.length === 0) {
+      uncovered += 1;
+      continue;
+    }
+    own += inMonth.reduce((a, t) => a + (t.type === 'income' ? t.amountMinor : -t.amountMinor), 0);
+  }
+  const delta = cur.totalAssetsMinor - base.totalAssetsMinor;
+  return {
+    baseYyyymm: base.yyyymm,
+    curYyyymm: cur.yyyymm,
+    baseMinor: base.totalAssetsMinor,
+    curMinor: cur.totalAssetsMinor,
+    deltaMinor: delta,
+    ownMinor: own,
+    otherMinor: delta - own,
+    monthsSpan: span,
+    uncoveredMonths: uncovered,
+  };
+}
+
+/** `yyyymm`-এর আগের n টা সম্পূর্ণ মাস (yyyymm নিজে বাদ — চলতি মাস অসম্পূর্ণ, গড় বায়াস করে), পুরনো → নতুন। */
+export function recentMonths(yyyymm: string, n: number): string[] {
+  return Array.from({ length: n }, (_, i) => shiftMonth(yyyymm, -(n - i)));
+}
+
+export interface GoalProjection {
+  remainingMinor: number;
+  reached: boolean;
+  /** গড় জমায় পৌঁছাতে মাস; জমা ≤ 0 বা ৫০ বছরের বেশি হলে null */
+  monthsAtPace: number | null;
+  paceYyyymm: string | null;
+  /** মাসে `boostMinor` বেশি জমালে */
+  monthsBoosted: number | null;
+  boostYyyymm: string | null;
+  monthsSaved: number | null;
+}
+
+const MAX_PROJECTION_MONTHS = 600;
+
+/** লক্ষ্যে পৌঁছানোর অনুমান। শুধু অনুমান — avg জমা ধ্রুবক ধরে। avg null/≤0 হলে pace null (fabricate না)। */
+export function goalProjection(currentMinor: number, goalMinor: number, avgMonthlySavingsMinor: number | null, latestYyyymm: string, boostMinor: number): GoalProjection {
+  const remaining = goalMinor - currentMinor;
+  if (remaining <= 0) {
+    return { remainingMinor: 0, reached: true, monthsAtPace: null, paceYyyymm: null, monthsBoosted: null, boostYyyymm: null, monthsSaved: null };
+  }
+  const avg = avgMonthlySavingsMinor !== null && avgMonthlySavingsMinor > 0 ? avgMonthlySavingsMinor : 0;
+  const months = (rate: number): number | null => {
+    if (rate <= 0) return null;
+    const m = Math.ceil(remaining / rate);
+    return m > MAX_PROJECTION_MONTHS ? null : m;
+  };
+  const pace = months(avg);
+  const boosted = boostMinor > 0 ? months(avg + boostMinor) : null;
+  return {
+    remainingMinor: remaining,
+    reached: false,
+    monthsAtPace: pace,
+    paceYyyymm: pace !== null ? shiftMonth(latestYyyymm, pace) : null,
+    monthsBoosted: boosted,
+    boostYyyymm: boosted !== null ? shiftMonth(latestYyyymm, boosted) : null,
+    monthsSaved: pace !== null && boosted !== null ? pace - boosted : null,
+  };
+}
+
+export type AssetKey = 'accounts' | 'investment' | 'receivable' | 'homeDeposit' | 'gpf';
+
+export interface AssetMix {
+  items: { key: AssetKey; minor: number; share: number }[];
+  totalMinor: number;
+  /** বিনিয়োগ + পাওনা — অন্যের হাতে থাকা অংশ (0..1) */
+  outsideShare: number;
+  cashShare: number;
+}
+
+/** snapshot.breakdown থেকে সম্পদের ভাগ (শুধু ধনাত্মক খাত); breakdown না থাকলে বা মোট ≤ 0 হলে null। */
+export function assetMix(b: { accountsMinor: number; receivableMinor: number; investmentMinor: number; homeDepositMinor: number; gpfMinor: number } | undefined): AssetMix | null {
+  if (!b) return null;
+  const raw: [AssetKey, number][] = [
+    ['accounts', b.accountsMinor],
+    ['investment', b.investmentMinor],
+    ['receivable', b.receivableMinor],
+    ['homeDeposit', b.homeDepositMinor],
+    ['gpf', b.gpfMinor],
+  ];
+  const pos = raw.filter(([, v]) => v > 0);
+  const total = pos.reduce((a, [, v]) => a + v, 0);
+  if (total <= 0) return null;
+  const items = pos.map(([key, minor]) => ({ key, minor, share: minor / total }));
+  const share = (k: AssetKey) => items.find((i) => i.key === k)?.share ?? 0;
+  return { items, totalMinor: total, outsideShare: share('investment') + share('receivable'), cashShare: share('accounts') };
+}
+
+export interface EmergencyFund {
+  targetMinor: number;
+  /** 0..100 (সর্বোচ্চ ১০০) */
+  pct: number;
+  shortfallMinor: number;
+}
+
+/** নগদ বনাম `targetMonths` মাসের খরচ। গড় খরচ ≤ 0 হলে null। */
+export function emergencyFund(cashMinor: number, avgMonthlyExpenseMinor: number | null, targetMonths = 6): EmergencyFund | null {
+  if (avgMonthlyExpenseMinor === null || avgMonthlyExpenseMinor <= 0) return null;
+  const target = Math.round(avgMonthlyExpenseMinor * targetMonths);
+  const cash = Math.max(cashMinor, 0);
+  return { targetMinor: target, pct: Math.min(100, (cash / target) * 100), shortfallMinor: Math.max(0, target - cash) };
 }
