@@ -6,6 +6,7 @@ import { addDebt, updateDebt } from '../../../data/debtRepo';
 import { markClean, markDirty } from '../../../pwa/dirtyForms';
 import { settleOrPending } from '../../../lib/async';
 import type { Debt } from '../../../validation/debtSchema';
+import DateInput from '../../common/DateInput';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -145,14 +146,7 @@ export default function DebtSheet({ uid, initial, onClose }: { uid: string; init
             <label htmlFor="debt-date" className="mb-1 block text-sm text-muted">
               Date
             </label>
-            <input
-              id="debt-date"
-              type="date"
-              lang="en-GB"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-            />
+            <DateInput uid={uid} id="debt-date" value={date} onChange={setDate} variant="tall" />
           </div>
           <div>
             <label htmlFor="debt-note" className="mb-1 block text-sm text-muted">

@@ -5,6 +5,7 @@ import { resolveAmountMinor, minorToInput } from '../../../lib/money';
 import { setInvestmentRepayments } from '../../../data/investmentRepo';
 import { settleOrPending } from '../../../lib/async';
 import type { Investment } from '../../../validation/investmentSchema';
+import DateInput from '../../common/DateInput';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -70,15 +71,7 @@ export default function InvestmentRepaymentSheet({
             <label htmlFor="inv-rep-date" className="mb-1 block text-sm text-muted">
               Date
             </label>
-            <input
-              id="inv-rep-date"
-              type="date"
-              lang="en-GB"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              aria-invalid={submitted && !date}
-              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-            />
+            <DateInput uid={uid} id="inv-rep-date" value={date} onChange={setDate} invalid={submitted && !date} variant="tall" />
           </div>
           <div>
             <label htmlFor="inv-rep-note" className="mb-1 block text-sm text-muted">

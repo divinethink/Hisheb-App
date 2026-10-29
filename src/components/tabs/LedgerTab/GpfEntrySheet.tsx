@@ -6,6 +6,7 @@ import { fiscalYearOf } from '../../../lib/gpfCalc';
 import { addGpfEntry, updateGpfEntry } from '../../../data/gpfRepo';
 import { settleOrPending } from '../../../lib/async';
 import type { GpfEntry } from '../../../validation/gpfSchema';
+import DateInput from '../../common/DateInput';
 
 type EntryType = GpfEntry['type'];
 const TYPES: EntryType[] = ['contribution', 'interest', 'withdrawal'];
@@ -86,15 +87,7 @@ export default function GpfEntrySheet({
             <label htmlFor="gpf-date" className="mb-1 block text-sm text-muted">
               Date
             </label>
-            <input
-              id="gpf-date"
-              type="date"
-              lang="en-GB"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              aria-invalid={submitted && !date}
-              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-            />
+            <DateInput uid={uid} id="gpf-date" value={date} onChange={setDate} invalid={submitted && !date} variant="tall" />
           </div>
           <div>
             <label htmlFor="gpf-note" className="mb-1 block text-sm text-muted">

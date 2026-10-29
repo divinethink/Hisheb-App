@@ -9,6 +9,7 @@ import { setRepayments } from '../../../data/debtRepo';
 import { useSettings } from '../../../hooks/useData';
 import { settleOrPending } from '../../../lib/async';
 import type { Debt } from '../../../validation/debtSchema';
+import DateInput from '../../common/DateInput';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -136,15 +137,7 @@ export default function RepaymentSheet({
             <label htmlFor="rep-date" className="mb-1 block text-sm text-muted">
               Date
             </label>
-            <input
-              id="rep-date"
-              type="date"
-              lang="en-GB"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              aria-invalid={submitted && !date}
-              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-            />
+            <DateInput uid={uid} id="rep-date" value={date} onChange={setDate} invalid={submitted && !date} variant="tall" />
           </div>
           <div>
             <label htmlFor="rep-note" className="mb-1 block text-sm text-muted">

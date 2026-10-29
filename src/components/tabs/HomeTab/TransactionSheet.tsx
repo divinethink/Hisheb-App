@@ -125,7 +125,6 @@ export default function TransactionSheet({
   const [addingLabel, setAddingLabel] = useState(false);
   const settings = useSettings(uid);
   const largeThreshold = settings.state.status === 'ready' ? settings.state.data.largeAmountWarningThresholdMinor : null;
-  const dateFormat = settings.state.status === 'ready' ? settings.state.data.dateFormat : 'dmy';
 
   const dirty = initial
     ? type !== initial.type ||
@@ -332,7 +331,7 @@ export default function TransactionSheet({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label htmlFor="date" className="mb-0.5 block text-xs text-muted">Date</label>
-              <DateInput id="date" value={date} onChange={setDate} dateFormat={dateFormat} invalid={submitted && !isValidDate(date)} />
+              <DateInput uid={uid} id="date" value={date} onChange={setDate} invalid={submitted && !isValidDate(date)} />
               {submitted && !isValidDate(date) && (
                 <p role="alert" className="mt-1 text-sm text-expense">Pick a valid date.</p>
               )}

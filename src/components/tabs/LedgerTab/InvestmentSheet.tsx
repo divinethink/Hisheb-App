@@ -3,6 +3,7 @@ import { ChevronDown, Paperclip, Trash2, X } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import AmountInput from '../../common/AmountInput';
 import CompanyLogo from '../../common/CompanyLogo';
+import DateInput from '../../common/DateInput';
 import CompanyPickerScreen from './CompanyPickerScreen';
 import ContractLink from '../../common/ContractLink';
 import { getEnv } from '../../../config/env';
@@ -393,7 +394,7 @@ export default function InvestmentSheet({
         {/* Medium ও Investment No — এক লাইনে */}
         <div>
           <div className="grid grid-cols-2 gap-2">
-            <FieldCard label="Medium (optional)" htmlFor="inv-medium">
+            <FieldCard label="Medium" htmlFor="inv-medium">
               <input
                 id="inv-medium"
                 value={medium}
@@ -404,7 +405,7 @@ export default function InvestmentSheet({
                 className={INPUT}
               />
             </FieldCard>
-            <FieldCard label="Investment No (optional)" htmlFor="inv-no">
+            <FieldCard label="Investment No" htmlFor="inv-no">
               <input id="inv-no" value={platformNo} maxLength={30} placeholder="#74874" onChange={(e) => setPlatformNo(e.target.value)} className={INPUT} />
             </FieldCard>
           </div>
@@ -427,13 +428,13 @@ export default function InvestmentSheet({
           )}
         </div>
 
-        <AmountInput value={amount} onChange={setAmount} showError={submitted} />
+        <AmountInput card value={amount} onChange={setAmount} showError={submitted} />
 
         <div className="grid grid-cols-2 gap-2">
           <FieldCard label="Date" htmlFor="inv-date">
-            <input id="inv-date" type="date" lang="en-GB" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT} />
+            <DateInput uid={uid} id="inv-date" value={date} onChange={setDate} variant="card" />
           </FieldCard>
-          <FieldCard label="Note (optional)" htmlFor="inv-note">
+          <FieldCard label="Note" htmlFor="inv-note">
             <input id="inv-note" value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} className={INPUT} />
           </FieldCard>
         </div>
@@ -441,12 +442,12 @@ export default function InvestmentSheet({
         {/* Duration ও Contract PDF — এক লাইনে */}
         <div>
           <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" aria-label="Contract PDF file" onChange={(e) => void pickPdf(e.target.files?.[0])} />
-          <div className="grid grid-cols-[5fr_7fr] items-start gap-2">
-            <FieldCard label="Duration (optional)" htmlFor="inv-duration">
+          <div className="grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-center gap-2">
+            <FieldCard label="Duration" htmlFor="inv-duration">
               <input id="inv-duration" value={duration} maxLength={40} onChange={(e) => setDuration(e.target.value)} className={INPUT} />
             </FieldCard>
             {pdfFile ? (
-              <div className="rounded-xl border border-muted/25 bg-surface px-3 pb-2 pt-2">
+              <div className="min-w-0 rounded-xl border border-muted/25 bg-surface px-3 pb-2 pt-2">
                 <span className="block truncate text-xs text-muted">Contract PDF</span>
                 <div className="flex min-h-8 items-center gap-1.5">
                   <Paperclip aria-hidden size={16} className="shrink-0 text-muted" />
@@ -457,8 +458,8 @@ export default function InvestmentSheet({
                 </div>
               </div>
             ) : hasSavedContract && initial?.contractFileId ? (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-start gap-1.5">
+              <div className="flex min-w-0 flex-col gap-2">
+                <div className="flex items-center gap-1.5">
                   <div className="min-w-0 flex-1">
                     <ContractLink fileId={initial.contractFileId} name={initial.contractName} />
                   </div>
@@ -498,9 +499,9 @@ export default function InvestmentSheet({
                 type="button"
                 disabled={!driveReady}
                 onClick={() => fileRef.current?.click()}
-                className="rounded-xl border-2 border-dashed border-primary/50 bg-primary/5 px-3 pb-2 pt-2 text-left disabled:opacity-60"
+                className="min-w-0 rounded-xl border-2 border-dashed border-primary/50 bg-primary/5 px-3 pb-2 pt-2 text-left disabled:opacity-60"
               >
-                <span className="block truncate text-xs text-muted">Contract PDF (optional)</span>
+                <span className="block truncate text-xs text-muted">Contract PDF</span>
                 <span className="flex min-h-8 items-center gap-1.5 text-sm font-medium text-primary">
                   <Paperclip aria-hidden size={16} className="shrink-0" /> Attach PDF
                 </span>

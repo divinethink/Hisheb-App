@@ -10,6 +10,7 @@ export default function AmountInput({
   largeAmountThresholdMinor = null,
   onChange,
   autoFocus = false,
+  card = false,
 }: {
   value: string;
   /** দিলে native (OS) numeric কীবোর্ড মোড: field editable, amount-এর পাশে "+" বাটন (BDT-এর আগে)।
@@ -23,6 +24,8 @@ export default function AmountInput({
   largeAmountThresholdMinor?: number | null;
   /** native মোডে mount-এ amount-ঘরে ফোকাস (নতুন entry-তে কীবোর্ড সাথে সাথে খুলতে)। */
   autoFocus?: boolean;
+  /** কার্ড-স্টাইল (লেবেল "Amount" কার্ডের ভেতরে, expression ডানদিকের লেবেল-লাইনে) — বাড়তি ফাঁকা লাইন নেই। শুধু native মোডে; বাকি ফর্মে অপরিবর্তিত। */
+  card?: boolean;
 }) {
   const native = onChange !== undefined;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +51,63 @@ export default function AmountInput({
   const invalid = showError && (exprActive ? evaluated === null : parsed === null);
   const isLarge =
     !invalid && largeAmountThresholdMinor != null && parsed !== null && parsed > largeAmountThresholdMinor;
+
+  if (card && native) {
+    return (
+      <div>
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1 rounded-xl border border-muted/25 bg-surface px-3 pb-2 pt-2 focus-within:border-primary">
+            <label htmlFor="amount" className="block text-xs text-muted">
+              Amount
+            </label>
+            {/* editable input: expression থাকলে ডানদিকের লেবেল-লাইনে raw "12+12+12" দেখায়; না থাকলে অদৃশ্য (বড় field-এ একই সংখ্যা) */}
+            <input
+              id="amount"
+              ref={inputRef}
+              inputMode="decimal"
+              autoComplete="off"
+              autoFocus={autoFocus}
+              value={value}
+              onChange={(e) => onChange(e.target.value.replace(/,/g, '.').replace(/[^0-9.+]/g, ''))}
+              aria-invalid={invalid}
+              aria-describedby={invalid ? 'amount-error' : undefined}
+              className={`absolute right-3 top-2 h-4 w-1/2 bg-transparent text-right text-xs outline-none ${
+                exprActive ? 'text-muted' : 'text-transparent caret-transparent'
+              }`}
+            />
+            <div
+              aria-hidden="true"
+              onMouseDown={keepFocus}
+              onClick={() => inputRef.current?.focus()}
+              className="flex min-h-8 items-center gap-2"
+            >
+              {type && <span className={type === 'income' ? 'text-income' : 'text-expense'}>{type === 'income' ? '+' : '−'}</span>}
+              <span className={`min-w-0 flex-1 truncate text-xl ${mainDisplay ? 'text-fg' : 'text-muted'}`}>{mainDisplay || '0'}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Add"
+            onMouseDown={keepFocus}
+            onPointerDown={keepFocus}
+            onClick={addPlus}
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-primary/40 bg-primary/10 text-xl text-primary active:bg-primary/20"
+          >
+            +
+          </button>
+          <span className="shrink-0 text-muted">BDT</span>
+        </div>
+        {invalid && (
+          <p id="amount-error" role="alert" className="mt-1 text-sm text-expense">
+            {exprActive
+              ? 'Finish the calculation before saving (e.g. remove a trailing operator).'
+              : 'Enter an amount greater than 0 (up to 2 decimals).'}
+          </p>
+        )}
+        {isLarge && <p className="mt-1 text-sm text-muted">Amount looks unusually large — please double-check.</p>}
+      </div>
+    );
+  }
 
   return (
     <div>

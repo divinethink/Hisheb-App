@@ -6,6 +6,7 @@ import { resolveAmountMinor, minorToInput } from '../../../lib/money';
 import { newBorrowingId, setBorrowings } from '../../../data/debtRepo';
 import { settleOrPending } from '../../../lib/async';
 import type { Debt } from '../../../validation/debtSchema';
+import DateInput from '../../common/DateInput';
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -71,15 +72,7 @@ export default function BorrowingSheet({
             <label htmlFor="bor-date" className="mb-1 block text-sm text-muted">
               Date
             </label>
-            <input
-              id="bor-date"
-              type="date"
-              lang="en-GB"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              aria-invalid={submitted && !date}
-              className="min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
-            />
+            <DateInput uid={uid} id="bor-date" value={date} onChange={setDate} invalid={submitted && !date} variant="tall" />
           </div>
           <div>
             <label htmlFor="bor-note" className="mb-1 block text-sm text-muted">

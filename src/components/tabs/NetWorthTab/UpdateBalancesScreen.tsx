@@ -13,6 +13,7 @@ import type { Debt } from '../../../validation/debtSchema';
 import type { Investment } from '../../../validation/investmentSchema';
 import type { HomeDepositEntry } from '../../../validation/homeDepositSchema';
 import type { GpfEntry } from '../../../validation/gpfSchema';
+import DateInput from '../../common/DateInput';
 
 function shiftMonth(yyyymm: string, delta: number): string {
   const [y, m] = yyyymm.split('-').map(Number);
@@ -189,13 +190,7 @@ export default function UpdateBalancesScreen({
 
         <label className="flex items-center justify-between text-sm">
           <span className="text-muted">Snapshot date</span>
-          <input
-            type="date"
-            lang="en-GB"
-            value={snapshotDate}
-            onChange={(e) => setSnapshotDate(e.target.value)}
-            className="min-h-11 rounded-lg border border-muted/40 bg-surface px-2 text-fg"
-          />
+          <DateInput uid={uid} id="snapshot-date" value={snapshotDate} onChange={setSnapshotDate} wrapperClassName="w-40" />
         </label>
 
         <ul className="flex flex-col gap-3">

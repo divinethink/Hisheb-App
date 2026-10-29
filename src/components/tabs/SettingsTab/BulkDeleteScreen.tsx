@@ -9,6 +9,7 @@ import FullScreenPage from '../../common/FullScreenPage';
 import { buildBackupPayload } from '../../../data/backupRepo';
 import { countTransactionsInRange, hardDeleteTransactionsByRange } from '../../../data/transactionRepo';
 import { currentMonth, toDhakaDate } from '../../../lib/date';
+import DateInput from '../../common/DateInput';
 
 type RangeType = 'daily' | 'monthly' | 'yearly' | 'all';
 type Step = 'filter' | 'backup' | 'confirm' | 'done' | 'error';
@@ -138,13 +139,7 @@ export default function BulkDeleteScreen({ user, onClose }: { user: SessionUser;
           </div>
 
           {rangeType === 'daily' && (
-            <input
-              type="date"
-              lang="en-GB"
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
-              className="mt-4 min-h-11 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg"
-            />
+            <DateInput uid={user.uid} id="bulk-day" value={day} onChange={setDay} wrapperClassName="mt-4" />
           )}
           {rangeType === 'monthly' && (
             <input
