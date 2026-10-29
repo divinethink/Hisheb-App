@@ -9,10 +9,10 @@ import { formatTaka } from '../../../lib/format';
 // সেকশন-কার্ড: আইকন + শিরোনাম + (ডানে) বর্তমান মান
 function Section({ icon: Icon, title, value, children }: { icon: typeof Target; title: string; value?: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-muted/20 bg-surface p-4">
+    <section className="rounded-2xl border border-muted/20 bg-surface p-3">
       <div className="flex items-center gap-2">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Icon aria-hidden size={16} />
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Icon aria-hidden size={14} />
         </span>
         <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">{title}</h2>
         {value != null && <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">{value}</span>}
@@ -23,9 +23,9 @@ function Section({ icon: Icon, title, value, children }: { icon: typeof Target; 
 }
 
 const FIELD_BOX = 'flex min-w-0 flex-1 items-center rounded-xl border border-muted/25 bg-canvas px-3 focus-within:border-primary';
-const FIELD_INPUT = 'min-h-11 w-full min-w-0 bg-transparent text-base text-fg outline-none placeholder:text-muted/60';
-const SAVE_BTN = 'min-h-11 shrink-0 rounded-xl bg-primary px-5 text-sm font-medium text-canvas disabled:opacity-60';
-const LINK_BTN = 'min-h-11 text-xs text-muted underline';
+const FIELD_INPUT = 'min-h-10 w-full min-w-0 bg-transparent text-base text-fg outline-none placeholder:text-muted/60';
+const SAVE_BTN = 'min-h-10 shrink-0 rounded-xl bg-primary px-4 text-sm font-medium text-canvas disabled:opacity-60';
+const LINK_BTN = 'min-h-9 text-xs text-muted underline';
 
 // Target & More (Overall budget + Overview লক্ষ্য + মূল্যস্ফীতি + প্রয়োজনীয় খাত) — লজিক অপরিবর্তিত, শুধু UI কার্ড-ভিত্তিক (owner-request ২০২৬-১০-৩০)।
 export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: () => void }) {
@@ -109,14 +109,14 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
 
   return (
     <FullScreenPage title="Target & More" onBack={onClose}>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5">
         <Section icon={Target} title="Monthly target" value={saved != null ? formatTaka(saved) : 'Not set'}>
-          <p className="mt-2 text-xs text-muted">
+          <p className="mt-1.5 text-xs text-muted">
             {saved != null
               ? `Currently ${formatTaka(saved)} — reminders at 70% / 80% / 90% / 100% of the target.`
               : 'Not set — set a monthly spending target to get budget reminders.'}
           </p>
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
             <div className={FIELD_BOX}>
               <input
                 inputMode="decimal"
@@ -132,16 +132,16 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
             </button>
           </div>
           {saved != null && (
-            <button type="button" onClick={() => void updateSettings(uid, { overallMonthlyBudgetMinor: null })} className={`mt-1 ${LINK_BTN}`}>
+            <button type="button" onClick={() => void updateSettings(uid, { overallMonthlyBudgetMinor: null })} className={`mt-0.5 ${LINK_BTN}`}>
               Clear target (current: {minorToInput(saved)})
             </button>
           )}
         </Section>
 
         <Section icon={Flag} title="Overview লক্ষ্য">
-          <div className="mt-3 flex flex-col gap-3">
+          <div className="mt-2 flex flex-col gap-2">
             <div>
-              <p className="mb-1 flex items-center justify-between text-xs text-muted">
+              <p className="mb-0.5 flex items-center justify-between text-xs text-muted">
                 <span>সঞ্চয়-হার টার্গেট</span>
                 <span className="font-medium text-fg">{savedPct != null ? `${savedPct}%` : 'ডিফল্ট ২০%'}</span>
               </p>
@@ -160,7 +160,7 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
               </div>
             </div>
             <div>
-              <p className="mb-1 flex items-center justify-between text-xs text-muted">
+              <p className="mb-0.5 flex items-center justify-between text-xs text-muted">
                 <span>সম্পদ লক্ষ্য</span>
                 <span className="font-medium text-fg">{savedGoal != null ? formatTaka(savedGoal) : 'ডিফল্ট ৳10,00,000'}</span>
               </p>
@@ -180,15 +180,15 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
             </div>
           </div>
           {(savedPct != null || savedGoal != null) && (
-            <button type="button" onClick={() => void updateSettings(uid, { savingsTargetPct: null, netWorthGoalMinor: null })} className={`mt-1 ${LINK_BTN}`}>
+            <button type="button" onClick={() => void updateSettings(uid, { savingsTargetPct: null, netWorthGoalMinor: null })} className={`mt-0.5 ${LINK_BTN}`}>
               লক্ষ্য মুছে ডিফল্টে ফিরুন
             </button>
           )}
         </Section>
 
         <Section icon={TrendingUp} title="মূল্যস্ফীতি (বছরে)" value={savedInflation != null ? `${savedInflation}%` : 'সেট করা নেই'}>
-          <p className="mt-2 text-xs text-muted">মূল্যস্ফীতি (বছরে): {savedInflation != null ? `${savedInflation}%` : 'সেট করা নেই'} — Yearly-তে "আসল বৃদ্ধি" হিসাবে লাগে</p>
-          <div className="mt-3 flex items-center gap-2">
+          <p className="mt-1.5 text-xs text-muted">Yearly-তে "আসল বৃদ্ধি" হিসাবে লাগে।</p>
+          <div className="mt-2 flex items-center gap-2">
             <div className={FIELD_BOX}>
               <input
                 inputMode="decimal"
@@ -202,7 +202,7 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
             <button type="button" onClick={() => void saveInflation()} disabled={busy} className={SAVE_BTN}>Save</button>
           </div>
           {savedInflation != null && (
-            <button type="button" onClick={() => void updateSettings(uid, { inflationPct: null })} className={`mt-1 ${LINK_BTN}`}>
+            <button type="button" onClick={() => void updateSettings(uid, { inflationPct: null })} className={`mt-0.5 ${LINK_BTN}`}>
               মূল্যস্ফীতি মুছুন
             </button>
           )}
@@ -210,8 +210,8 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
 
         {catNames.length > 0 && (
           <Section icon={ShieldCheck} title="প্রয়োজনীয় খাত" value={`${catNames.filter((n) => essential.includes(n)).length}/${catNames.length}`}>
-            <p className="mt-2 text-xs text-muted">যেগুলো কমানো যায় না (যেমন বাসা-ভাড়া, বাজার) সেগুলো বেছে রাখুন — Overview-র "ছোট ফাঁক"-এ এগুলো আসবে না।</p>
-            <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="প্রয়োজনীয় খাত">
+            <p className="mt-1.5 text-xs text-muted">যেগুলো কমানো যায় না (যেমন বাসা-ভাড়া, বাজার) সেগুলো বেছে রাখুন — Overview-র "ছোট ফাঁক"-এ এগুলো আসবে না।</p>
+            <div className="mt-2 grid grid-cols-2 gap-1.5" role="group" aria-label="প্রয়োজনীয় খাত">
               {catNames.map((n) => {
                 const on = essential.includes(n);
                 return (
@@ -221,10 +221,12 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
                     aria-pressed={on}
                     disabled={busy}
                     onClick={() => void toggleEssential(n)}
-                    className={`flex min-h-9 max-w-full items-center gap-1 rounded-full border px-2.5 text-[13px] leading-tight disabled:opacity-60 ${on ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-muted/30 bg-canvas text-fg'}`}
+                    className={`flex min-h-10 items-center gap-2 rounded-xl border px-2 py-1 text-left text-[13px] leading-tight disabled:opacity-60 ${on ? 'border-primary/60 bg-primary/10 font-medium text-primary' : 'border-muted/25 bg-canvas text-fg'}`}
                   >
-                    {on && <Check aria-hidden size={13} className="shrink-0" />}
-                    <span className="truncate">{n}</span>
+                    <span aria-hidden className={`flex size-4 shrink-0 items-center justify-center rounded-full border ${on ? 'border-primary bg-primary text-canvas' : 'border-muted/40'}`}>
+                      {on && <Check size={11} strokeWidth={3} />}
+                    </span>
+                    <span className="line-clamp-2 min-w-0 break-words">{n}</span>
                   </button>
                 );
               })}
