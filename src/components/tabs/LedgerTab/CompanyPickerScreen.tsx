@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Pencil, Plus } from 'lucide-react';
+import { Check, PenLine, Pencil, Plus } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import CompanyLogo from '../../common/CompanyLogo';
@@ -12,11 +12,14 @@ export default function CompanyPickerScreen({
   uid,
   selectedId,
   onSelect,
+  onSelectOther,
   onClose,
 }: {
   uid: string;
   selectedId: string | null;
   onSelect: (c: InvestmentCompany) => void;
+  /** দিলে "Other company" সারি দেখায় — কোম্পানি সেভ না করে এন্ট্রিতে নাম টাইপ */
+  onSelectOther?: () => void;
   onClose: () => void;
 }) {
   const companies = useInvestmentCompanies(uid);
@@ -78,6 +81,18 @@ export default function CompanyPickerScreen({
             <span className="block text-xs text-muted">Name · Medium · Logo — saved once</span>
           </span>
         </button>
+
+        {onSelectOther && (
+          <button type="button" onClick={onSelectOther} className="flex min-h-14 items-center gap-3 rounded-2xl border border-muted/25 bg-surface px-3 text-left">
+            <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <PenLine size={20} />
+            </span>
+            <span>
+              <span className="block text-sm font-medium text-fg">Other company</span>
+              <span className="block text-xs text-muted">Just type a name — not saved</span>
+            </span>
+          </button>
+        )}
 
         {companies.state.status === 'loading' && <SkeletonLoader />}
         {companies.state.status === 'error' && (

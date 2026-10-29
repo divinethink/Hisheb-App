@@ -6,7 +6,7 @@ import CompanyLogo from '../../common/CompanyLogo';
 import CompanyPickerScreen from './CompanyPickerScreen';
 import ContractLink from '../../common/ContractLink';
 import { getEnv } from '../../../config/env';
-import { driveNotReadyReason, isGoogleDriveConfigured, uploadContractPdf } from '../../../data/googleDrive';
+import { deleteContractFile, driveNotReadyReason, isGoogleDriveConfigured, uploadContractPdf } from '../../../data/googleDrive';
 import { checkContractMeta, contractProblemMessage, hasPdfMagic, safeContractName } from '../../../lib/contractFile';
 import { minorToInput, resolveAmountMinor } from '../../../lib/money';
 import { addInvestment, updateInvestment } from '../../../data/investmentRepo';
@@ -69,14 +69,14 @@ export default function InvestmentSheet({
   ledgerId?: string | null;
   onClose: () => void;
 }) {
-  // পুরনো এন্ট্রি (companyId নেই) = legacy: নাম হুবহু আগের মতো টেক্সট, [n]/কোম্পানি ছোঁয়া হয় না (zero data loss, ধাপ ২-এ Link)
-  const legacy = initial !== null && !initial.companyId;
-  const baseName = initial ? (legacy ? initial.investedTo : baseInvestmentName(initial.investedTo, initial.round)) : '';
+  // কোম্পানি-ছাড়া এন্ট্রি (পুরনো বা "Other company"): কোম্পানির নাম নিজে লেখা, কোনো কোম্পানি-রেকর্ড তৈরি হয় না; Round দিলে [n] বসে
+  const baseName = initial ? baseInvestmentName(initial.investedTo, initial.round) : '';
   const initialRound = initial?.round ? String(initial.round) : '';
   const companies = useInvestmentCompanies(uid);
   const investments = useInvestments(uid);
   const [companyId, setCompanyId] = useState<string | null>(initial?.companyId ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [customCompany, setCustomCompany] = useState(initial !== null && !initial.companyId);
   const [investedTo, setInvestedTo] = useState(baseName);
   const [round, setRound] = useState(initialRound);
   const [platformNo, setPlatformNo] = useState(initial?.platformNo ?? '');
@@ -93,6 +93,7 @@ export default function InvestmentSheet({
   // PDF (ধাপ ৩): নতুন ফাইল বাছাই হয় ফর্মে, আপলোড হয় Save-এর সময় (বাতিল করলে Drive-এ এতিম ফাইল জমে না)
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [removeContract, setRemoveContract] = useState(false);
+  const [confirmRemovePdf, setConfirmRemovePdf] = useState(false);
   const [pdfError, setPdfError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadedRef = useRef<{ file: File; fileId: string; name: string } | null>(null); // সেভ আটকে retry হলে দ্বিতীয়বার আপলোড নয়
@@ -111,10 +112,10 @@ export default function InvestmentSheet({
 
   const roundParsed = parseRoundInput(round);
   const trimmedName = investedTo.trim();
-  const roundInvalid = !legacy && roundParsed === 'invalid';
-  const doubleTag = !legacy && typeof roundParsed === 'number' && hasTrailingRoundTag(trimmedName);
-  const companyMissing = !legacy && companyId === null;
-  const savedAs = legacy ? trimmedName : composeInvestmentName(trimmedName, typeof roundParsed === 'number' ? roundParsed : null);
+  const roundInvalid = roundParsed === 'invalid';
+  const doubleTag = typeof roundParsed === 'number' && hasTrailingRoundTag(trimmedName);
+  const companyMissing = companyId === null && !customCompany;
+  const savedAs = composeInvestmentName(trimmedName, typeof roundParsed === 'number' ? roundParsed : null);
 
   const dirty = initial
     ? trimmedName !== baseName ||
@@ -127,8 +128,9 @@ export default function InvestmentSheet({
       platformNo.trim() !== initial.platformNo ||
       pdfFile !== null ||
       removeContract ||
-      (!legacy && (companyId !== (initial.companyId ?? null) || round.trim() !== initialRound))
-    : trimmedName !== '' || companyId !== null || amount !== '' || medium !== '' || duration !== '' || note !== '' || platformNo !== '' || round !== '' || pdfFile !== null;
+      companyId !== (initial.companyId ?? null) ||
+      round.trim() !== initialRound
+    : trimmedName !== '' || companyId !== null || customCompany || amount !== '' || medium !== '' || duration !== '' || note !== '' || platformNo !== '' || round !== '' || pdfFile !== null;
 
   useEffect(() => {
     if (!dirty) return;
@@ -153,7 +155,6 @@ export default function InvestmentSheet({
       if (!hasPdfMagic(head)) setPdfError('This file is not a valid PDF.');
       else {
         setPdfFile(file);
-        setRemoveContract(false);
       }
     }
     if (fileRef.current) fileRef.current.value = '';
@@ -165,10 +166,11 @@ export default function InvestmentSheet({
     const parsed = resolveAmountMinor(amount);
     setError('');
     if (!trimmedName || parsed === null || !date || companyMissing || roundInvalid || doubleTag) return;
-    const roundNum = !legacy && typeof roundParsed === 'number' ? roundParsed : null;
-    const finalName = legacy ? trimmedName : composeInvestmentName(trimmedName, roundNum);
+    const roundNum = typeof roundParsed === 'number' ? roundParsed : null;
+    const finalName = composeInvestmentName(trimmedName, roundNum);
     const platform = platformNo.trim().replace(/^#\s*/, '');
     setSaving(true);
+    let stage: 'upload' | 'delete' | 'save' = 'upload';
     try {
       // PDF আগে আপলোড (প্রথম await-এই, যাতে Google অনুমতি-পপআপ ক্লিকের সাথে যুক্ত থাকে); ব্যর্থ হলে এন্ট্রি সেভ হয় না
       let contract: { contractFileId: string | null; contractName: string | null } | null = null;
@@ -184,8 +186,15 @@ export default function InvestmentSheet({
         }
         contract = { contractFileId: up.fileId, contractName: safeContractName(up.name) };
       } else if (removeContract) {
-        contract = { contractFileId: null, contractName: null }; // শুধু রেফারেন্স সরে; Drive-এর ফাইল মোছা হয় না
+        contract = { contractFileId: null, contractName: null };
       }
+      // Remove করলে Drive থেকেও মোছা (নতুন PDF থাকলে সেটা আগেই আপলোড হয়েছে); ফাইল আগেই নেই হলে ঠিক আছে
+      if (removeContract && initial?.contractFileId) {
+        stage = 'delete';
+        if (!isGoogleDriveConfigured(DRIVE_CLIENT_ID)) throw new Error(`Google Drive not ready: ${driveNotReadyReason(DRIVE_CLIENT_ID)}`);
+        await deleteContractFile(DRIVE_CLIENT_ID, initial.contractFileId);
+      }
+      stage = 'save';
       if (initial) {
         await settleOrPending(
           updateInvestment(uid, initial.id, {
@@ -196,8 +205,8 @@ export default function InvestmentSheet({
             duration,
             note,
             platformNo: platform,
-            // legacy এন্ট্রিতে companyId/round লেখা হয় না — শুধু কোম্পানি-সংযুক্ত এন্ট্রিতে
-            ...(legacy ? {} : { companyId, round: roundNum }),
+            // companyId/round শুধু বদলালে লেখা হয় (পুরনো এন্ট্রির ফিল্ড অক্ষত থাকে)
+            ...(companyId !== (initial.companyId ?? null) || roundNum !== (initial.round ?? null) ? { companyId, round: roundNum } : {}),
             ...(contract ?? {}),
           }),
           3000,
@@ -227,7 +236,9 @@ export default function InvestmentSheet({
       onClose();
     } catch (e) {
       setError(
-        pdfFile && !uploadedRef.current
+        stage === 'delete'
+          ? 'Could not remove the PDF from Google Drive. Check your connection, allow the Google popup and tap Save again.'
+          : pdfFile && !uploadedRef.current
           ? `PDF upload failed${e instanceof Error && e.message ? `: ${e.message}` : ''}. Allow the Google popup and tap Save again, or remove the PDF.`
           : 'Could not save. Check your connection and try again.',
       );
@@ -241,8 +252,16 @@ export default function InvestmentSheet({
         uid={uid}
         selectedId={companyId}
         onClose={() => setPickerOpen(false)}
+        onSelectOther={() => {
+          // সেভ-করা কোম্পানির নাম বসে থাকলে সেটা মুছে ফাঁকা করি, নইলে নিজের লেখা নাম রাখি
+          if (company && trimmedName === company.name) setInvestedTo('');
+          setCompanyId(null);
+          setCustomCompany(true);
+          setPickerOpen(false);
+        }}
         onSelect={(c) => {
           setCompanyId(c.id);
+          setCustomCompany(false);
           setInvestedTo(c.name); // নাম এন্ট্রিতে এডিটযোগ্য থাকে; এন্ট্রির নাম বদলালে কোম্পানি-রেকর্ড বদলায় না
           setPickerOpen(false);
         }}
@@ -279,105 +298,261 @@ export default function InvestmentSheet({
       }
     >
       <div className="flex flex-col gap-4">
-        {legacy ? (
-          <div>
-            <FieldCard label="Invested To" htmlFor="inv-to" invalid={submitted && !trimmedName}>
-              <input
-                id="inv-to"
-                autoFocus
-                value={investedTo}
-                maxLength={60}
-                onChange={(e) => setInvestedTo(e.target.value)}
-                aria-invalid={submitted && !trimmedName}
-                className={INPUT}
-              />
-            </FieldCard>
-            {submitted && !trimmedName && (
-              <p role="alert" className="mt-1 text-sm text-expense">
-                Enter a name.
-              </p>
-            )}
-          </div>
-        ) : (
-          <>
-            <div>
-              <span className="mb-1 block text-sm text-muted">Company</span>
+        {/* Company ও Round — এক লাইনে। সেভ-করা কোম্পানি বাছলে সেটাই; না হলে ("Other") নাম টাইপ — দুই ক্ষেত্রেই পাশে Round */}
+        <div>
+          <div className="flex gap-2">
+            {customCompany && !companyId ? (
+              <FieldCard label="Company name" htmlFor="inv-to" invalid={submitted && !trimmedName} className="min-w-0 flex-1">
+                <div className="flex items-center">
+                  <input
+                    id="inv-to"
+                    autoFocus={!initial}
+                    value={investedTo}
+                    maxLength={60}
+                    placeholder="Type company name"
+                    onChange={(e) => setInvestedTo(e.target.value)}
+                    aria-invalid={submitted && !trimmedName}
+                    className={INPUT}
+                  />
+                  <button type="button" aria-label="Choose a saved company" onClick={() => setPickerOpen(true)} className="-mr-1 flex size-8 shrink-0 items-center justify-center text-muted">
+                    <ChevronDown aria-hidden size={18} />
+                  </button>
+                </div>
+              </FieldCard>
+            ) : (
               <button
                 type="button"
                 onClick={() => setPickerOpen(true)}
                 aria-invalid={submitted && companyMissing}
-                className={`flex min-h-14 w-full items-center gap-3 rounded-xl border bg-surface px-3 text-left ${submitted && companyMissing ? 'border-expense' : 'border-muted/25'}`}
+                className={`min-w-0 flex-1 rounded-xl border bg-surface px-3 pb-2 pt-2 text-left ${submitted && companyMissing ? 'border-expense' : 'border-muted/25'}`}
               >
-                {companyId ? (
-                  <>
-                    <CompanyLogo name={company?.name ?? trimmedName} logo={company?.logo} size="sm" />
-                    <span className="min-w-0 flex-1 truncate font-medium text-fg">{company?.name ?? trimmedName}</span>
-                  </>
-                ) : (
-                  <span className="flex-1 text-muted">Choose company</span>
-                )}
-                <ChevronDown aria-hidden size={18} className="text-muted" />
+                <span className="block truncate text-xs text-muted">Company</span>
+                <span className="flex min-h-8 items-center gap-2">
+                  {companyId ? (
+                    <>
+                      <CompanyLogo name={company?.name ?? trimmedName} logo={company?.logo} size="sm" />
+                      <span className="min-w-0 flex-1 truncate font-medium text-fg">{company?.name ?? trimmedName}</span>
+                    </>
+                  ) : (
+                    <span className="flex-1 text-muted">Choose company</span>
+                  )}
+                  <ChevronDown aria-hidden size={18} className="shrink-0 text-muted" />
+                </span>
               </button>
-              {submitted && companyMissing && (
-                <p role="alert" className="mt-1 text-sm text-expense">
-                  Choose a company.
-                </p>
-              )}
-            </div>
-
-            {/* Name ও Round — এক লাইনে, আলাদা কার্ডে */}
-            <div>
-              <div className="flex gap-2">
-                {companyId && (
-                  <FieldCard label="Name" htmlFor="inv-to" invalid={submitted && (!trimmedName || doubleTag)} className="min-w-0 flex-1">
-                    <input
-                      id="inv-to"
-                      value={investedTo}
-                      maxLength={60}
-                      onChange={(e) => setInvestedTo(e.target.value)}
-                      aria-invalid={submitted && (!trimmedName || doubleTag)}
-                      className={INPUT}
-                    />
-                  </FieldCard>
-                )}
-                <FieldCard label="Round (optional)" htmlFor="inv-round" invalid={submitted && roundInvalid} className={companyId ? 'w-32 shrink-0' : 'min-w-0 flex-1'}>
-                  <input
-                    id="inv-round"
-                    inputMode="numeric"
-                    value={round}
-                    maxLength={3}
-                    placeholder="9"
-                    onChange={(e) => setRound(e.target.value)}
-                    aria-invalid={submitted && roundInvalid}
-                    className={INPUT}
-                  />
-                </FieldCard>
-              </div>
-              {submitted && companyId && !trimmedName && (
-                <p role="alert" className="mt-1 text-sm text-expense">
-                  Enter a name.
-                </p>
-              )}
-              {submitted && doubleTag && (
-                <p role="alert" className="mt-1 text-sm text-expense">
-                  Remove the [n] from the name — Round adds it.
-                </p>
-              )}
-              {submitted && roundInvalid ? (
-                <p role="alert" className="mt-1 text-xs text-expense">
-                  Digits only (1–999).
-                </p>
-              ) : (
-                lastRound !== null && <p className="mt-1 text-xs text-muted">Last round: {lastRound}</p>
-              )}
-            </div>
-
-            {!legacy && companyId && trimmedName && (
-              <p className="rounded-lg bg-surface px-3 py-2 text-sm text-muted">
-                Saved as: <span className="font-medium text-fg">{savedAs}</span>
-              </p>
             )}
-          </>
+            <FieldCard label="Round (optional)" htmlFor="inv-round" invalid={submitted && roundInvalid} className="w-28 shrink-0">
+              <input
+                id="inv-round"
+                inputMode="numeric"
+                value={round}
+                maxLength={3}
+                placeholder="9"
+                onChange={(e) => setRound(e.target.value)}
+                aria-invalid={submitted && roundInvalid}
+                className={INPUT}
+              />
+            </FieldCard>
+          </div>
+          {submitted && companyMissing && (
+            <p role="alert" className="mt-1 text-sm text-expense">
+              Choose a company.
+            </p>
+          )}
+          {submitted && !companyMissing && !trimmedName && customCompany && (
+            <p role="alert" className="mt-1 text-sm text-expense">
+              Enter a name.
+            </p>
+          )}
+          {submitted && doubleTag && (
+            <p role="alert" className="mt-1 text-sm text-expense">
+              Remove the [n] from the name — Round adds it.
+            </p>
+          )}
+          {submitted && roundInvalid ? (
+            <p role="alert" className="mt-1 text-xs text-expense">
+              Digits only (1–999).
+            </p>
+          ) : (
+            companyId !== null && lastRound !== null && <p className="mt-1 text-xs text-muted">Last round: {lastRound}</p>
+          )}
+        </div>
+
+        {/* এন্ট্রির নাম কোম্পানির নাম থেকে আলাদা হলে (পুরনো এন্ট্রি) তবেই দেখায় — নাম হারায় না */}
+        {company && trimmedName !== company.name && (
+          <FieldCard label="Name" htmlFor="inv-name" invalid={submitted && (!trimmedName || doubleTag)}>
+            <input id="inv-name" value={investedTo} maxLength={60} onChange={(e) => setInvestedTo(e.target.value)} aria-invalid={submitted && !trimmedName} className={INPUT} />
+          </FieldCard>
+        )}
+
+        {(companyId !== null || customCompany) && trimmedName && savedAs !== trimmedName && (
+          <p className="rounded-lg bg-surface px-3 py-2 text-sm text-muted">
+            Saved as: <span className="font-medium text-fg">{savedAs}</span>
+          </p>
+        )}
+
+        {/* Medium ও Investment No — এক লাইনে */}
+        <div>
+          <div className="grid grid-cols-2 gap-2">
+            <FieldCard label="Medium (optional)" htmlFor="inv-medium">
+              <input
+                id="inv-medium"
+                value={medium}
+                maxLength={60}
+                onChange={(e) => setMedium(e.target.value)}
+                onFocus={() => setMediumFocus(true)}
+                onBlur={() => setMediumFocus(false)}
+                className={INPUT}
+              />
+            </FieldCard>
+            <FieldCard label="Investment No (optional)" htmlFor="inv-no">
+              <input id="inv-no" value={platformNo} maxLength={30} placeholder="#74874" onChange={(e) => setPlatformNo(e.target.value)} className={INPUT} />
+            </FieldCard>
+          </div>
+          {mediumFocus && suggestions.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-2" role="list" aria-label="Medium suggestions">
+              {suggestions.map((m, idx) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="listitem"
+                  // pointerdown-এ focus কেড়ে নেওয়া আটকাই, যাতে চিপ বাছার আগে সাজেশন-সারি লুকিয়ে না যায়
+                  onPointerDown={(e) => e.preventDefault()}
+                  onClick={() => setMedium(m)}
+                  className={`min-h-9 rounded-full px-3 text-sm ${idx === 0 && company?.medium?.trim() === m ? 'bg-primary text-canvas' : 'bg-primary/10 text-primary'}`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <AmountInput value={amount} onChange={setAmount} showError={submitted} />
+
+        <div className="grid grid-cols-2 gap-2">
+          <FieldCard label="Date" htmlFor="inv-date">
+            <input id="inv-date" type="date" lang="en-GB" value={date} onChange={(e) => setDate(e.target.value)} className={INPUT} />
+          </FieldCard>
+          <FieldCard label="Note (optional)" htmlFor="inv-note">
+            <input id="inv-note" value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} className={INPUT} />
+          </FieldCard>
+        </div>
+
+        {/* Duration ও Contract PDF — এক লাইনে */}
+        <div>
+          <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" aria-label="Contract PDF file" onChange={(e) => void pickPdf(e.target.files?.[0])} />
+          <div className="grid grid-cols-2 items-start gap-2">
+            <FieldCard label="Duration (optional)" htmlFor="inv-duration">
+              <input id="inv-duration" value={duration} maxLength={40} onChange={(e) => setDuration(e.target.value)} className={INPUT} />
+            </FieldCard>
+            {pdfFile ? (
+              <div className="rounded-xl border border-muted/25 bg-surface px-3 pb-2 pt-2">
+                <span className="block truncate text-xs text-muted">Contract PDF</span>
+                <div className="flex min-h-8 items-center gap-1.5">
+                  <Paperclip aria-hidden size={16} className="shrink-0 text-muted" />
+                  <span className="min-w-0 flex-1 truncate text-sm text-fg">{pdfFile.name}</span>
+                  <button type="button" aria-label="Remove PDF" onClick={() => setPdfFile(null)} className="-mr-1 flex size-8 shrink-0 items-center justify-center text-expense">
+                    <X aria-hidden size={16} />
+                  </button>
+                </div>
+              </div>
+            ) : hasSavedContract && initial?.contractFileId ? (
+              <div className="flex flex-col gap-2">
+                <ContractLink fileId={initial.contractFileId} name={initial.contractName} />
+                {confirmRemovePdf ? (
+                  <div role="alertdialog" aria-label="Remove PDF" className="rounded-lg border border-expense/40 p-2">
+                    <p className="text-xs text-fg">Remove this PDF from your Google Drive too?</p>
+                    <div className="mt-2 flex gap-2">
+                      <button type="button" onClick={() => setConfirmRemovePdf(false)} className="min-h-10 flex-1 rounded-lg border border-muted/40 text-sm text-fg">
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRemoveContract(true);
+                          setConfirmRemovePdf(false);
+                        }}
+                        className="min-h-10 flex-1 rounded-lg bg-expense text-sm font-medium text-canvas"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" disabled={!driveReady} onClick={() => setConfirmRemovePdf(true)} className="min-h-10 rounded-lg border border-expense/40 text-sm text-expense disabled:opacity-60">
+                    Remove PDF
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                aria-invalid={submitted && companyMissing}
+                className={`min-w-0 flex-1 rounded-xl border bg-surface px-3 pb-2 pt-2 text-left ${submitted && companyMissing ? 'border-expense' : 'border-muted/25'}`}
+              >
+                <span className="block truncate text-xs text-muted">Company</span>
+                <span className="flex min-h-8 items-center gap-2">
+                  {companyId ? (
+                    <>
+                      <CompanyLogo name={company?.name ?? trimmedName} logo={company?.logo} size="sm" />
+                      <span className="min-w-0 flex-1 truncate font-medium text-fg">{company?.name ?? trimmedName}</span>
+                    </>
+                  ) : (
+                    <span className="flex-1 text-muted">Choose company</span>
+                  )}
+                  <ChevronDown aria-hidden size={18} className="shrink-0 text-muted" />
+                </span>
+              </button>
+            )}
+            <FieldCard label="Round (optional)" htmlFor="inv-round" invalid={submitted && roundInvalid} className="w-28 shrink-0">
+              <input
+                id="inv-round"
+                inputMode="numeric"
+                value={round}
+                maxLength={3}
+                placeholder="9"
+                onChange={(e) => setRound(e.target.value)}
+                aria-invalid={submitted && roundInvalid}
+                className={INPUT}
+              />
+            </FieldCard>
+          </div>
+          {submitted && companyMissing && (
+            <p role="alert" className="mt-1 text-sm text-expense">
+              Choose a company.
+            </p>
+          )}
+          {submitted && !companyMissing && !trimmedName && customCompany && (
+            <p role="alert" className="mt-1 text-sm text-expense">
+              Enter a name.
+            </p>
+          )}
+          {submitted && doubleTag && (
+            <p role="alert" className="mt-1 text-sm text-expense">
+              Remove the [n] from the name — Round adds it.
+            </p>
+          )}
+          {submitted && roundInvalid ? (
+            <p role="alert" className="mt-1 text-xs text-expense">
+              Digits only (1–999).
+            </p>
+          ) : (
+            companyId !== null && lastRound !== null && <p className="mt-1 text-xs text-muted">Last round: {lastRound}</p>
+          )}
+        </div>
+
+        {/* এন্ট্রির নাম কোম্পানির নাম থেকে আলাদা হলে (পুরনো এন্ট্রি) তবেই দেখায় — নাম হারায় না */}
+        {company && trimmedName !== company.name && (
+          <FieldCard label="Name" htmlFor="inv-name" invalid={submitted && (!trimmedName || doubleTag)}>
+            <input id="inv-name" value={investedTo} maxLength={60} onChange={(e) => setInvestedTo(e.target.value)} aria-invalid={submitted && !trimmedName} className={INPUT} />
+          </FieldCard>
+        )}
+
+        {(companyId !== null || customCompany) && trimmedName && savedAs !== trimmedName && (
+          <p className="rounded-lg bg-surface px-3 py-2 text-sm text-muted">
+            Saved as: <span className="font-medium text-fg">{savedAs}</span>
+          </p>
         )}
 
         {/* Medium ও Investment No — এক লাইনে */}
@@ -473,7 +648,16 @@ export default function InvestmentSheet({
             )}
           </div>
           {!hasSavedContract && !pdfFile && driveReady && <p className="mt-1 text-xs text-muted">PDF is saved to your Google Drive.</p>}
-          {removeContract && !pdfFile && <p className="mt-1 text-xs text-muted">PDF will be detached on Save (the Drive file stays).</p>}
+          {removeContract && (
+            <p className="mt-1 text-xs text-muted">
+              The old PDF will be removed from your Google Drive on Save.
+              {!pdfFile && (
+                <button type="button" onClick={() => setRemoveContract(false)} className="ml-1 font-medium text-primary underline">
+                  Undo
+                </button>
+              )}
+            </p>
+          )}
           {!driveReady && <p className="mt-1 text-xs text-muted">Google Drive not ready: {driveNotReadyReason(DRIVE_CLIENT_ID)}</p>}
           {pdfError && (
             <p role="alert" className="mt-1 text-xs text-expense">

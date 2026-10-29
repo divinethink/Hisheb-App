@@ -209,7 +209,7 @@ export async function uploadBackupToDrive(clientId: string, payload: unknown): P
 
 // ───── PDF চুক্তিপত্র (Investment ধাপ ৩) ─────
 // ফাইল Owner-এর নিজের Drive-এর "Hisheb Contracts" ফোল্ডারে (drive.file scope — শুধু এই অ্যাপের বানানো ফাইল), পাবলিক না।
-// এন্ট্রি মুছলে/বদলালে Drive-এর ফাইল মোছা হয় না।
+// এন্ট্রি মুছলে Drive-এর ফাইল মোছা হয় না; শুধু ফর্মে PDF "Remove" করে Save করলে deleteContractFile দিয়ে মোছা হয়।
 
 export class DriveFileMissingError extends Error {
   constructor() {
@@ -240,6 +240,16 @@ export async function uploadContractPdf(clientId: string, file: File, name: stri
   });
   const json = (await res.json()) as { id: string; name?: string };
   return { fileId: json.id, name: json.name ?? name };
+}
+
+/** Drive থেকে PDF মোছা (drive.file scope — শুধু এই অ্যাপের বানানো ফাইল)। ফাইল আগেই নেই (404) হলে ঠিক আছে — retry-safe (idempotent)। */
+export async function deleteContractFile(clientId: string, fileId: string): Promise<void> {
+  try {
+    await driveFetch(clientId, `${DRIVE_API_BASE}/files/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
+  } catch (err) {
+    if (err instanceof Error && /Drive API error 404/.test(err.message)) return;
+    throw err;
+  }
 }
 
 /** দেখার লিংক (webViewLink)। ফাইল নেই/ট্র্যাশে/অ্যাক্সেস নেই হলে DriveFileMissingError — silent fail নয়। */
