@@ -4,6 +4,7 @@ import SkeletonLoader from './common/SkeletonLoader';
 import ReminderBanner from './ReminderBanner';
 import OfflineBanner from './OfflineBanner';
 import AppLockGate from './AppLockGate';
+import PullToRefresh from './common/PullToRefresh';
 import { useThemeSync } from '../hooks/useThemeSync';
 import { useBackClose } from '../hooks/useBackClose';
 import { useKeyboardOpen } from '../hooks/useKeyboardOpen';
@@ -43,6 +44,7 @@ export default function AppShell({ user }: { user: SessionUser }) {
         />
       )}
       <main className="min-h-0 flex-1 overflow-hidden">
+        <PullToRefresh>
         <Suspense fallback={<SkeletonLoader />}>
           {tab === 'home' && <HomeTab uid={user.uid} autoOpenAdd={autoOpenAdd} />}
           {tab === 'ledger' && <LedgerTab uid={user.uid} />}
@@ -50,6 +52,7 @@ export default function AppShell({ user }: { user: SessionUser }) {
           {tab === 'overview' && <OverviewTab uid={user.uid} />}
           {tab === 'menu' && <SettingsTab user={user} />}
         </Suspense>
+        </PullToRefresh>
       </main>
       {!keyboardOpen && <BottomNav active={tab} onChange={setTab} />}
     </div>

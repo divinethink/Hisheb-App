@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, Paperclip, Trash2, X } from 'lucide-react';
+import { ChevronDown, Paperclip, Trash2, X, Building2, Landmark, Wallet, FileText, Check } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import AmountInput from '../../common/AmountInput';
 import CompanyLogo from '../../common/CompanyLogo';
@@ -34,6 +34,16 @@ function today(): string {
 
 const INPUT = 'block min-h-8 w-full bg-transparent text-base text-fg outline-none placeholder:text-muted/60';
 
+// সেকশন-লেবেল: ফর্মকে গুছিয়ে ৪ ভাগে (Company / Platform / Amount & date / Terms & contract) — শুধু presentation
+function SectionLabel({ icon: Icon, text }: { icon: typeof Check; text: string }) {
+  return (
+    <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+      <Icon aria-hidden size={13} />
+      {text}
+    </p>
+  );
+}
+
 // কার্ড-ফিল্ড: লেবেল কার্ডের ভেতরে, পুরো কার্ড ট্যাপে ইনপুটে ফোকাস
 function FieldCard({
   label,
@@ -51,7 +61,7 @@ function FieldCard({
   return (
     <label
       htmlFor={htmlFor}
-      className={`block rounded-xl border bg-surface px-3 pb-2 pt-2 focus-within:border-primary ${invalid ? 'border-expense' : 'border-muted/25'} ${className}`}
+      className={`block rounded-xl border bg-surface px-3.5 pb-2.5 pt-2.5 shadow-sm focus-within:border-primary focus-within:bg-canvas ${invalid ? 'border-expense' : 'border-muted/25'} ${className}`}
     >
       <span className="block truncate text-xs text-muted">{label}</span>
       {children}
@@ -298,10 +308,11 @@ export default function InvestmentSheet({
         </button>
       }
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5">
         {/* Company ও Round — এক লাইনে। সেভ-করা কোম্পানি বাছলে সেটাই; না হলে ("Other") নাম টাইপ — দুই ক্ষেত্রেই পাশে Round */}
         <div>
-          <div className="flex gap-2">
+          <SectionLabel icon={Building2} text="Company" />
+          <div className="mt-2 flex gap-2">
             {customCompany && !companyId ? (
               <FieldCard label="Company name" htmlFor="inv-to" invalid={submitted && !trimmedName} className="min-w-0 flex-1">
                 <div className="flex items-center">
@@ -325,7 +336,7 @@ export default function InvestmentSheet({
                 type="button"
                 onClick={() => setPickerOpen(true)}
                 aria-invalid={submitted && companyMissing}
-                className={`min-w-0 flex-1 rounded-xl border bg-surface px-3 pb-2 pt-2 text-left ${submitted && companyMissing ? 'border-expense' : 'border-muted/25'}`}
+                className={`min-w-0 flex-1 rounded-xl border bg-surface px-3.5 pb-2.5 pt-2.5 text-left shadow-sm ${submitted && companyMissing ? 'border-expense' : 'border-muted/25'}`}
               >
                 <span className="block truncate text-xs text-muted">Company</span>
                 <span className="flex min-h-8 items-center gap-2">
@@ -386,14 +397,18 @@ export default function InvestmentSheet({
         )}
 
         {(companyId !== null || customCompany) && trimmedName && savedAs !== trimmedName && (
-          <p className="rounded-lg bg-surface px-3 py-2 text-sm text-muted">
-            Saved as: <span className="font-medium text-fg">{savedAs}</span>
+          <p className="flex items-center gap-2 rounded-xl bg-primary/5 px-3 py-2 text-sm text-muted">
+            <Check aria-hidden size={16} className="shrink-0 text-primary" />
+            <span className="min-w-0 truncate">
+              Saved as: <span className="font-medium text-fg">{savedAs}</span>
+            </span>
           </p>
         )}
 
         {/* Medium ও Investment No — এক লাইনে */}
         <div>
-          <div className="grid grid-cols-2 gap-2">
+          <SectionLabel icon={Landmark} text="Platform" />
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <FieldCard label="Medium" htmlFor="inv-medium">
               <input
                 id="inv-medium"
@@ -428,7 +443,12 @@ export default function InvestmentSheet({
           )}
         </div>
 
-        <AmountInput card value={amount} onChange={setAmount} showError={submitted} />
+        <div>
+          <SectionLabel icon={Wallet} text="Amount & date" />
+          <div className="mt-2">
+            <AmountInput card value={amount} onChange={setAmount} showError={submitted} />
+          </div>
+        </div>
 
         <div className="grid grid-cols-2 gap-2">
           <FieldCard label="Date" htmlFor="inv-date">
@@ -441,8 +461,9 @@ export default function InvestmentSheet({
 
         {/* Duration ও Contract PDF — এক লাইনে */}
         <div>
+          <SectionLabel icon={FileText} text="Terms & contract" />
           <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" aria-label="Contract PDF file" onChange={(e) => void pickPdf(e.target.files?.[0])} />
-          <div className="grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-center gap-2">
+          <div className="mt-2 grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-center gap-2">
             <FieldCard label="Duration" htmlFor="inv-duration">
               <input id="inv-duration" value={duration} maxLength={40} onChange={(e) => setDuration(e.target.value)} className={INPUT} />
             </FieldCard>
