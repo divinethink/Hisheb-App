@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { CalendarDays, ClipboardList, Droplets, Target, Wallet, Zap, BarChart3 } from 'lucide-react';
+import { BarChart3, CalendarDays, ClipboardList, Droplets, Target, Wallet, Zap } from 'lucide-react';
 import { Block, Tip } from './OverviewBits';
 import BottomSheet from '../../common/BottomSheet';
-import { formatDisplayDate } from '../../../lib/date';
+import { formatDisplayDate, monthLabel } from '../../../lib/date';
 import { categoryColorIndex, formatSigned, formatTakaWhole, roundWhole as roundMinor } from '../../../lib/format';
 import {
   bigOneOffs,
@@ -19,9 +19,8 @@ import {
 // Overview → Monthly ধাপ ২ (খরচ-সচেতনতা): রিপোর্ট কার্ড / আমার ১০০ টাকা / ছোট ফাঁক / বার-ভিত্তিক খরচ / নো-স্পেন্ড ক্যালেন্ডার।
 // শুধু বিদ্যমান লেনদেন থেকে derive — নতুন schema/write নেই। হিসাব lib/overviewCalc.ts-এ (pure, tested)।
 
-const MONTHS_BN_GEN = ['জানুয়ারির', 'ফেব্রুয়ারির', 'মার্চের', 'এপ্রিলের', 'মে-র', 'জুনের', 'জুলাইয়ের', 'আগস্টের', 'সেপ্টেম্বরের', 'অক্টোবরের', 'নভেম্বরের', 'ডিসেম্বরের'];
 const MONTHS_BN = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
-const WEEKDAYS_SHORT_BN = ['শনি', 'রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র']; // শনি = ০
+const WEEKDAYS_EN = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']; // শনি = ০
 const WEEKDAYS_BN = ['শনিবার', 'রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার'];
 const monthIdx = (yyyymm: string) => Number(yyyymm.slice(5, 7)) - 1;
 const chartColor = (name: string) => `rgb(var(--chart-${categoryColorIndex(name, 8) + 1}))`;
@@ -31,7 +30,7 @@ export function ReportCard({ month, txs, prevTxs, targetPct, essential }: { mont
   const lines = useMemo(() => monthReport(txs, prevTxs, targetPct, formatTakaWhole, essential), [txs, prevTxs, targetPct, essential]);
   if (lines.length === 0) return null;
   return (
-    <Block icon={ClipboardList} title={`${MONTHS_BN_GEN[monthIdx(month)]} রিপোর্ট কার্ড`} sub="আপনার হিসাব থেকে নিজে-নিজে তৈরি">
+    <Block icon={ClipboardList} title={`${monthLabel(month).split(' ')[0]} Report Card`} sub="আপনার হিসাব থেকে নিজে-নিজে তৈরি">
       <ul className="flex flex-col gap-2 text-sm text-fg">
         {lines.map((line, i) => (
           <li key={i} className="border-t border-muted/10 pt-2 first:border-t-0 first:pt-0">
@@ -52,7 +51,7 @@ export function TargetGapCard({ txs, targetPct }: { txs: readonly TxLite[]; targ
   const g = useMemo(() => targetGap(txs, target), [txs, target]);
   if (!g) return null;
   return (
-    <Block icon={Target} tone="income" title="কী ঠিক করলে টার্গেট ছোঁয়া যেত" sub={`সঞ্চয় টার্গেট ${target}% ছুঁতে খরচ ${formatTakaWhole(g.needMinor)} কম হওয়া দরকার ছিল`}>
+    <Block icon={Target} tone="income" title="What Would Have Hit the Target" sub={`সঞ্চয় টার্গেট ${target}% ছুঁতে খরচ ${formatTakaWhole(g.needMinor)} কম হওয়া দরকার ছিল`}>
       {g.options.length === 0 ? (
         <p className="text-xs text-muted">একটা খাত কমিয়ে এটা হতো না — কয়েকটা খাতে মিলিয়ে কমাতে হতো।</p>
       ) : (
@@ -78,7 +77,7 @@ export function BigOneOffCard({ txs }: { txs: readonly TxLite[] }) {
   const b = useMemo(() => bigOneOffs(txs), [txs]);
   if (!b) return null;
   return (
-    <Block icon={Zap} tone="warning" title="বড় একবারের খরচ" sub="মোট খরচের ২০% বা বেশি একটি লেনদেন">
+    <Block icon={Zap} tone="warning" title="Big One-Off Expenses" sub="মোট খরচের ২০% বা বেশি একটি লেনদেন">
       <ul>
         {b.items.map((t, i) => (
           <li key={i} className="flex items-center justify-between gap-3 border-t border-muted/10 py-2 first:border-t-0">
@@ -105,7 +104,7 @@ export function HundredCard({ month, txs }: { month: string; txs: readonly TxLit
   const total = r.segments.reduce((a, s) => a + s.value, 0);
   const colorOf = (s: { kind: string; key: string }) => (s.kind === 'savings' ? 'rgb(var(--color-income))' : s.kind === 'others' ? 'rgb(var(--color-muted))' : chartColor(s.key));
   return (
-    <Block icon={Wallet} title="আমার ১০০ টাকা কোথায় যায়" sub={`${MONTHS_BN[monthIdx(month)]} মাসে প্রতি ১০০ টাকা ${r.basis === 'expense' ? 'খরচে' : 'আয়ে'}`}>
+    <Block icon={Wallet} title="Where My ৳100 Goes" sub={`${MONTHS_BN[monthIdx(month)]} মাসে প্রতি ১০০ টাকা ${r.basis === 'expense' ? 'খরচে' : 'আয়ে'}`}>
       <div className="mb-3 flex h-3 overflow-hidden rounded-full bg-surface" role="img" aria-label={r.basis === 'expense' ? 'খরচের প্রতি ১০০ টাকার ভাগ' : 'আয়ের প্রতি ১০০ টাকার ভাগ'}>
         {r.segments.map((s) => (
           <div key={s.key} style={{ width: `${(s.value / total) * 100}%`, background: colorOf(s) }} />
@@ -138,7 +137,7 @@ export function LeakCard({ txs, essential }: { txs: readonly TxLite[]; essential
   const sum = items.reduce((a, x) => a + x.totalMinor, 0);
   const pctIncome = income > 0 ? Math.round((sum / income) * 1000) / 10 : null;
   return (
-    <Block icon={Droplets} tone="expense" title="ছোট ফাঁক" sub="বেশি বার, ছোট অঙ্ক — সবচেয়ে বেশি অজান্তে যায়">
+    <Block icon={Droplets} tone="expense" title="Leak Finder" sub="বেশি বার, ছোট অঙ্ক — সবচেয়ে বেশি অজান্তে যায়">
       <ul>
         {items.map((x) => (
           <li key={x.name} className="flex items-center justify-between gap-3 border-t border-muted/10 py-2">
@@ -165,7 +164,7 @@ export function WeekdayCard({ txs, end }: { txs: readonly TxLite[] | null; end: 
   if (!w) return null;
   const max = Math.max(...w.avgMinor, 1);
   return (
-    <Block icon={BarChart3} title="বারভিত্তিক খরচ" sub={`গত ৯০ দিনের গড় দৈনিক খরচ${w.daysCovered < 90 ? ` (ডেটা আছে ${w.daysCovered} দিনের)` : ''}`}>
+    <Block icon={BarChart3} title="Spending by Weekday" sub={`গত ৯০ দিনের গড় দৈনিক খরচ${w.daysCovered < 90 ? ` (ডেটা আছে ${w.daysCovered} দিনের)` : ''}`}>
       <div className="flex h-40 items-end gap-2">
         {w.avgMinor.map((v, i) => {
           const isPeak = w.peak?.index === i;
@@ -173,7 +172,7 @@ export function WeekdayCard({ txs, end }: { txs: readonly TxLite[] | null; end: 
             <div key={i} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1">
               <span className={`text-[10px] ${isPeak ? 'font-semibold text-expense' : 'text-muted'}`}>{formatTakaWhole(v)}</span>
               <div className={`w-full rounded-t ${isPeak ? 'bg-expense' : 'bg-income/50'}`} style={{ height: `${Math.max(2, (v / max) * 100)}px`, maxHeight: '100px' }} />
-              <span className="text-[10px] text-muted">{WEEKDAYS_SHORT_BN[i]}</span>
+              <span className="text-[10px] text-muted">{WEEKDAYS_EN[i]}</span>
             </div>
           );
         })}
@@ -193,11 +192,11 @@ const LEVEL_CLASS: Record<string, string> = {
 };
 
 const LEGEND: { level: string; label: string }[] = [
-  { level: 'none', label: 'নো-স্পেন্ড' },
-  { level: 'low', label: 'কম খরচ' },
-  { level: 'mid', label: 'মাঝারি' },
-  { level: 'high', label: 'বেশি খরচ' },
-  { level: 'today', label: 'আজ (চলছে)' },
+  { level: 'none', label: 'No-spend' },
+  { level: 'low', label: 'Low' },
+  { level: 'mid', label: 'Medium' },
+  { level: 'high', label: 'High' },
+  { level: 'today', label: 'Today' },
 ];
 
 /** দিনের ঘরে ট্যাপ → সেদিনের লেনদেনের তালিকা (read-only, লোড-হওয়া txs থেকে) */
@@ -209,7 +208,7 @@ function DaySheet({ date, spendMinor, isToday, txs, onClose }: { date: string; s
       onRequestClose={onClose}
       footer={
         <button type="button" onClick={onClose} className="min-h-11 w-full rounded-lg border border-muted/40 text-base">
-          বন্ধ করুন
+          Close
         </button>
       }
     >
@@ -238,9 +237,9 @@ export function NoSpendCalendarCard({ month, txs, today }: { month: string; txs:
   const lead = c.days[0]?.weekday ?? 0;
   const picked = c.days.find((d) => d.date === sel && d.level !== 'future');
   return (
-    <Block icon={CalendarDays} tone="income" title="নো-স্পেন্ড ক্যালেন্ডার" sub="দিনের ঘরে ট্যাপ করলে সেদিনের লেনদেন দেখবেন">
+    <Block icon={CalendarDays} tone="income" title="No-Spend Calendar" sub="দিনের ঘরে ট্যাপ করলে সেদিনের লেনদেন দেখবেন">
       <div className="grid grid-cols-7 gap-1.5 text-center">
-        {WEEKDAYS_SHORT_BN.map((d) => (
+        {WEEKDAYS_EN.map((d) => (
           <span key={d} className="pb-1 text-[10px] text-muted">{d}</span>
         ))}
         {Array.from({ length: lead }, (_, i) => (
@@ -261,7 +260,7 @@ export function NoSpendCalendarCard({ month, txs, today }: { month: string; txs:
         ))}
       </div>
       {picked && <DaySheet date={picked.date} spendMinor={picked.spendMinor} isToday={picked.level === 'today'} txs={txs} onClose={() => setSel(null)} />}
-      <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-muted" aria-label="রঙের অর্থ">
+      <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-muted" aria-label="Color legend">
         {LEGEND.map((l) => (
           <li key={l.level} className="flex items-center gap-1">
             <span aria-hidden className={`inline-block h-3 w-3 rounded ${LEVEL_CLASS[l.level]}`} />
@@ -271,9 +270,9 @@ export function NoSpendCalendarCard({ month, txs, today }: { month: string; txs:
       </ul>
       {c.days.some((d) => d.level === 'today') && <p className="mt-2 text-[11px] text-muted">আজ চলছে — নো-স্পেন্ড গোনা হবে কাল থেকে।</p>}
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
-        <span className="rounded-full bg-income/10 px-2.5 py-1 text-income">{c.noSpendCount} দিন নো-স্পেন্ড</span>
-        {c.bestStreak > 0 && <span className="rounded-full bg-warning/10 px-2.5 py-1 text-warning">সেরা টানা: {c.bestStreak} দিন</span>}
-        {c.currentStreak >= 2 && <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary">এখন টানা: {c.currentStreak} দিন</span>}
+        <span className="rounded-full bg-income/10 px-2.5 py-1 text-income">{c.noSpendCount} no-spend days</span>
+        {c.bestStreak > 0 && <span className="rounded-full bg-warning/10 px-2.5 py-1 text-warning">Best streak: {c.bestStreak} days</span>}
+        {c.currentStreak >= 2 && <span className="rounded-full bg-primary/10 px-2.5 py-1 text-primary">Current streak: {c.currentStreak} days</span>}
       </div>
     </Block>
   );

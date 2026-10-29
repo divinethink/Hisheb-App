@@ -48,6 +48,3 @@ export function Callout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
-/** খাতের নাম দেখানোর সময়: ভেতরের 'Others' কী অপরিবর্তিত, শুধু লেখা বাংলা। */
-export const catLabel = (name: string) => (name === 'Others' ? 'অন্যান্য' : name);
