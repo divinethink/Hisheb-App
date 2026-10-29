@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { LineChart, PiggyBank, Scale, TrendingUp } from 'lucide-react';
 import { Block, Tip } from './OverviewBits';
 import { formatNetTakaWhole, formatTakaWhole } from '../../../lib/format';
+import { monthShortBn } from '../../../lib/date';
 import {
   investmentHonest,
   lifestyleCreep,
@@ -124,10 +125,10 @@ function CreepRow({ label, a, b, pct, max, color, upGood }: { label: string; a: 
 }
 
 const CREEP_TIP: Record<string, string> = {
-  income_fell_expense_stuck: 'Income fell more than expenses — the main reason the savings rate dropped.',
-  expense_outpaced: 'Expenses grew faster than income — that is lifestyle creep.',
-  expense_slower: 'Income grew faster than expenses — a good sign.',
-  both_down_good: 'Income fell, but expenses fell even more — well managed.',
+  income_fell_expense_stuck: 'আয় যতটা কমেছে, খরচ ততটা কমেনি — সঞ্চয়ের হার নেমে যাওয়ার মূল কারণ এটাই।',
+  expense_outpaced: 'আয়ের চেয়ে খরচ দ্রুত বেড়েছে — জীবনযাত্রার খরচ আয়ের আগেই বেড়ে চলেছে।',
+  expense_slower: 'আয় যতটা বেড়েছে, খরচ বেড়েছে তার চেয়ে কম — এটা ভালো লক্ষণ।',
+  both_down_good: 'আয় কমেছে ঠিকই, তবে খরচ কমেছে আরও বেশি — চমৎকারভাবে সামলেছেন।',
 };
 
 /** ২. লাইফস্টাইল ক্রিপ — গড় মাসিক আয় ও ব্যয়, আগের বছরের সাথে */
@@ -137,12 +138,12 @@ export function LifestyleCreepCard({ year, prev, cur, monthsCur, monthsPrev = 12
   const maxInc = Math.max(c.incomeAvgPrev, c.incomeAvgCur, 1);
   const maxExp = Math.max(c.expenseAvgPrev, c.expenseAvgCur, 1);
   return (
-    <Block icon={Scale} tone="warning" title="Lifestyle Creep" sub={`Monthly avg · ${year - 1} → ${year}${samePeriod ? ` (same period: Jan–${MONTH_SHORT[monthsCur - 1]})` : monthsCur < 12 ? ` (${year}: ${monthsCur} months)` : ''}`}>
+    <Block icon={Scale} tone="warning" title="জীবনযাত্রার খরচ বৃদ্ধি" sub={`মাসিক গড় · ${year - 1} → ${year}${samePeriod ? ` (একই সময়: জানুয়ারি–${monthShortBn(monthsCur)})` : monthsCur < 12 ? ` (${year}: ${monthsCur} মাস)` : ''}`}>
       <CreepRow label="Income" a={c.incomeAvgPrev} b={c.incomeAvgCur} pct={c.incomeChangePct} max={maxInc} color="rgb(var(--color-income))" upGood />
       <CreepRow label="Expense" a={c.expenseAvgPrev} b={c.expenseAvgCur} pct={c.expenseChangePct} max={maxExp} color="rgb(var(--color-expense))" upGood={false} />
       {CREEP_TIP[c.verdict] && <Tip>{CREEP_TIP[c.verdict]}</Tip>}
-      {!samePeriod && monthsCur < 12 && <p className="mt-2 text-[11px] leading-relaxed text-muted">Compared with the full-year {year - 1} average — data for the same months isn’t complete in the app.</p>}
-      {prevFromRecord && <p className="mt-2 text-[11px] leading-relaxed text-muted">{year - 1} figures are migrated from Excel records, not live transactions.</p>}
+      {!samePeriod && monthsCur < 12 && <p className="mt-2 text-[11px] leading-relaxed text-muted">পুরো {year - 1} সালের গড়ের সাথে তুলনা করা হয়েছে — অ্যাপে একই মাসগুলোর তথ্য সম্পূর্ণ নেই।</p>}
+      {prevFromRecord && <p className="mt-2 text-[11px] leading-relaxed text-muted">{year - 1} সালের অঙ্কগুলো Excel-এর রেকর্ড থেকে আনা, সরাসরি লেনদেন থেকে নয়।</p>}
     </Block>
   );
 }
@@ -152,33 +153,33 @@ export function RealGrowthCard({ snapshots, inflationPct }: { snapshots: readonl
   const g = useMemo(() => (inflationPct != null ? realGrowth(snapshots, inflationPct) : null), [snapshots, inflationPct]);
   if (inflationPct == null) {
     return (
-      <Block icon={LineChart} title="Real Growth" sub="How much wealth really grew after inflation">
-        <p className="text-xs text-muted">Set the inflation % (Menu → Monthly Target → Inflation) and the result will appear here.</p>
+      <Block icon={LineChart} title="আসল বৃদ্ধি" sub="মূল্যস্ফীতি বাদ দিলে সম্পদ আসলে কতটা বাড়ল">
+        <p className="text-xs text-muted">মূল্যস্ফীতির হার বসিয়ে দিন (মেনু → Monthly Target & More → মূল্যস্ফীতি), ফলাফল এখানেই দেখা যাবে।</p>
       </Block>
     );
   }
   if (!g) return null;
   const tile = 'flex-1 rounded-xl bg-surface px-2 py-2.5 text-center';
   return (
-    <Block icon={LineChart} title="Real Growth" sub={`After inflation · ${g.baseYyyymm} → ${g.latestYyyymm} · inflation ${pct1(g.inflationPct)}%`}>
+    <Block icon={LineChart} title="আসল বৃদ্ধি" sub={`মূল্যস্ফীতি বাদে · ${g.baseYyyymm} → ${g.latestYyyymm} · মূল্যস্ফীতি ${pct1(g.inflationPct)}%`}>
       <div className="flex items-center gap-1.5">
         <div className={tile}>
-          <p className="text-[11px] text-muted">Net worth growth</p>
+          <p className="text-[11px] text-muted">সম্পদ বৃদ্ধি</p>
           <p className={`text-base font-semibold ${g.nominalPct >= 0 ? 'text-income' : 'text-expense'}`}>{signed(g.nominalPct)}</p>
         </div>
         <span aria-hidden className="text-muted">−</span>
         <div className={tile}>
-          <p className="text-[11px] text-muted">Inflation</p>
+          <p className="text-[11px] text-muted">মূল্যস্ফীতি</p>
           <p className="text-base font-semibold text-expense">{pct1(g.inflationPct)}%</p>
         </div>
         <span aria-hidden className="text-muted">=</span>
         <div className={tile}>
-          <p className="text-[11px] text-muted">Real growth</p>
+          <p className="text-[11px] text-muted">আসল বৃদ্ধি</p>
           <p className={`text-base font-semibold ${g.realPct >= 0 ? 'text-income' : 'text-expense'}`}>{signed(g.realPct)}</p>
         </div>
       </div>
-      {g.spanMonths !== 12 && <Tip>The comparison spans {g.spanMonths} months (not 12) but inflation is annual — so the result is approximate.</Tip>}
-      <p className="mt-2 text-[11px] leading-relaxed text-muted">Today’s {formatTakaWhole(g.latestMinor)} buys about what {formatTakaWhole(g.purchasingPowerMinor)} did a year ago.</p>
+      {g.spanMonths !== 12 && <Tip>তুলনাটি {g.spanMonths} মাসের (১২ মাসের নয়), অথচ মূল্যস্ফীতি বছরভিত্তিক — তাই ফলাফল আনুমানিক।</Tip>}
+      <p className="mt-2 text-[11px] leading-relaxed text-muted">আজকের {formatTakaWhole(g.latestMinor)} দিয়ে প্রায় ততটুকুই কেনা যায়, এক বছর আগে {formatTakaWhole(g.purchasingPowerMinor)} দিয়ে যতটুকু যেত।</p>
     </Block>
   );
 }

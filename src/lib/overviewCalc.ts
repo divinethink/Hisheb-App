@@ -782,6 +782,10 @@ const pctText = (v: number) => (Math.round(v * 10) / 10).toString();
  * ৩ লাইন: (১) খরচ গত মাসের তুলনায় + সঞ্চয়-হার টার্গেটের তুলনায়; (২) সবচেয়ে বেশি বাড়া খাত (গত মাসে > ০ থাকলে);
  * (৩) সবচেয়ে বড় ছোট-ফাঁক। যে লাইনের ডেটা নেই সেটা বাদ। টাকার অঙ্ক-ফরম্যাট UI-তে নয়, এখানে `fmtTaka` দিয়ে।
  */
+/** রিপোর্ট-লাইনের লেবেল — UI এগুলো দেখে লাইনের ধরন (বৃদ্ধি/ফাঁক) চেনে */
+export const REPORT_INCREASE_LABEL = 'সবচেয়ে বেশি বেড়েছে: ';
+export const REPORT_LEAK_LABEL = 'ছোট ফাঁকের শীর্ষে: ';
+
 export function monthReport(
   txs: readonly TxLite[],
   prevTxs: readonly TxLite[] | null,
@@ -805,17 +809,17 @@ export function monthReport(
   let expenseDown: boolean | null = null;
   if (prevTxs && prevExpense > 0) {
     const diff = Math.round(((expense - prevExpense) / prevExpense) * 100);
-    if (diff === 0) l1.push({ text: 'Spending is about the same as last month' });
+    if (diff === 0) l1.push({ text: 'খরচ গত মাসের প্রায় সমান' });
     else {
       expenseDown = diff < 0;
-      l1.push({ text: 'Spending is ' }, { text: `${Math.abs(diff)}% ${diff < 0 ? 'lower' : 'higher'}`, tone: diff < 0 ? 'good' : 'bad' }, { text: ' than last month' });
+      l1.push({ text: 'গত মাসের চেয়ে খরচ ' }, { text: `${Math.abs(diff)}% ${diff < 0 ? 'কম' : 'বেশি'}`, tone: diff < 0 ? 'good' : 'bad' });
     }
   }
   if (pct != null) {
     const gap = target - pct;
-    const lead = l1.length > 0 ? (expenseDown === true && gap > 0 ? ', but ' : expenseDown === false && gap <= 0 ? ', yet ' : ', ') : '';
-    if (gap > 0.05) l1.push({ text: lead }, { text: `${pctText(gap)} pts`, tone: 'bad' }, { text: ` below your savings target (${target}%)` });
-    else l1.push({ text: `${lead}${lead ? 'savings' : 'Savings'} target (${target}%) ` }, { text: 'reached', tone: 'good' });
+    const lead = l1.length > 0 ? (expenseDown === true && gap > 0 ? ', তবে ' : expenseDown === false && gap <= 0 ? ', তবুও ' : ', আর ') : '';
+    if (gap > 0.05) l1.push({ text: `${lead}সঞ্চয়ের লক্ষ্য (${target}%) থেকে ` }, { text: `${pctText(gap)} পয়েন্ট`, tone: 'bad' }, { text: ' পিছিয়ে আছেন' });
+    else l1.push({ text: `${lead}সঞ্চয়ের লক্ষ্য (${target}%) ` }, { text: 'পূরণ হয়েছে', tone: 'good' });
   }
   if (l1.length > 0) lines.push(l1);
 
@@ -831,11 +835,11 @@ export function monthReport(
       const inc = cur - prev;
       if (!best || inc > best.inc) best = { name, inc, pct: Math.round((inc / prev) * 100) };
     }
-    if (best) lines.push([{ text: 'Biggest increase: ' }, { text: best.name, tone: undefined }, { text: ` (+${best.pct}%)`, tone: 'bad' }]);
+    if (best) lines.push([{ text: REPORT_INCREASE_LABEL }, { text: best.name, tone: undefined }, { text: ` (+${best.pct}%)`, tone: 'bad' }]);
   }
 
   const leak = leakFinder(txs, 1, essentialCategories)[0];
-  if (leak) lines.push([{ text: `Biggest small leak: ${leak.name}, ${fmtTaka(leak.totalMinor)} a month` }]);
+  if (leak) lines.push([{ text: REPORT_LEAK_LABEL }, { text: leak.name }, { text: ` — মাসে ${fmtTaka(leak.totalMinor)}` }]);
   return lines;
 }
 

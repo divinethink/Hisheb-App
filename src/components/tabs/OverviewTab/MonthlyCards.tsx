@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { BarChart3, CalendarDays, ClipboardList, Droplets, Target, Wallet, Zap } from 'lucide-react';
+import { Activity, ArrowUpRight, BarChart3, CalendarDays, ClipboardList, Droplets, Target, Wallet, Zap, type LucideIcon } from 'lucide-react';
 import { Block, Tip } from './OverviewBits';
 import BottomSheet from '../../common/BottomSheet';
-import { formatDisplayDate, monthLabel } from '../../../lib/date';
+import { formatDisplayDate, monthLabel, monthLabelBn } from '../../../lib/date';
 import { categoryColorIndex, formatSigned, formatTakaWhole, roundWhole as roundMinor } from '../../../lib/format';
 import {
   bigOneOffs,
@@ -10,6 +10,8 @@ import {
   leakFinder,
   monthReport,
   noSpendCalendar,
+  REPORT_INCREASE_LABEL,
+  REPORT_LEAK_LABEL,
   spendPer100,
   targetGap,
   weekdaySpend,
@@ -23,21 +25,63 @@ const WEEKDAYS_EN = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']; // শন
 const WEEKDAYS_FULL = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const chartColor = (name: string) => `rgb(var(--chart-${categoryColorIndex(name, 8) + 1}))`;
 
-/** ১. মাসের রিপোর্ট কার্ড — ৩ লাইনের নিয়ম-ভিত্তিক সারাংশ */
+/** ১. মাসের রিপোর্ট কার্ড — নিয়ম-ভিত্তিক সারাংশ; প্রতি লাইন আইকন + ছোট লেবেল সহ গোছানো সারিতে */
 export function ReportCard({ month, txs, prevTxs, targetPct, essential }: { month: string; txs: readonly TxLite[]; prevTxs: readonly TxLite[] | null; targetPct: number | null; essential: readonly string[] }) {
   const lines = useMemo(() => monthReport(txs, prevTxs, targetPct, formatTakaWhole, essential), [txs, prevTxs, targetPct, essential]);
   if (lines.length === 0) return null;
+  const rowCls = 'flex items-start gap-2.5 border-t border-muted/10 py-2.5 first:border-t-0 first:pt-0.5 last:pb-0.5';
+  const badge = (Icon: LucideIcon, cls: string) => (
+    <span aria-hidden className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full ${cls}`}>
+      <Icon size={14} />
+    </span>
+  );
   return (
-    <Block icon={ClipboardList} title={`${monthLabel(month).split(' ')[0]} Report Card`} sub="Auto-generated from your records">
-      <ul className="flex flex-col gap-1.5 text-sm text-fg">
-        {lines.map((line, i) => (
-          <li key={i} className="border-t border-muted/10 pt-1.5 first:border-t-0 first:pt-0">
-            •{' '}
-            {line.map((p, j) => (
-              <span key={j} className={p.tone === 'good' ? 'font-semibold text-income' : p.tone === 'bad' ? 'font-semibold text-expense' : p.text && j > 0 && line[j - 1].text === 'Biggest increase: ' ? 'font-semibold' : undefined}>{p.text}</span>
-            ))}
-          </li>
-        ))}
+    <Block icon={ClipboardList} title={`${monthLabelBn(month).split(' ')[0]}-এর রিপোর্ট কার্ড`} sub="আপনার হিসাব থেকে নিজে-নিজেই তৈরি">
+      <ul className="flex flex-col text-sm text-fg">
+        {lines.map((line, i) => {
+          const head = line[0]?.text;
+          if (head === REPORT_INCREASE_LABEL) {
+            return (
+              <li key={i} className={rowCls}>
+                {badge(ArrowUpRight, 'bg-expense/10 text-expense')}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-muted">সবচেয়ে বেশি বেড়েছে</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate font-semibold">{line[1]?.text}</span>
+                    <span className="shrink-0 rounded-full bg-expense/10 px-2 py-0.5 text-xs font-semibold text-expense">{line[2]?.text.trim()}</span>
+                  </div>
+                </div>
+              </li>
+            );
+          }
+          if (head === REPORT_LEAK_LABEL) {
+            return (
+              <li key={i} className={rowCls}>
+                {badge(Droplets, 'bg-warning/10 text-warning')}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-muted">ছোট ফাঁকের শীর্ষে</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate font-semibold">{line[1]?.text}</span>
+                    <span className="shrink-0 text-xs text-muted">{line[2]?.text.replace(/^\s*—\s*/, '')}</span>
+                  </div>
+                </div>
+              </li>
+            );
+          }
+          return (
+            <li key={i} className={rowCls}>
+              {badge(Activity, 'bg-primary/10 text-primary')}
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-muted">খরচ ও সঞ্চয়</p>
+                <p className="leading-relaxed">
+                  {line.map((p, j) => (
+                    <span key={j} className={p.tone === 'good' ? 'font-semibold text-income' : p.tone === 'bad' ? 'font-semibold text-expense' : undefined}>{p.text}</span>
+                  ))}
+                </p>
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </Block>
   );
@@ -49,23 +93,31 @@ export function TargetGapCard({ txs, targetPct }: { txs: readonly TxLite[]; targ
   const g = useMemo(() => targetGap(txs, target), [txs, target]);
   if (!g) return null;
   return (
-    <Block icon={Target} tone="income" title="What Would Have Hit the Target" sub={`Spending needed to be ${formatTakaWhole(g.needMinor)} lower to reach the ${target}% savings target`}>
+    <Block icon={Target} tone="income" title="টার্গেট ছুঁতে কী করা যেত" sub={`সঞ্চয়ের লক্ষ্য (${target}%) ছুঁতে খরচ আরও ${formatTakaWhole(g.needMinor)} কম হতে হতো`}>
       {g.options.length === 0 ? (
-        <p className="text-xs text-muted">Cutting one category alone wouldn’t have been enough — it would take a mix of several.</p>
+        <p className="text-xs text-muted">একটি খাত কেটে এটা সম্ভব হতো না — কয়েকটি খাতে একসাথে কমাতে হতো।</p>
       ) : (
         <ul>
-          {g.options.map((o) => (
-            <li key={o.name} className="flex items-center justify-between gap-3 border-t border-muted/10 py-1.5 first:border-t-0">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-fg">{o.name}</p>
-                <p className="text-xs text-muted">This month {formatTakaWhole(o.totalMinor)}</p>
-              </div>
-              <p className="shrink-0 text-sm font-semibold text-income">Cut {Math.ceil(o.cutPct)}% to hit it</p>
-            </li>
-          ))}
+          {g.options.map((o) => {
+            const cut = Math.min(100, Math.ceil(o.cutPct));
+            return (
+              <li key={o.name} className="border-t border-muted/10 py-2 first:border-t-0 first:pt-0.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-fg">{o.name}</p>
+                    <p className="text-xs text-muted">এই মাসে {formatTakaWhole(o.totalMinor)}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-income/10 px-2.5 py-0.5 text-xs font-semibold text-income">{cut}% কমালেই হতো</span>
+                </div>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface" role="img" aria-label={`${o.name}: ${cut}% কমাতে হতো`}>
+                  <div className="h-full rounded-full bg-income" style={{ width: `${cut}%` }} />
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
-      <Tip>Calculated by cutting one category only — income and other spending held the same.</Tip>
+      <Tip>হিসাবটি শুধু একটি খাত কেটে করা — আয় ও বাকি খরচ আগের মতোই ধরা হয়েছে।</Tip>
     </Block>
   );
 }

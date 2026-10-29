@@ -139,29 +139,29 @@ describe('monthReport', () => {
   const flat = (l: ReturnType<typeof monthReport>[number]) => l.map((p) => p.text).join('');
   it('খরচ কম + টার্গেটের নিচে', () => {
     const lines = monthReport([tx('2026-10-01', 'income', 100000), tx('2026-10-02', 'expense', 72000, 'খাবার')], [tx('2026-09-02', 'expense', 80000, 'খাবার')], 40, fmt);
-    expect(flat(lines[0])).toBe('Spending is 10% lower than last month, but 12 pts below your savings target (40%)');
+    expect(flat(lines[0])).toBe('গত মাসের চেয়ে খরচ 10% কম, তবে সঞ্চয়ের লক্ষ্য (40%) থেকে 12 পয়েন্ট পিছিয়ে আছেন');
   });
   it('টার্গেট null → ডিফল্ট ২০%; ছুঁলে "ছুঁয়েছে"', () => {
     const lines = monthReport(cur, prev, null, fmt);
     expect(flat(lines[0])).toContain('(20%)');
-    expect(flat(lines[0])).toContain('reached');
+    expect(flat(lines[0])).toContain('পূরণ হয়েছে');
   });
   it('সবচেয়ে বাড়া খাত (গত মাসে > ০), নতুন খাত বাদ', () => {
     const c2 = [...cur, tx('2026-10-04', 'expense', 20000, 'নতুন')];
     const p2 = [tx('2026-09-02', 'expense', 20000, 'খাবার'), tx('2026-09-03', 'expense', 40000, 'ভাড়া')];
     const lines = monthReport(c2, p2, 20, fmt);
-    expect(lines.map(flat).some((s) => s === 'Biggest increase: খাবার (+100%)')).toBe(true);
+    expect(lines.map(flat).some((s) => s === 'সবচেয়ে বেশি বেড়েছে: খাবার (+100%)')).toBe(true);
   });
   it('prev না থাকলে শুধু সঞ্চয় লাইন; আয়ও না থাকলে কিছুই না', () => {
     const lines = monthReport(cur, null, 20, fmt);
     expect(lines).toHaveLength(1);
-    expect(flat(lines[0])).toBe('Savings target (20%) reached');
+    expect(flat(lines[0])).toBe('সঞ্চয়ের লক্ষ্য (20%) পূরণ হয়েছে');
     expect(monthReport([tx('2026-10-01', 'expense', 100)], null, 20, fmt)).toEqual([]);
   });
   it('ছোট-ফাঁক লাইন', () => {
     const leaks = Array.from({ length: 10 }, (_, i) => tx(`2026-10-${String(i + 1).padStart(2, '0')}`, 'expense', 5000, 'চা-নাস্তা'));
     const lines = monthReport(leaks, null, 20, fmt);
-    expect(lines.map(flat)).toContain('Biggest small leak: চা-নাস্তা, ৳500 a month');
+    expect(lines.map(flat)).toContain('ছোট ফাঁকের শীর্ষে: চা-নাস্তা — মাসে ৳500');
   });
 });
 
