@@ -17,8 +17,31 @@ const NetWorthTab = lazy(() => import('./tabs/NetWorthTab/NetWorthTab'));
 const OverviewTab = lazy(() => import('./tabs/OverviewTab/OverviewTab'));
 const SettingsTab = lazy(() => import('./tabs/SettingsTab/SettingsTab')); // UI-লেবেল "Menu"
 
+// রিফ্রেশে বর্তমান ট্যাবেই থাকা (owner-request, ২০২৬-১০-৩০): sessionStorage — অ্যাপ বন্ধ করে আবার খুললে Home
+const TAB_KEY = 'hsb.tab';
+const TAB_IDS: readonly TabId[] = ['home', 'ledger', 'networth', 'overview', 'menu'];
+function readSavedTab(): TabId {
+  try {
+    const v = window.sessionStorage.getItem(TAB_KEY);
+    if (v && (TAB_IDS as readonly string[]).includes(v)) return v as TabId;
+  } catch {
+    /* storage বন্ধ/ব্লকড — Home */
+  }
+  return 'home';
+}
+
 export default function AppShell({ user }: { user: SessionUser }) {
-  const [tab, setTab] = useState<TabId>('home');
+  // PWA shortcut (`?action=add-expense`) সবসময় Home-এ খোলে
+  const [tab, setTab] = useState<TabId>(() =>
+    new URLSearchParams(window.location.search).get('action') === 'add-expense' ? 'home' : readSavedTab(),
+  );
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(TAB_KEY, tab);
+    } catch {
+      /* ignore */
+    }
+  }, [tab]);
   // reminder ব্যানার থেকে Update Balances খোলা (আগের মাস preselect হতে পারে)
   const [updateRequest, setUpdateRequest] = useState<{ month: string } | null>(null);
   useThemeSync(user.uid);

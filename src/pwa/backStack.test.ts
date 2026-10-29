@@ -62,4 +62,24 @@ describe('backStack (ফোনের ব্যাক বাটন)', () => {
     await tick();
     expect(closeB).toHaveBeenCalledTimes(1);
   });
+
+  it('screen→parent screen বদলে গেলে নতুন history entry জমে না (forward entry-তে ফেরে), পরের ব্যাকও কাজ করে', async () => {
+    const closeParent = vi.fn();
+    let offChild: () => void = () => {};
+    const child = () => {
+      offChild();
+      offChild = pushBackHandler(closeParent);
+    };
+    offChild = pushBackHandler(child); // "detail": ব্যাকে parent screen-এ বদলায়
+    await tick();
+    const len = window.history.length;
+    window.history.back();
+    await tick();
+    await tick();
+    expect(window.history.length).toBe(len); // pushState হয়নি
+    expect((window.history.state as { hsbDepth: number }).hsbDepth).toBe(1);
+    window.history.back();
+    await tick();
+    expect(closeParent).toHaveBeenCalledTimes(1);
+  });
 });
