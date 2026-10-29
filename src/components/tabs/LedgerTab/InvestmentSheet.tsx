@@ -371,6 +371,12 @@ export default function InvestmentSheet({
                 lastRound !== null && <p className="mt-1 text-xs text-muted">Last round: {lastRound}</p>
               )}
             </div>
+
+            {!legacy && companyId && trimmedName && (
+              <p className="rounded-lg bg-surface px-3 py-2 text-sm text-muted">
+                Saved as: <span className="font-medium text-fg">{savedAs}</span>
+              </p>
+            )}
           </>
         )}
 
@@ -410,12 +416,6 @@ export default function InvestmentSheet({
             </div>
           )}
         </div>
-
-        {!legacy && companyId && trimmedName && (
-          <p className="rounded-lg bg-surface px-3 py-2 text-sm text-muted">
-            Saved as: <span className="font-medium text-fg">{savedAs}</span>
-          </p>
-        )}
 
         <AmountInput value={amount} onChange={setAmount} showError={submitted} />
 
