@@ -6,6 +6,7 @@ import OfflineBanner from './OfflineBanner';
 import AppLockGate from './AppLockGate';
 import { useThemeSync } from '../hooks/useThemeSync';
 import { useBackClose } from '../hooks/useBackClose';
+import { useKeyboardOpen } from '../hooks/useKeyboardOpen';
 import type { SessionUser } from '../auth/AuthProvider';
 
 // প্রতিটা ট্যাব আলাদা chunk (Dev Rule ১০, Architecture Plan §৭)
@@ -20,6 +21,7 @@ export default function AppShell({ user }: { user: SessionUser }) {
   // reminder ব্যানার থেকে Update Balances খোলা (আগের মাস preselect হতে পারে)
   const [updateRequest, setUpdateRequest] = useState<{ month: string } | null>(null);
   useThemeSync(user.uid);
+  const keyboardOpen = useKeyboardOpen();
   // Home ছাড়া অন্য ট্যাবে ব্যাক = Home-এ ফেরা; Home-এ ব্যাক = অ্যাপ বন্ধ (স্বাভাবিক)
   useBackClose(() => setTab('home'), tab !== 'home');
   // PWA App-Shortcut (G5): `/?action=add-expense` → Home-এ Add sheet একবার খোলে, তারপর URL পরিষ্কার
@@ -49,7 +51,7 @@ export default function AppShell({ user }: { user: SessionUser }) {
           {tab === 'menu' && <SettingsTab user={user} />}
         </Suspense>
       </main>
-      <BottomNav active={tab} onChange={setTab} />
+      {!keyboardOpen && <BottomNav active={tab} onChange={setTab} />}
     </div>
     </AppLockGate>
   );

@@ -4,6 +4,10 @@
 @tailwind utilities;
 
 html, body, #root { height: 100%; }
+/* মোবাইলে ব্রাউজার-বার/স্ক্রিন-অন বদলালেও আসল দৃশ্যমান উচ্চতা (নেভ বার নিচে সেঁটে থাকে) */
+@supports (height: 100dvh) {
+  html, body, #root { height: 100dvh; }
+}
 body {
   margin: 0;
   background: rgb(var(--color-canvas));
