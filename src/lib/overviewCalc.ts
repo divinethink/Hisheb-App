@@ -188,13 +188,13 @@ export function netWorthYtd(snapshots: readonly NetWorthSnapshotLite[], yyyymm: 
 export function savingsInsight(currentSavingsMinor: number, previousSavingsMinor: number | null, fmtNet: (minor: number) => string = (m) => String(m)): string | null {
   if (previousSavingsMinor === null || previousSavingsMinor === 0) return null;
   if (currentSavingsMinor < 0 !== previousSavingsMinor < 0 && currentSavingsMinor !== 0) {
-    const verb = currentSavingsMinor < 0 ? 'ঋণাত্মক হয়েছে' : 'ধনাত্মক হয়েছে';
-    return `সঞ্চয় ${verb}: গত মাস ${fmtNet(previousSavingsMinor)} → এ মাস ${fmtNet(currentSavingsMinor)}`;
+    const verb = currentSavingsMinor < 0 ? 'turned negative' : 'turned positive';
+    return `Savings ${verb}: ${fmtNet(previousSavingsMinor)} last month → ${fmtNet(currentSavingsMinor)} this month`;
   }
   const diffPct = ((currentSavingsMinor - previousSavingsMinor) / Math.abs(previousSavingsMinor)) * 100;
   if (Math.abs(diffPct) < 1) return null;
   const rounded = Math.round(Math.abs(diffPct));
-  return `গত মাসের চেয়ে সঞ্চয় ${rounded}% ${diffPct > 0 ? 'বেশি' : 'কম'}`;
+  return `Savings ${rounded}% ${diffPct > 0 ? 'higher' : 'lower'} than last month`;
 }
 
 // ---- Overview Enrichment ধাপ ২ (Yearly view) — 1_3_Hisheb_App_Overview_UI_Enrichment.md §২/§৩ ----

@@ -51,7 +51,7 @@ export function SavingsRateCard({ year, rows, targetPct, partialMonth }: { year:
   const summary = withData.map((p) => `${MONTH_SHORT[p.month - 1]} ${pct1(p.pct as number)}%`).join(', ');
 
   return (
-    <Block icon={PiggyBank} tone="income" title="Monthly Savings Rate" sub={`${year} · প্রতি মাসের (আয় − খরচ) ÷ আয়`}>
+    <Block icon={PiggyBank} tone="income" title="Monthly Savings Rate" sub={`${year} · প্রতি মাসের (আয় − ব্যয়) ÷ আয়`}>
       <svg viewBox={`0 0 ${W} ${H + 12}`} className="w-full" role="img" aria-label={`Monthly savings rate vs target ${target}%. ${summary}`}>
         <line x1={PADX} x2={W - PADX} y1={y(target)} y2={y(target)} stroke="rgb(var(--color-income))" strokeWidth={1} strokeDasharray="4 3" />
         <text x={W - PADX} y={y(target) - 3} textAnchor="end" fontSize={8} className="fill-income">Target {target}%</text>

@@ -51,13 +51,13 @@ export function NetWorthBridgeCard({ snapshots, txs }: { snapshots: readonly Sna
       </div>
       {ownPct !== null && ownPct > 0 && <Tip tone="income">বৃদ্ধির <b>{ownPct}%</b> এসেছে আপনার নিজের জমা থেকে।</Tip>}
       {b.deltaMinor > 0 && b.ownMinor < 0 && <Tip>এই সময়ে খরচ আয়ের চেয়ে বেশি ছিল — বৃদ্ধি এসেছে অন্য খাত (বিনিয়োগ/পাওনা ইত্যাদি) থেকে।</Tip>}
-      {b.uncoveredMonths > 0 && <Foot>{b.monthsSpan} মাসের মধ্যে {b.uncoveredMonths} মাসের আয়-খরচ অ্যাপে নেই — "নিজের জমা" আংশিক (Partial data)।</Foot>}
+      {b.uncoveredMonths > 0 && <Foot>{b.monthsSpan} মাসের মধ্যে {b.uncoveredMonths} মাসের আয়-ব্যয় অ্যাপে নেই — "নিজের জমা" আংশিক (Partial data)।</Foot>}
       <Foot>Others = বিনিয়োগ-মান বদল, পাওনা আদায়, Cross-check অমিল ইত্যাদি।</Foot>
     </Block>
   );
 }
 
-/** ৩. লক্ষ্য ও পূর্বাভাস — দুই গতি: (ক) আয়-খরচের জমা অনুযায়ী, (খ) সম্পদ আসলে যতটা বাড়ছে তা অনুযায়ী */
+/** ৩. লক্ষ্য ও পূর্বাভাস — দুই গতি: (ক) আয়-ব্যয়ের জমা অনুযায়ী, (খ) সম্পদ আসলে যতটা বাড়ছে তা অনুযায়ী */
 export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMinor, pace }: { currentMinor: number; latestYyyymm: string; goalMinor: number | null; avgSavingsMinor: number | null; pace: NetWorthPace | null }) {
   const goal = goalMinor ?? DEFAULT_NET_WORTH_GOAL_MINOR;
   const p = useMemo(() => goalProjection(currentMinor, goal, avgSavingsMinor, latestYyyymm, BOOST_MINOR), [currentMinor, goal, avgSavingsMinor, latestYyyymm]);
@@ -88,11 +88,11 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
       {p.reached ? (
         <Tip tone="income">লক্ষ্য পূর্ণ হয়েছে। নতুন লক্ষ্য বসাতে পারেন।</Tip>
       ) : avgSavingsMinor === null && !pace ? (
-        <Foot>শেষ ৬ মাসের আয়-খরচ ও দুটি snapshot অ্যাপে নেই, তাই পূর্বাভাস দেখানো যাচ্ছে না।</Foot>
+        <Foot>শেষ ৬ মাসের আয়-ব্যয় ও দুটি snapshot অ্যাপে নেই, তাই পূর্বাভাস দেখানো যাচ্ছে না।</Foot>
       ) : (
         <>
           {avgSavingsMinor !== null && (
-            <p className="mb-1 mt-3 text-xs text-muted">হিসাব অনুযায়ী জমা (আয় − খরচ, শেষ ৬ মাস): <b className={avgSavingsMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTakaWhole(Math.round(avgSavingsMinor))}</b>/মাস</p>
+            <p className="mb-1 mt-3 text-xs text-muted">হিসাব অনুযায়ী জমা (আয় − ব্যয়, শেষ ৬ মাস): <b className={avgSavingsMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTakaWhole(Math.round(avgSavingsMinor))}</b>/মাস</p>
           )}
           {pace && (
             <p className={`mb-2 text-xs text-muted ${avgSavingsMinor === null ? 'mt-3' : ''}`}>সম্পদ আসলে বেড়েছে (শেষ {pace.spanMonths} মাস): <b className={pace.perMonthMinor >= 0 ? 'text-fg' : 'text-expense'}>{formatNetTakaWhole(pace.perMonthMinor)}</b>/মাস</p>
@@ -111,7 +111,7 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
               </div>
             )}
           </div>
-          <Foot>শুধু অনুমান — আয়-খরচ বদলালে ফল বদলাবে, নিশ্চয়তা নয়।{avgSavingsMinor !== null && pace ? ` দুই গতির ফারাক মাসে ${formatTakaWhole(Math.abs(Math.round(avgSavingsMinor) - pace.perMonthMinor))} — ফারাক বড় হলে বুঝবেন সম্পদের একটা অংশ আয়-খরচের বাইরের কারণে (বিনিয়োগ-মান, পাওনা ইত্যাদি) বদলেছে।` : ''}</Foot>
+          <Foot>শুধু অনুমান — আয়-ব্যয় বদলালে ফল বদলাবে, নিশ্চয়তা নয়।{avgSavingsMinor !== null && pace ? ` দুই গতির ফারাক মাসে ${formatTakaWhole(Math.abs(Math.round(avgSavingsMinor) - pace.perMonthMinor))} — ফারাক বড় হলে বুঝবেন সম্পদের একটা অংশ আয়-ব্যয়ের বাইরের কারণে (বিনিয়োগ-মান, পাওনা ইত্যাদি) বদলেছে।` : ''}</Foot>
         </>
       )}
     </Block>
