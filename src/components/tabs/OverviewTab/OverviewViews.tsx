@@ -6,11 +6,13 @@ import IconBadge from '../../common/IconBadge';
 import CategoryHistorySheet from './CategoryHistorySheet';
 import { YearlyBreakdown, YearsCard } from './BreakdownLists';
 import { CategoryBars, CategoryDonut, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
+import { HundredCard, LeakCard, NoSpendCalendarCard, ReportCard, WeekdayCard } from './MonthlyCards';
 import { AssetMixCard, GoalCard, NetWorthBridgeCard, RunwayCard } from './GoalCards';
 import { useMonthTransactions, useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
 import { currentMonth, monthEndDate, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
 import { formatAmount, formatNet, formatNetTaka, formatTaka } from '../../../lib/format';
 import {
+  addDays,
   allTimeRows,
   avgMonthlyExpense,
   avgMonthlySavings,
@@ -188,6 +190,11 @@ export function MonthlyView({ uid, historical }: { uid: string; historical: read
   const runwayMonthsList = useMemo(() => [prevMonth, shiftMonth(month, -2), shiftMonth(month, -3)], [month, prevMonth]);
   const runwayTx = useRangeTransactions(uid, `${runwayMonthsList[2]}-01`, monthEndDate(prevMonth));
   const snaps = useNetWorthSnapshots(uid);
+  // ধাপ ২: বার-ভিত্তিক খরচের জন্য গত ৯০ দিন (দেখা মাসের শেষ বা আজ — যেটা আগে) + সঞ্চয় টার্গেট
+  const today = toDhakaDate(new Date());
+  const weekdayEnd = monthEndDate(month) < today ? monthEndDate(month) : today;
+  const weekdayTx = useRangeTransactions(uid, addDays(weekdayEnd, -89), weekdayEnd);
+  const settings = useSettings(uid);
   const year = Number(month.slice(0, 4));
   const partial = historical.some((h) => h.year === year); // DF7: doc-বছরের মাস app-এর আগের ডেটা ধরে না
 
@@ -213,6 +220,10 @@ export function MonthlyView({ uid, historical }: { uid: string; historical: read
             runwayTxs={runwayTx.state.status === 'ready' ? runwayTx.state.data : null}
             runwayMonthsList={runwayMonthsList}
             snapshots={snaps.state.status === 'ready' ? (snaps.state.data as NetWorthSnapshotLite[]) : null}
+            weekdayTxs={weekdayTx.state.status === 'ready' ? weekdayTx.state.data : null}
+            weekdayEnd={weekdayEnd}
+            today={today}
+            targetPct={settings.state.status === 'ready' ? settings.state.data.savingsTargetPct : null}
           />
         )
       )}
@@ -228,6 +239,10 @@ function MonthlyBody({
   runwayTxs,
   runwayMonthsList,
   snapshots,
+  weekdayTxs,
+  weekdayEnd,
+  today,
+  targetPct,
 }: {
   month: string;
   txs: readonly TxLite[];
@@ -236,6 +251,10 @@ function MonthlyBody({
   runwayTxs: readonly TxLite[] | null;
   runwayMonthsList: readonly string[];
   snapshots: readonly NetWorthSnapshotLite[] | null;
+  weekdayTxs: readonly TxLite[] | null;
+  weekdayEnd: string;
+  today: string;
+  targetPct: number | null;
 }) {
   const t = useMemo(() => sumTotals(txs), [txs]);
   const cats = useMemo(() => categoryBreakdown(txs), [txs]);
@@ -260,12 +279,17 @@ function MonthlyBody({
       <Totals income={t.income} expense={t.expense} savings={savings} savingsPct={savingsPct} savingsPctDeltaPt={savingsPctDeltaPt} />
       {insight && <Note>{insight}</Note>}
       {partial && <Note>Partial data — this period may include days recorded before the app was used.</Note>}
+      <ReportCard month={month} txs={txs} prevTxs={prevTxs} targetPct={targetPct} />
+      <HundredCard month={month} txs={txs} />
       <Section title="Expense by category">
         <CategoryDonut items={cats} totalMinor={t.expense} />
         <CategoryBars items={cats} onSelect={setSelCat} />
       </Section>
       {selCat && <CategoryHistorySheet name={selCat} txs={txs} cats={cats} onClose={() => setSelCat(null)} />}
       <KeyNumbers avgExpense={avgExpense} avgSavings={avgSavings} runway={runway} ytd={ytd} thisExpense={t.expense} />
+      <LeakCard txs={txs} />
+      <WeekdayCard txs={weekdayTxs} end={weekdayEnd} />
+      <NoSpendCalendarCard month={month} txs={txs} today={today} />
     </>
   );
 }

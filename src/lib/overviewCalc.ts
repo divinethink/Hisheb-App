@@ -471,3 +471,267 @@ export function emergencyFund(cashMinor: number, avgMonthlyExpenseMinor: number 
   const cash = Math.max(cashMinor, 0);
   return { targetMinor: target, pct: Math.min(100, (cash / target) * 100), shortfallMinor: Math.max(0, target - cash) };
 }
+
+// ───────── Overview → Monthly ধাপ ২ (খরচ-সচেতনতা) ─────────
+// সব হিসাব বিদ্যমান লেনদেন থেকে, নিয়ম-ভিত্তিক (AI নয়)। নতুন schema/write নেই। টাকা minor (পয়সা) integer-এ।
+
+/** "ছোট ফাঁক": ক্যাটাগরিতে কমপক্ষে এত বার, গড় অঙ্ক এর নিচে (৳150, minor)। */
+export const LEAK_MIN_COUNT = 8;
+export const LEAK_MAX_AVG_MINOR = 15_000;
+
+const parseYmd = (date: string): number => {
+  const [y, m, d] = date.split('-').map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+const fmtYmd = (ms: number): string => {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+};
+const DAY_MS = 86_400_000;
+
+/** `date`-এর n দিন আগে/পরে "YYYY-MM-DD" (UTC গণিত — timezone-নিরপেক্ষ)। */
+export function addDays(date: string, n: number): string {
+  return fmtYmd(parseYmd(date) + n * DAY_MS);
+}
+
+/** বার-সূচক, শনি=0 … শুক্র=6 (বাংলাদেশের সপ্তাহ শনিবার থেকে)। */
+export function weekdayIndex(date: string): number {
+  return (new Date(parseYmd(date)).getUTCDay() + 1) % 7;
+}
+
+const expenseOnly = (txs: readonly TxLite[]) => txs.filter((t) => t.type === 'expense');
+
+/** তারিখ → সেই দিনের মোট খরচ (শুধু expense)। */
+export function dailyExpense(txs: readonly TxLite[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const t of expenseOnly(txs)) m.set(t.date, (m.get(t.date) ?? 0) + t.amountMinor);
+  return m;
+}
+
+// ── আমার ১০০ টাকা কোথায় যায় ──
+export interface HundredSegment {
+  key: string; // category নাম, 'others' বা 'savings'
+  name: string;
+  value: number; // আয়ের প্রতি ১০০-তে কত
+  kind: 'category' | 'others' | 'savings';
+}
+export interface SpendPer100 {
+  segments: HundredSegment[];
+  savingsPer100: number | null; // খরচ ≤ আয় হলে
+  overspendMinor: number; // খরচ > আয় হলে ঘাটতি, নাহলে 0
+}
+
+/** আয়ের প্রতি ১০০ টাকায় শীর্ষ topN খাত + অন্যান্য + সঞ্চয়। খরচ ≤ আয় হলে যোগফল ঠিক ১০০ (largest-remainder)। আয় ০ হলে null। */
+export function spendPer100(txs: readonly TxLite[], topN = 5): SpendPer100 | null {
+  let income = 0;
+  let expense = 0;
+  for (const t of txs) {
+    if (t.type === 'income') income += t.amountMinor;
+    else expense += t.amountMinor;
+  }
+  if (income <= 0) return null;
+  const cats = categoryList(txs, 'expense');
+  const top = cats.slice(0, topN);
+  const restMinor = cats.slice(topN).reduce((a, c) => a + c.totalMinor, 0);
+  const raw: { key: string; name: string; minor: number; kind: HundredSegment['kind'] }[] = top.map((c) => ({ key: c.name, name: c.name, minor: c.totalMinor, kind: 'category' }));
+  if (restMinor > 0) raw.push({ key: 'others', name: 'অন্যান্য', minor: restMinor, kind: 'others' });
+  const overspendMinor = Math.max(0, expense - income);
+  if (expense <= income) raw.push({ key: 'savings', name: 'সঞ্চয়', minor: income - expense, kind: 'savings' });
+
+  const exact = raw.map((r) => (r.minor / income) * 100);
+  let values = exact.map((v) => Math.round(v));
+  if (expense <= income) {
+    // largest remainder: যোগফল ঠিক ১০০
+    values = exact.map((v) => Math.floor(v));
+    let left = 100 - values.reduce((a, b) => a + b, 0);
+    const order = exact.map((v, i) => ({ i, frac: v - Math.floor(v) })).sort((a, b) => b.frac - a.frac);
+    for (let k = 0; left > 0 && order.length > 0; k = (k + 1) % order.length, left--) values[order[k].i] += 1;
+  }
+  const segments = raw.map((r, i) => ({ key: r.key, name: r.name, value: values[i], kind: r.kind })).filter((s) => s.value > 0);
+  const sav = segments.find((s) => s.kind === 'savings');
+  return { segments, savingsPer100: expense <= income ? (sav ? sav.value : 0) : null, overspendMinor };
+}
+
+// ── ছোট ফাঁক (Leak finder) ──
+export interface LeakItem {
+  name: string;
+  count: number;
+  totalMinor: number;
+  avgMinor: number;
+}
+
+/** বেশি বার কিন্তু ছোট অঙ্কের খরচ-খাত: count ≥ LEAK_MIN_COUNT ও গড় ≤ LEAK_MAX_AVG_MINOR; মোটের বড় → ছোট, শীর্ষ topN। */
+export function leakFinder(txs: readonly TxLite[], topN = 3): LeakItem[] {
+  const map = new Map<string, { count: number; total: number }>();
+  for (const t of expenseOnly(txs)) {
+    const e = map.get(t.categoryName) ?? { count: 0, total: 0 };
+    e.count += 1;
+    e.total += t.amountMinor;
+    map.set(t.categoryName, e);
+  }
+  return [...map.entries()]
+    .map(([name, e]) => ({ name, count: e.count, totalMinor: e.total, avgMinor: Math.round(e.total / e.count) }))
+    .filter((x) => x.count >= LEAK_MIN_COUNT && x.avgMinor <= LEAK_MAX_AVG_MINOR)
+    .sort((a, b) => b.totalMinor - a.totalMinor)
+    .slice(0, topN);
+}
+
+// ── বার-ভিত্তিক খরচ ──
+export interface WeekdayAvg {
+  /** শনি=0 … শুক্র=6 */
+  avgMinor: number[];
+  daysCovered: number;
+  /** সবচেয়ে বেশি গড়ের বার ও অন্য ৬ বারের গড়ের তুলনায় গুণ (≥ minRatio হলে, নাহলে null) */
+  peak: { index: number; avgMinor: number; ratio: number } | null;
+}
+
+/** [end−windowDays+1 … end] জানালায় প্রতি বারের গড় দৈনিক খরচ (খরচ-শূন্য দিনও গোনা)। জানালার শুরু প্রথম লেনদেনের আগে হলে প্রথম লেনদেনের দিন থেকে (অ্যাপ-ব্যবহারের আগের ফাঁকা দিন গড় নামায় না)। */
+export function weekdaySpend(txs: readonly TxLite[], end: string, windowDays = 90, minRatio = 1.25): WeekdayAvg | null {
+  const start = addDays(end, -(windowDays - 1));
+  const inWin = expenseOnly(txs).filter((t) => t.date >= start && t.date <= end);
+  if (inWin.length === 0) return null;
+  const first = inWin.reduce((a, t) => (t.date < a ? t.date : a), inWin[0].date);
+  const effStart = first > start ? first : start;
+  const sums = Array<number>(7).fill(0);
+  const days = Array<number>(7).fill(0);
+  let covered = 0;
+  for (let d = effStart; d <= end; d = addDays(d, 1)) {
+    days[weekdayIndex(d)] += 1;
+    covered += 1;
+  }
+  for (const t of inWin) if (t.date >= effStart) sums[weekdayIndex(t.date)] += t.amountMinor;
+  const avgMinor = sums.map((s, i) => (days[i] > 0 ? Math.round(s / days[i]) : 0));
+  let pi = 0;
+  avgMinor.forEach((v, i) => { if (v > avgMinor[pi]) pi = i; });
+  const others = avgMinor.filter((_, i) => i !== pi && days[i] > 0);
+  const othersAvg = others.length ? others.reduce((a, b) => a + b, 0) / others.length : 0;
+  const ratio = othersAvg > 0 ? avgMinor[pi] / othersAvg : 0;
+  return { avgMinor, daysCovered: covered, peak: ratio >= minRatio ? { index: pi, avgMinor: avgMinor[pi], ratio } : null };
+}
+
+// ── নো-স্পেন্ড ক্যালেন্ডার ──
+export type DayLevel = 'none' | 'low' | 'mid' | 'high' | 'future';
+export interface CalendarDay {
+  date: string;
+  day: number;
+  weekday: number; // শনি=0
+  spendMinor: number;
+  level: DayLevel;
+}
+export interface NoSpendCalendar {
+  days: CalendarDay[];
+  noSpendCount: number;
+  bestStreak: number;
+  /** আজ পর্যন্ত চলতি টানা নো-স্পেন্ড (চলতি মাসের বাইরে 0) */
+  currentStreak: number;
+}
+
+/** মাসের প্রতিটা দিনের খরচ-স্তর: ০ = নো-স্পেন্ড; বাকিগুলো খরচ-হওয়া দিনের গড়ের সাথে তুলনায় low(<0.7×) / mid / high(≥1.3×)। `today`-এর পরের দিন 'future'। */
+export function noSpendCalendar(txs: readonly TxLite[], yyyymm: string, today: string): NoSpendCalendar {
+  const daily = dailyExpense(txs);
+  const [y, m] = yyyymm.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const spendDays = [...daily.entries()].filter(([d, v]) => d.startsWith(yyyymm) && v > 0).map(([, v]) => v);
+  const avg = spendDays.length ? spendDays.reduce((a, b) => a + b, 0) / spendDays.length : 0;
+  const days: CalendarDay[] = [];
+  let noSpendCount = 0;
+  let best = 0;
+  let run = 0;
+  for (let d = 1; d <= last; d++) {
+    const date = `${yyyymm}-${String(d).padStart(2, '0')}`;
+    const spendMinor = daily.get(date) ?? 0;
+    let level: DayLevel;
+    if (date > today) level = 'future';
+    else if (spendMinor === 0) level = 'none';
+    else if (spendMinor < avg * 0.7) level = 'low';
+    else if (spendMinor >= avg * 1.3) level = 'high';
+    else level = 'mid';
+    if (level === 'none') {
+      noSpendCount += 1;
+      run += 1;
+      if (run > best) best = run;
+    } else run = 0;
+    days.push({ date, day: d, weekday: weekdayIndex(date), spendMinor, level });
+  }
+  // চলতি টানা: আজ (বা মাসের শেষ গোনা-দিন) থেকে পেছনে; শুধু চলতি মাসে অর্থবহ
+  let currentStreak = 0;
+  if (today.startsWith(yyyymm)) {
+    for (let i = days.length - 1; i >= 0; i--) {
+      if (days[i].level === 'future') continue;
+      if (days[i].level === 'none') currentStreak += 1;
+      else break;
+    }
+  }
+  return { days, noSpendCount, bestStreak: best, currentStreak };
+}
+
+// ── মাসের রিপোর্ট কার্ড (নিয়ম-ভিত্তিক ৩ লাইন) ──
+export interface ReportPart {
+  text: string;
+  tone?: 'good' | 'bad';
+}
+export type ReportLine = ReportPart[];
+
+export const DEFAULT_SAVINGS_TARGET_PCT = 20;
+
+const pctText = (v: number) => (Math.round(v * 10) / 10).toString();
+
+/**
+ * ৩ লাইন: (১) খরচ গত মাসের তুলনায় + সঞ্চয়-হার টার্গেটের তুলনায়; (২) সবচেয়ে বেশি বাড়া খাত (গত মাসে > ০ থাকলে);
+ * (৩) সবচেয়ে বড় ছোট-ফাঁক। যে লাইনের ডেটা নেই সেটা বাদ। টাকার অঙ্ক-ফরম্যাট UI-তে নয়, এখানে `fmtTaka` দিয়ে।
+ */
+export function monthReport(
+  txs: readonly TxLite[],
+  prevTxs: readonly TxLite[] | null,
+  targetPct: number | null,
+  fmtTaka: (minor: number) => string,
+): ReportLine[] {
+  const lines: ReportLine[] = [];
+  let income = 0;
+  let expense = 0;
+  for (const t of txs) {
+    if (t.type === 'income') income += t.amountMinor;
+    else expense += t.amountMinor;
+  }
+  const target = targetPct ?? DEFAULT_SAVINGS_TARGET_PCT;
+  const pct = savingsRatePct(income, expense);
+  let prevExpense = 0;
+  if (prevTxs) for (const t of prevTxs) if (t.type === 'expense') prevExpense += t.amountMinor;
+
+  const l1: ReportLine = [];
+  let expenseDown: boolean | null = null;
+  if (prevTxs && prevExpense > 0) {
+    const diff = Math.round(((expense - prevExpense) / prevExpense) * 100);
+    if (diff === 0) l1.push({ text: 'খরচ গত মাসের প্রায় সমান' });
+    else {
+      expenseDown = diff < 0;
+      l1.push({ text: `খরচ গত মাসের চেয়ে ` }, { text: `${Math.abs(diff)}% ${diff < 0 ? 'কম' : 'বেশি'}`, tone: diff < 0 ? 'good' : 'bad' });
+    }
+  }
+  if (pct != null) {
+    const gap = target - pct;
+    const lead = l1.length > 0 ? (expenseDown === true && gap > 0 ? ', কিন্তু ' : expenseDown === false && gap <= 0 ? ', তবে ' : ', ') : '';
+    if (gap > 0.05) l1.push({ text: `${lead}সঞ্চয় টার্গেটের (${target}%) ` }, { text: `${pctText(gap)} পয়েন্ট নিচে`, tone: 'bad' });
+    else l1.push({ text: `${lead}সঞ্চয় টার্গেট (${target}%) ` }, { text: 'ছুঁয়েছে', tone: 'good' });
+  }
+  if (l1.length > 0) lines.push(l1);
+
+  if (prevTxs && prevExpense > 0) {
+    const prevMap = new Map<string, number>();
+    for (const t of expenseOnly(prevTxs)) prevMap.set(t.categoryName, (prevMap.get(t.categoryName) ?? 0) + t.amountMinor);
+    const curMap = new Map<string, number>();
+    for (const t of expenseOnly(txs)) curMap.set(t.categoryName, (curMap.get(t.categoryName) ?? 0) + t.amountMinor);
+    let best: { name: string; inc: number; pct: number } | null = null;
+    for (const [name, cur] of curMap) {
+      const prev = prevMap.get(name) ?? 0;
+      if (prev <= 0 || cur <= prev) continue;
+      const inc = cur - prev;
+      if (!best || inc > best.inc) best = { name, inc, pct: Math.round((inc / prev) * 100) };
+    }
+    if (best) lines.push([{ text: 'সবচেয়ে বেড়েছে: ' }, { text: best.name, tone: undefined }, { text: ` (+${best.pct}%)`, tone: 'bad' }]);
+  }
+
+  const leak = leakFinder(txs, 1)[0];
+  if (leak) lines.push([{ text: `সবচেয়ে বড় ছোট-ফাঁক: ${leak.name}, মাসে ${fmtTaka(leak.totalMinor)}` }]);
+  return lines;
+}
