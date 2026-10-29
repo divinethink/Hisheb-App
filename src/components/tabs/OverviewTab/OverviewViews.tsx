@@ -6,7 +6,7 @@ import IconBadge from '../../common/IconBadge';
 import CategoryHistorySheet from './CategoryHistorySheet';
 import { YearlyBreakdown, YearsCard } from './BreakdownLists';
 import { CategoryBars, CategoryDonut, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
-import { HundredCard, LeakCard, NoSpendCalendarCard, ReportCard, WeekdayCard } from './MonthlyCards';
+import { BigOneOffCard, HundredCard, LeakCard, NoSpendCalendarCard, ReportCard, TargetGapCard, WeekdayCard } from './MonthlyCards';
 import { InvestmentHonestCard, LifestyleCreepCard, RealGrowthCard, SavingsRateCard } from './YearlyCards';
 import { AssetMixCard, GoalCard, NetWorthBridgeCard, RunwayCard } from './GoalCards';
 import { useInvestments, useMonthTransactions, useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
@@ -289,6 +289,8 @@ function MonthlyBody({
       {insight && <Note>{insight}</Note>}
       {partial && <Note>Partial data — this period may include days recorded before the app was used.</Note>}
       <ReportCard month={month} txs={txs} prevTxs={prevTxs} targetPct={targetPct} />
+      <TargetGapCard txs={txs} targetPct={targetPct} />
+      <BigOneOffCard txs={txs} />
       <HundredCard month={month} txs={txs} />
       <Section title="Expense by category">
         <CategoryDonut items={cats} totalMinor={t.expense} />

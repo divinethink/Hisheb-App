@@ -592,6 +592,65 @@ export function spendPer100(txs: readonly TxLite[], topN = 5): SpendPer100 | nul
   return { segments, savingsPer100: !over ? (sav ? sav.value : 0) : null, overspendMinor, basis: over ? 'expense' : 'income' };
 }
 
+// ── কী ঠিক করলে টার্গেট ছোঁয়া যেত ──
+export interface TargetGap {
+  /** টার্গেট সঞ্চয়-হার ছুঁতে খরচ কতটা কম হওয়া দরকার ছিল */
+  needMinor: number;
+  /** একটামাত্র খাত কমালে কতটা (%) কমাতে হতো — খাত বড় → ছোট, শুধু যেগুলোর মোট ≥ needMinor (সর্বোচ্চ ৩টি); না থাকলে খালি */
+  options: { name: string; totalMinor: number; cutPct: number }[];
+}
+
+/** মাসের সঞ্চয়-হার টার্গেটের নিচে হলে ঘাটতি ও কোন খাত কতটা কমালে ছুঁত। আয় ≤ ০ বা টার্গেট ছোঁয়া থাকলে null। */
+export function targetGap(txs: readonly TxLite[], targetPct: number): TargetGap | null {
+  let income = 0;
+  let expense = 0;
+  for (const t of txs) {
+    if (t.type === 'income') income += t.amountMinor;
+    else expense += t.amountMinor;
+  }
+  if (income <= 0) return null;
+  const need = Math.round(expense - income * (1 - targetPct / 100));
+  if (need <= 0) return null;
+  const options = categoryList(txs, 'expense')
+    .filter((c) => c.totalMinor >= need)
+    .slice(0, 3)
+    .map((c) => ({ name: c.name, totalMinor: c.totalMinor, cutPct: (need / c.totalMinor) * 100 }));
+  return { needMinor: need, options };
+}
+
+// ── বড় একবারের খরচ ──
+export interface BigOneOffs {
+  items: TxLite[];
+  sumMinor: number;
+  expenseMinor: number;
+  expenseWithoutMinor: number;
+  savingsPct: number | null;
+  savingsPctWithout: number | null;
+}
+
+/** মাসের মোট খরচের `sharePct` (ডিফল্ট ২০%) বা বেশি একক লেনদেন (সর্বোচ্চ topN, বড় → ছোট)। খরচ-লেনদেন ৪টির কম হলে null (তখন "একবারের" বলা অর্থহীন)। */
+export function bigOneOffs(txs: readonly TxLite[], sharePct = 20, topN = 3): BigOneOffs | null {
+  const exp = expenseOnly(txs);
+  if (exp.length < 4) return null;
+  const expense = exp.reduce((a, t) => a + t.amountMinor, 0);
+  if (expense <= 0) return null;
+  const items = exp
+    .filter((t) => t.amountMinor * 100 >= expense * sharePct)
+    .sort((a, b) => b.amountMinor - a.amountMinor)
+    .slice(0, topN);
+  if (items.length === 0) return null;
+  const income = txs.reduce((a, t) => (t.type === 'income' ? a + t.amountMinor : a), 0);
+  const sum = items.reduce((a, t) => a + t.amountMinor, 0);
+  return {
+    items,
+    sumMinor: sum,
+    expenseMinor: expense,
+    expenseWithoutMinor: expense - sum,
+    savingsPct: savingsRatePct(income, expense),
+    savingsPctWithout: savingsRatePct(income, expense - sum),
+  };
+}
+
 // ── ছোট ফাঁক (Leak finder) ──
 export interface LeakItem {
   name: string;

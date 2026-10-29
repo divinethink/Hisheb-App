@@ -1,11 +1,16 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import Card from '../../common/Card';
-import { categoryColorIndex, formatTakaWhole } from '../../../lib/format';
+import BottomSheet from '../../common/BottomSheet';
+import { formatDisplayDate } from '../../../lib/date';
+import { categoryColorIndex, formatSigned, formatTakaWhole, roundWhole as roundMinor } from '../../../lib/format';
 import {
+  bigOneOffs,
+  DEFAULT_SAVINGS_TARGET_PCT,
   leakFinder,
   monthReport,
   noSpendCalendar,
   spendPer100,
+  targetGap,
   weekdaySpend,
   type TxLite,
 } from '../../../lib/overviewCalc';
@@ -46,6 +51,58 @@ export function ReportCard({ month, txs, prevTxs, targetPct }: { month: string; 
           </li>
         ))}
       </ul>
+    </Block>
+  );
+}
+
+/** ১ক. কী ঠিক করলে টার্গেট ছোঁয়া যেত — সঞ্চয়-হার টার্গেটের নিচে থাকলেই দেখায় */
+export function TargetGapCard({ txs, targetPct }: { txs: readonly TxLite[]; targetPct: number | null }) {
+  const target = targetPct ?? DEFAULT_SAVINGS_TARGET_PCT;
+  const g = useMemo(() => targetGap(txs, target), [txs, target]);
+  if (!g) return null;
+  return (
+    <Block label="What would have hit the target" title="কী ঠিক করলে টার্গেট ছোঁয়া যেত" sub={`সঞ্চয় টার্গেট ${target}% ছুঁতে খরচ ${formatTakaWhole(g.needMinor)} কম হওয়া দরকার ছিল`}>
+      {g.options.length === 0 ? (
+        <p className="text-xs text-muted">একটা খাত কমিয়ে এটা হতো না — কয়েকটা খাতে মিলিয়ে কমাতে হতো।</p>
+      ) : (
+        <ul>
+          {g.options.map((o) => (
+            <li key={o.name} className="flex items-center justify-between gap-3 border-t border-muted/10 py-2 first:border-t-0">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-fg">{o.name}</p>
+                <p className="text-xs text-muted">এ মাসে {formatTakaWhole(o.totalMinor)}</p>
+              </div>
+              <p className="shrink-0 text-sm font-semibold text-income">{Math.ceil(o.cutPct)}% কমালেই হতো</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Tip>শুধু একটা খাত কমানোর হিসাব — আয় আর অন্য খরচ একই ধরে।</Tip>
+    </Block>
+  );
+}
+
+/** ১খ. বড় একবারের খরচ আলাদা — মোট খরচের ২০%+ একক লেনদেন */
+export function BigOneOffCard({ txs }: { txs: readonly TxLite[] }) {
+  const b = useMemo(() => bigOneOffs(txs), [txs]);
+  if (!b) return null;
+  return (
+    <Block label="Big one-off expenses" title="বড় একবারের খরচ" sub="মোট খরচের ২০% বা বেশি একটি লেনদেন">
+      <ul>
+        {b.items.map((t, i) => (
+          <li key={i} className="flex items-center justify-between gap-3 border-t border-muted/10 py-2 first:border-t-0">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-fg">{t.categoryName}</p>
+              <p className="truncate text-xs text-muted">{formatDisplayDate(t.date)}{t.note ? ` · ${t.note}` : ''}</p>
+            </div>
+            <p className="shrink-0 text-sm font-semibold text-expense">{formatTakaWhole(t.amountMinor)}</p>
+          </li>
+        ))}
+      </ul>
+      <Tip>
+        এগুলো বাদে খরচ {formatTakaWhole(b.expenseWithoutMinor)} (মোট {formatTakaWhole(b.expenseMinor)})
+        {b.savingsPct != null && b.savingsPctWithout != null ? ` — সঞ্চয়-হার ${Math.round(b.savingsPct)}% থেকে ${Math.round(b.savingsPctWithout)}%` : ''}।
+      </Tip>
     </Block>
   );
 }
@@ -151,14 +208,45 @@ const LEGEND: { level: string; label: string }[] = [
   { level: 'today', label: 'আজ (চলছে)' },
 ];
 
-/** ৫. নো-স্পেন্ড ক্যালেন্ডার — দিনের ঘরে ট্যাপ করলে সেদিনের খরচ (ফোনে hover নেই, তাই title-এর বদলে) */
+/** দিনের ঘরে ট্যাপ → সেদিনের লেনদেনের তালিকা (read-only, লোড-হওয়া txs থেকে) */
+function DaySheet({ date, spendMinor, isToday, txs, onClose }: { date: string; spendMinor: number; isToday: boolean; txs: readonly TxLite[]; onClose: () => void }) {
+  const rows = useMemo(() => txs.filter((t) => t.date === date), [txs, date]);
+  return (
+    <BottomSheet
+      title={formatDisplayDate(date)}
+      onRequestClose={onClose}
+      footer={
+        <button type="button" onClick={onClose} className="min-h-11 w-full rounded-lg border border-muted/40 text-base">
+          বন্ধ করুন
+        </button>
+      }
+    >
+      <p className="mb-3 text-sm text-muted">
+        {isToday && spendMinor === 0 ? 'আজ চলছে — এখনো খরচ নেই।' : spendMinor === 0 ? 'নো-স্পেন্ড — কোনো খরচ নেই।' : `মোট খরচ: ${formatTakaWhole(spendMinor)}`}
+      </p>
+      <ul className="flex flex-col gap-1">
+        {rows.map((t, i) => (
+          <li key={i} className="flex items-start justify-between rounded-lg bg-surface px-3 py-2 text-sm text-fg">
+            <span className="min-w-0">
+              <span className="block truncate">{t.categoryName}</span>
+              {t.note && <span className="block truncate text-xs text-muted">{t.note}</span>}
+            </span>
+            <span className={`ml-2 shrink-0 ${t.type === 'income' ? 'text-income' : 'text-expense'}`}>{formatSigned(roundMinor(t.amountMinor), t.type)}</span>
+          </li>
+        ))}
+      </ul>
+    </BottomSheet>
+  );
+}
+
+/** ৫. নো-স্পেন্ড ক্যালেন্ডার — দিনের ঘরে ট্যাপ করলে সেদিনের লেনদেন-শিট */
 export function NoSpendCalendarCard({ month, txs, today }: { month: string; txs: readonly TxLite[]; today: string }) {
   const c = useMemo(() => noSpendCalendar(txs, month, today), [txs, month, today]);
   const [sel, setSel] = useState<string | null>(null);
   const lead = c.days[0]?.weekday ?? 0;
   const picked = c.days.find((d) => d.date === sel && d.level !== 'future');
   return (
-    <Block label="No-spend calendar" title="নো-স্পেন্ড ক্যালেন্ডার" sub="দিনের ঘরে ট্যাপ করলে সেদিনের খরচ দেখবেন">
+    <Block label="No-spend calendar" title="নো-স্পেন্ড ক্যালেন্ডার" sub="দিনের ঘরে ট্যাপ করলে সেদিনের লেনদেন দেখবেন">
       <div className="grid grid-cols-7 gap-1.5 text-center">
         {WEEKDAYS_EN.map((d) => (
           <span key={d} className="pb-1 text-[10px] text-muted">{d}</span>
@@ -180,11 +268,7 @@ export function NoSpendCalendarCard({ month, txs, today }: { month: string; txs:
           </button>
         ))}
       </div>
-      {picked && (
-        <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-xs text-fg">
-          {picked.day} তারিখ: {picked.level === 'today' ? 'আজ এখনো খরচ নেই (চলছে)' : picked.spendMinor === 0 ? 'কোনো খরচ নেই' : <b>{formatTakaWhole(picked.spendMinor)}</b>}
-        </p>
-      )}
+      {picked && <DaySheet date={picked.date} spendMinor={picked.spendMinor} isToday={picked.level === 'today'} txs={txs} onClose={() => setSel(null)} />}
       <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] text-muted" aria-label="রঙের অর্থ">
         {LEGEND.map((l) => (
           <li key={l.level} className="flex items-center gap-1">

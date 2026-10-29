@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addDays, dailyExpense, leakFinder, monthReport, noSpendCalendar, spendPer100, weekdayIndex, weekdaySpend, type TxLite } from './overviewCalc';
+import { bigOneOffs, targetGap, addDays, dailyExpense, leakFinder, monthReport, noSpendCalendar, spendPer100, weekdayIndex, weekdaySpend, type TxLite } from './overviewCalc';
 
 const tx = (date: string, type: 'income' | 'expense', amountMinor: number, categoryName = 'A'): TxLite => ({ date, type, amountMinor, categoryName });
 const fmt = (m: number) => `৳${m / 100}`;
@@ -164,5 +164,38 @@ describe('dailyExpense', () => {
   it('শুধু expense যোগ করে', () => {
     const m = dailyExpense([tx('2026-10-01', 'expense', 100), tx('2026-10-01', 'expense', 50), tx('2026-10-01', 'income', 999)]);
     expect(m.get('2026-10-01')).toBe(150);
+  });
+});
+
+describe('targetGap', () => {
+  const txs = [tx('2026-10-01', 'income', 100000), tx('2026-10-02', 'expense', 60000, 'X'), tx('2026-10-03', 'expense', 30000, 'Y'), tx('2026-10-04', 'expense', 5000, 'Z')];
+  it('টার্গেট ২০% ছুঁতে ১৫০০০ কম খরচ দরকার; একক-খাত কাটার শতাংশ', () => {
+    // খরচ ৯৫০০০, টার্গেট-সীমা ৮০০০০ → need ১৫০০০
+    const g = targetGap(txs, 20)!;
+    expect(g.needMinor).toBe(15000);
+    expect(g.options.map((o) => o.name)).toEqual(['X', 'Y']); // Z (৫০০০) < need
+    expect(g.options[0].cutPct).toBeCloseTo(25, 5);
+    expect(g.options[1].cutPct).toBeCloseTo(50, 5);
+  });
+  it('টার্গেট ছোঁয়া বা আয় ০ হলে null', () => {
+    expect(targetGap(txs, 5)).toBeNull();
+    expect(targetGap([tx('2026-10-02', 'expense', 100)], 20)).toBeNull();
+  });
+});
+
+describe('bigOneOffs', () => {
+  it('মোট খরচের ≥২০% লেনদেন; বাদে সঞ্চয়-হার', () => {
+    const txs = [tx('2026-10-01', 'income', 100000), tx('2026-10-02', 'expense', 50000, 'Tour'), ...[1, 2, 3, 4].map((d) => tx(`2026-10-0${d + 2}`, 'expense', 5000, 'Food'))];
+    const b = bigOneOffs(txs)!;
+    expect(b.items).toHaveLength(1);
+    expect(b.items[0].categoryName).toBe('Tour');
+    expect(b.expenseWithoutMinor).toBe(20000);
+    expect(b.savingsPct).toBeCloseTo(30, 5);
+    expect(b.savingsPctWithout).toBeCloseTo(80, 5);
+  });
+  it('খরচ-লেনদেন ৪টির কম বা বড় কিছু না থাকলে null', () => {
+    expect(bigOneOffs([tx('2026-10-02', 'expense', 5000), tx('2026-10-03', 'expense', 5000)])).toBeNull();
+    const even = Array.from({ length: 10 }, (_, i) => tx(`2026-10-${String(i + 1).padStart(2, '0')}`, 'expense', 1000));
+    expect(bigOneOffs(even)).toBeNull();
   });
 });

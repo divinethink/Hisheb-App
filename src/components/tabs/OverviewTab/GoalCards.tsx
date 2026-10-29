@@ -74,14 +74,17 @@ export function NetWorthBridgeCard({ snapshots, txs }: { snapshots: readonly Sna
 export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMinor, pace }: { currentMinor: number; latestYyyymm: string; goalMinor: number | null; avgSavingsMinor: number | null; pace: NetWorthPace | null }) {
   const goal = goalMinor ?? DEFAULT_NET_WORTH_GOAL_MINOR;
   const p = useMemo(() => goalProjection(currentMinor, goal, avgSavingsMinor, latestYyyymm, BOOST_MINOR), [currentMinor, goal, avgSavingsMinor, latestYyyymm]);
-  const g = useMemo(() => (pace ? goalProjection(currentMinor, goal, pace.perMonthMinor, latestYyyymm, 0) : null), [currentMinor, goal, pace, latestYyyymm]);
+  const g = useMemo(() => (pace ? goalProjection(currentMinor, goal, pace.perMonthMinor, latestYyyymm, BOOST_MINOR) : null), [currentMinor, goal, pace, latestYyyymm]);
   const pct = Math.max(0, Math.min(100, (currentMinor / goal) * 100));
   const tile = 'flex-1 rounded-xl p-3';
-  const when = (proj: { monthsAtPace: number | null; paceYyyymm: string | null }, rate: number | null) =>
+  const when = (proj: { monthsAtPace: number | null; paceYyyymm: string | null; monthsBoosted: number | null; boostYyyymm: string | null; monthsSaved: number | null }, rate: number | null) =>
     proj.monthsAtPace !== null && proj.paceYyyymm !== null ? (
       <>
         <p className="text-base font-semibold text-fg">{monthLabelBn(proj.paceYyyymm)}</p>
         <p className="text-xs text-muted">{proj.monthsAtPace} মাস</p>
+        {proj.monthsBoosted !== null && proj.boostYyyymm !== null && proj.monthsSaved !== null && proj.monthsSaved > 0 && (
+          <p className="mt-1.5 border-t border-muted/10 pt-1.5 text-[11px] text-income">মাসে +{formatTakaWhole(BOOST_MINOR)} হলে {monthLabelBn(proj.boostYyyymm)} ({proj.monthsSaved} মাস আগে)</p>
+        )}
       </>
     ) : (
       <p className="text-xs text-muted">{rate !== null && rate > 0 ? '৫০ বছরের বেশি' : 'পৌঁছানো যাচ্ছে না'}</p>
@@ -121,14 +124,7 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
               </div>
             )}
           </div>
-          {p.monthsBoosted !== null && p.monthsSaved !== null && p.monthsSaved > 0 && (
-            <div className={`${tile} mt-2 bg-income/10`}>
-              <p className="text-xs text-income">হিসাব অনুযায়ী গতিতে মাসে +{formatTakaWhole(BOOST_MINOR)} হলে</p>
-              <p className="text-base font-semibold text-income">{monthLabelBn(p.boostYyyymm as string)}</p>
-              <p className="text-xs text-income">{p.monthsSaved} মাস আগে</p>
-            </div>
-          )}
-          <Foot>শুধু অনুমান — আয়-ব্যয় বদলালে ফল বদলাবে, নিশ্চয়তা নয়।{avgSavingsMinor !== null && pace ? ' দুই গতির ফারাক বড় হলে বুঝবেন সম্পদের একটা অংশ আয়-ব্যয়ের বাইরের কারণে (বিনিয়োগ-মান, পাওনা ইত্যাদি) বদলেছে।' : ''}</Foot>
+          <Foot>শুধু অনুমান — আয়-ব্যয় বদলালে ফল বদলাবে, নিশ্চয়তা নয়।{avgSavingsMinor !== null && pace ? ` দুই গতির ফারাক মাসে ${formatTakaWhole(Math.abs(Math.round(avgSavingsMinor) - pace.perMonthMinor))} — ফারাক বড় হলে বুঝবেন সম্পদের একটা অংশ আয়-ব্যয়ের বাইরের কারণে (বিনিয়োগ-মান, পাওনা ইত্যাদি) বদলেছে।` : ''}</Foot>
         </>
       )}
     </Block>
@@ -177,6 +173,11 @@ export function RunwayCard({ yyyymm, cashMinor, totalMinor, avgExpenseMinor }: {
   const w = (m: number | null) => `${Math.max(0, Math.min(100, ((m ?? 0) / 6) * 100))}%`;
   return (
     <Block label="Runway" title="Runway — কত মাস চলবে" sub={`গড় মাসিক খরচ ${formatTakaWhole(Math.round(avgExpenseMinor))} ধরে (শেষ ৬ মাস) · ${yyyymm} snapshot`}>
+      {cash !== null ? (
+        <p className="mb-3 text-sm text-fg">
+          <b>নগদে {cash.toFixed(1)} মাস</b> চলবে{total !== null ? <span className="text-muted"> · বিনিয়োগ/পাওনা ফেরত এলে মোট {total.toFixed(1)} মাস</span> : null}।
+        </p>
+      ) : null}
       {cash !== null && (
         <>
           <div className="flex justify-between text-sm"><span className="text-fg">শুধু নগদে</span><b className="text-expense">{cash.toFixed(1)} মাস</b></div>
