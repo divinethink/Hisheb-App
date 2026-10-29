@@ -33,7 +33,7 @@ export function CategoryBars({ items, onSelect }: { items: readonly CategoryShar
                 <span className="min-w-0 truncate text-fg">{c.name}</span>
               </span>
               <span className="shrink-0 text-fg">
-                {formatAmount(c.totalMinor)} <span className="text-muted">· {Math.round(c.share * 100)}%</span>
+                {formatTakaWhole(c.totalMinor)} <span className="text-muted">· {Math.round(c.share * 100)}%</span>
               </span>
             </div>
             <div className="mt-1 h-2 rounded bg-muted/15" aria-hidden>
@@ -157,7 +157,7 @@ export function CategoryDonut({ items, totalMinor }: { items: readonly CategoryS
   );
 }
 
-const MONTH_INITIALS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** Income/Expense রঙ-চিহ্ন — কার্ডের শিরোনাম-সারির ডানে বসে (চার্টের নিচে আলাদা লাইন লাগে না)। */
 export function IncomeExpenseLegend() {
@@ -169,40 +169,70 @@ export function IncomeExpenseLegend() {
   );
 }
 
-/** ১২ মাসের আয় (text-income) বনাম ব্যয় (text-expense) — grouped bars (কমপ্যাক্ট উচ্চতা)। */
+/** ১২ মাসের আয় (text-income) বনাম ব্যয় (text-expense) — grouped bars; মাস ট্যাপ করলে নিচে সংখ্যা দেখায়। */
 export function IncomeExpenseBars({ rows }: { rows: readonly { yyyymm: string; incomeMinor: number; expenseMinor: number }[] }) {
   const gid = svgId(useId());
+  const [sel, setSel] = useState<number | null>(null);
   const max = Math.max(1, ...rows.flatMap((r) => [r.incomeMinor, r.expenseMinor]));
   const H = 44;
   const summary = rows.map((r) => `${r.yyyymm}: income ${formatAmount(r.incomeMinor)}, expense ${formatAmount(r.expenseMinor)}`).join('; ');
+  const picked = sel != null ? rows[sel] : null;
+  const monthName = (yyyymm: string) => MONTH_SHORT[Number(yyyymm.slice(5, 7)) - 1] ?? yyyymm;
   return (
-    <svg viewBox="0 0 240 62" className="w-full" role="img" aria-label={`Monthly income and expense. ${summary}`}>
-      <defs>
-        <linearGradient id={`${gid}-income`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgb(var(--color-income))" stopOpacity={0.95} />
-          <stop offset="100%" stopColor="rgb(var(--color-income))" stopOpacity={0.45} />
-        </linearGradient>
-        <linearGradient id={`${gid}-expense`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgb(var(--color-expense))" stopOpacity={0.95} />
-          <stop offset="100%" stopColor="rgb(var(--color-expense))" stopOpacity={0.45} />
-        </linearGradient>
-      </defs>
-      <line x1={0} y1={H + 1} x2={240} y2={H + 1} className="text-muted/30" stroke="currentColor" strokeWidth={0.5} />
-      {rows.map((r, i) => {
-        const x = i * 20 + 2;
-        const hi = (r.incomeMinor / max) * H;
-        const he = (r.expenseMinor / max) * H;
-        return (
-          <g key={r.yyyymm}>
-            <rect x={x} y={H - hi} width={7} height={hi} rx={1.5} fill={`url(#${gid}-income)`} />
-            <rect x={x + 8} y={H - he} width={7} height={he} rx={1.5} fill={`url(#${gid}-expense)`} />
-            <text x={x + 7.5} y={57} textAnchor="middle" fontSize={8} className="fill-muted">
-              {MONTH_INITIALS[i]}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    <div>
+      <svg viewBox="0 0 240 62" className="w-full" role="img" aria-label={`Monthly income and expense. ${summary}`}>
+        <defs>
+          <linearGradient id={`${gid}-income`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgb(var(--color-income))" stopOpacity={0.95} />
+            <stop offset="100%" stopColor="rgb(var(--color-income))" stopOpacity={0.45} />
+          </linearGradient>
+          <linearGradient id={`${gid}-expense`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgb(var(--color-expense))" stopOpacity={0.95} />
+            <stop offset="100%" stopColor="rgb(var(--color-expense))" stopOpacity={0.45} />
+          </linearGradient>
+        </defs>
+        <line x1={0} y1={H + 1} x2={240} y2={H + 1} className="text-muted/30" stroke="currentColor" strokeWidth={0.5} />
+        {rows.map((r, i) => {
+          const x = i * 20 + 2;
+          const hi = (r.incomeMinor / max) * H;
+          const he = (r.expenseMinor / max) * H;
+          const dim = sel != null && sel !== i ? 0.35 : 1;
+          return (
+            <g key={r.yyyymm} opacity={dim}>
+              {sel === i && <rect x={x - 2} y={0} width={19} height={60} rx={2} className="fill-muted/10" />}
+              <rect x={x} y={H - hi} width={7} height={hi} rx={1.5} fill={`url(#${gid}-income)`} />
+              <rect x={x + 8} y={H - he} width={7} height={he} rx={1.5} fill={`url(#${gid}-expense)`} />
+              <text x={x + 7.5} y={57} textAnchor="middle" fontSize={7} fontWeight={sel === i ? 700 : 400} className="fill-muted">
+                {monthName(r.yyyymm)}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      {/* ট্যাপ-লক্ষ্য: SVG-র ওপর অদৃশ্য ১২টা বাটন নয়, বরং আলাদা মাস-সারি (≥44px) — কীবোর্ড/স্ক্রিন-রিডারেও চলে */}
+      <div role="group" aria-label="Select a month to see its numbers" className="mt-1 grid grid-cols-6 gap-1">
+        {rows.map((r, i) => (
+          <button
+            key={r.yyyymm}
+            type="button"
+            aria-pressed={sel === i}
+            onClick={() => setSel(sel === i ? null : i)}
+            className={`min-h-11 rounded-lg text-[11px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${sel === i ? 'bg-primary/10 font-semibold text-primary' : 'bg-surface text-muted'}`}
+          >
+            {monthName(r.yyyymm)}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 min-h-5 text-xs text-muted" aria-live="polite">
+        {picked ? (
+          <>
+            <span className="font-semibold text-fg">{monthName(picked.yyyymm)}</span> · <span className="text-income">Income {formatTakaWhole(picked.incomeMinor)}</span> · <span className="text-expense">Expense {formatTakaWhole(picked.expenseMinor)}</span>
+          </>
+        ) : (
+          'Tap a month to see its numbers.'
+        )}
+      </p>
+    </div>
   );
 }
 
@@ -278,8 +308,8 @@ export function TrendLine({ points }: { points: readonly { yyyymm: string; value
         ))}
       </svg>
       <p className="flex justify-between text-xs text-muted">
-        <span>{points[0].yyyymm} · {formatAmount(points[0].valueMinor)}</span>
-        <span>{points[points.length - 1].yyyymm} · {formatAmount(points[points.length - 1].valueMinor)}</span>
+        <span>{points[0].yyyymm} · {formatTakaWhole(points[0].valueMinor)}</span>
+        <span>{points[points.length - 1].yyyymm} · {formatTakaWhole(points[points.length - 1].valueMinor)}</span>
       </p>
     </div>
   );

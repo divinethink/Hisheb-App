@@ -83,19 +83,22 @@ export default function OverviewTab({ uid }: { uid: string }) {
 
   return (
     <div className="h-full overflow-y-auto pb-24">
-      <header className="flex items-center justify-between gap-2 px-4 pb-2 pt-3">
+      {/* হেডার + ট্যাব স্টিকি; মোট উচ্চতা ৬rem (h-12 + h-12) — PeriodNav-এর top-24 এর সাথে মিলিয়ে রাখা */}
+      <div className="sticky top-0 z-20 bg-page">
+      <header className="flex h-12 items-center justify-between gap-2 px-4">
         <h1 className="text-xl font-semibold text-fg">Overview</h1>
         <button
           type="button"
           onClick={() => void handleExportWorkbook()}
           disabled={exportBusy}
-          className="flex h-10 items-center gap-1.5 rounded-xl border border-muted/30 bg-canvas px-3 text-xs font-medium text-fg shadow-sm disabled:opacity-50"
+          className="flex h-9 items-center gap-1.5 rounded-xl border border-muted/30 bg-canvas px-3 text-xs font-medium text-fg shadow-sm disabled:opacity-50"
         >
           <Download aria-hidden size={14} />
           {exportBusy ? '…' : 'Excel'}
         </button>
       </header>
-      <div role="tablist" aria-label="Overview period" className="mx-4 grid grid-cols-3 gap-1 rounded-2xl border border-muted/10 bg-surface p-1">
+      <div className="h-12 px-4">
+      <div role="tablist" aria-label="Overview period" className="grid h-11 grid-cols-3 gap-1 rounded-2xl border border-muted/10 bg-surface p-1">
         {VIEWS.map((v) => (
           <button
             key={v.key}
@@ -103,11 +106,13 @@ export default function OverviewTab({ uid }: { uid: string }) {
             role="tab"
             aria-selected={view === v.key}
             onClick={() => setView(v.key)}
-            className={`min-h-10 rounded-xl text-sm transition-shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${view === v.key ? 'bg-canvas font-semibold text-primary shadow-sm' : 'text-muted'}`}
+            className={`h-full rounded-xl text-sm transition-shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${view === v.key ? 'bg-canvas font-semibold text-primary shadow-sm' : 'text-muted'}`}
           >
             {v.label}
           </button>
         ))}
+      </div>
+      </div>
       </div>
 
       {hist.state.status === 'error' && (

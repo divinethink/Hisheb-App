@@ -322,7 +322,7 @@ export function YearlyBreakdown({
   const minYear = historical.length ? Math.min(thisYear, ...historical.map((h) => h.year)) : thisYear;
   const years = Array.from({ length: thisYear - minYear + 1 }, (_, i) => thisYear - i);
   return (
-    <Card as="section" ariaLabel="Yearly breakdown" className="mx-4 mt-3 overflow-hidden pt-4">
+    <Card as="section" ariaLabel="Yearly breakdown" className="mx-4 mt-3 overflow-hidden pt-3">
       <h2 className="px-4 text-[15px] font-semibold text-fg">Yearly breakdown</h2>
       <p className="px-4 pb-2 text-xs text-muted">Tap a year to see its months.</p>
       <ColumnHeads first="Year" />
@@ -384,14 +384,14 @@ export function YearsCard({
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   if (rows.length === 0) {
     return (
-      <Card as="section" className="mx-4 mt-3 p-4">
+      <Card as="section" className="mx-4 mt-3 p-3">
         <h2 className="mb-2 text-[15px] font-semibold text-fg">Years</h2>
         <p className="text-sm text-muted">No data yet.</p>
       </Card>
     );
   }
   return (
-    <Card as="section" ariaLabel="Years" className="mx-4 mt-3 overflow-hidden pt-4">
+    <Card as="section" ariaLabel="Years" className="mx-4 mt-3 overflow-hidden pt-3">
       <h2 className="px-4 pb-2 text-[15px] font-semibold text-fg">Years</h2>
       <ColumnHeads first="Year" />
       {rows.map((r) => {

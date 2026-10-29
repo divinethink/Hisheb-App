@@ -5,14 +5,14 @@ import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
 import CategoryHistorySheet from './CategoryHistorySheet';
 import { YearlyBreakdown, YearsCard } from './BreakdownLists';
-import { Block, Callout } from './OverviewBits';
+import { Block, MoreInsights, NoteGroup } from './OverviewBits';
 import { CategoryBars, CategoryDonut, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
 import { BigOneOffCard, HundredCard, LeakCard, NoSpendCalendarCard, ReportCard, TargetGapCard, WeekdayCard } from './MonthlyCards';
 import { InvestmentHonestCard, LifestyleCreepCard, RealGrowthCard, SavingsRateCard } from './YearlyCards';
 import { AssetMixCard, GoalCard, NetWorthBridgeCard, RunwayCard } from './GoalCards';
 import { useInvestments, useMonthTransactions, useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
 import { currentMonth, monthEndDate, monthLabel, shiftMonth, toDhakaDate } from '../../../lib/date';
-import { formatAmount, formatNet, formatNetTakaWhole, formatTakaWhole, roundWhole } from '../../../lib/format';
+import { formatAmount, formatNetTakaWhole, formatTakaWhole } from '../../../lib/format';
 import {
   addDays,
   allTimeRows,
@@ -48,12 +48,12 @@ const NO_ESSENTIAL: readonly string[] = [];
 export function PeriodNav({ label, onPrev, onNext, prevDisabled, nextDisabled, right }: { label: string; onPrev: () => void; onNext: () => void; prevDisabled?: boolean; nextDisabled?: boolean; right?: ReactNode }) {
   const btn = 'flex h-11 w-11 items-center justify-center rounded-full bg-surface text-fg transition-opacity disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary';
   return (
-    <div className="flex items-center gap-2 px-2 py-3">
+    <div className="sticky top-24 z-10 flex items-center gap-2 bg-page px-2 py-1.5">
       <div className="flex flex-1 items-center justify-center gap-3">
         <button type="button" aria-label="Previous" onClick={onPrev} disabled={prevDisabled} className={btn}>
           <ChevronLeft aria-hidden size={20} />
         </button>
-        <span className="min-w-36 text-center text-base font-semibold text-fg">{label}</span>
+        <span className="min-w-36 text-center text-[15px] font-semibold text-fg">{label}</span>
         <button type="button" aria-label="Next" onClick={onNext} disabled={nextDisabled} className={btn}>
           <ChevronRight aria-hidden size={20} />
         </button>
@@ -81,26 +81,26 @@ function Totals({
   deltaLabel?: string;
 }) {
   return (
-    <Card as="section" ariaLabel="Totals" className="mx-4">
-      <div className="grid grid-cols-3 gap-1.5 px-3 py-4 text-center">
-        <div className="flex min-w-0 flex-col items-center gap-1">
-          <IconBadge icon={TrendingUp} tone="income" size={32} />
+    <Card as="section" ariaLabel="Totals" className="mx-4 mt-1">
+      <div className="grid grid-cols-3 gap-1.5 px-3 py-3 text-center">
+        <div className="flex min-w-0 flex-col items-center gap-0.5 py-1">
+          <IconBadge icon={TrendingUp} tone="income" size={28} />
           <p className="text-xs text-muted">Income</p>
           <p className="whitespace-nowrap text-[15px] font-semibold text-income">{formatTakaWhole(income)}</p>
         </div>
-        <div className="flex min-w-0 flex-col items-center gap-1">
-          <IconBadge icon={TrendingDown} tone="expense" size={32} />
+        <div className="flex min-w-0 flex-col items-center gap-0.5 py-1">
+          <IconBadge icon={TrendingDown} tone="expense" size={28} />
           <p className="text-xs text-muted">Expense</p>
           <p className="whitespace-nowrap text-[15px] font-semibold text-expense">{formatTakaWhole(expense)}</p>
         </div>
-        <div className="flex min-w-0 flex-col items-center gap-1">
-          <IconBadge icon={PiggyBank} tone={savings < 0 ? 'expense' : 'income'} size={32} />
+        <div className={`flex min-w-0 flex-col items-center gap-0.5 rounded-xl py-1 ${savings < 0 ? 'bg-expense/10' : 'bg-income/10'}`}>
+          <IconBadge icon={PiggyBank} tone={savings < 0 ? 'expense' : 'income'} size={28} />
           <p className="text-xs text-muted">Savings</p>
-          <p className={`whitespace-nowrap text-[15px] font-semibold ${savings < 0 ? 'text-expense' : 'text-income'}`}>{formatNetTakaWhole(savings)}</p>
+          <p className={`whitespace-nowrap text-lg font-bold leading-tight ${savings < 0 ? 'text-expense' : 'text-income'}`}>{formatNetTakaWhole(savings)}</p>
         </div>
       </div>
       {savingsPct != null && (
-        <p className="border-t border-muted/10 px-4 pb-3 pt-2 text-center text-xs text-muted">
+        <p className="border-t border-muted/10 px-4 pb-2 pt-1.5 text-center text-xs text-muted">
           Savings rate {savingsPct.toFixed(1)}%
           {savingsPctDeltaPt != null && (
             <span className={savingsPctDeltaPt >= 0 ? 'text-income' : 'text-expense'}>
@@ -117,7 +117,6 @@ const Section = ({ title, icon, children, right }: { title: string; icon: Lucide
   <Block title={title} icon={icon} right={right}>{children}</Block>
 );
 
-const Note = Callout;
 
 /** Monthly: কয়েকটা কাজের সংখ্যা (Expense by category-র নিচে)। নতুন query নেই — বিদ্যমান ৩-মাসের ডেটা ও snapshot থেকে। */
 function KeyNumbers({
@@ -135,7 +134,7 @@ function KeyNumbers({
 }) {
   if (avgExpense == null && avgSavings == null && runway == null && !ytd) return null;
   const vsAvg = avgExpense && avgExpense > 0 ? ((thisExpense - avgExpense) / avgExpense) * 100 : null;
-  const tile = 'rounded-xl bg-surface p-3';
+  const tile = 'rounded-xl bg-surface p-2.5';
   return (
     <Block icon={Hash} tone="warning" title="Key numbers">
       <div className="grid grid-cols-2 gap-2">
@@ -165,7 +164,7 @@ function KeyNumbers({
         </div>
       </div>
       {vsAvg != null && Math.abs(vsAvg) >= 1 && (
-        <p className="mt-2 text-xs text-muted">
+        <p className="mt-1.5 text-xs text-muted">
           This month’s expense is <span className={vsAvg > 0 ? 'text-expense' : 'text-income'}>{Math.round(Math.abs(vsAvg))}% {vsAvg > 0 ? 'above' : 'below'}</span> your 3-month average.
         </p>
       )}
@@ -284,9 +283,11 @@ function MonthlyBody({
   return (
     <>
       <Totals income={t.income} expense={t.expense} savings={savings} savingsPct={savingsPct} savingsPctDeltaPt={savingsPctDeltaPt} />
-      {inProgress && <Note>মাস চলছে ({daysIn} দিন) — হিসাব এখনো অসম্পূর্ণ, তাই গত মাসের সাথে তুলনা পুরো মাসের নয়।</Note>}
-      {insight && <Note>{insight}</Note>}
-      {partial && <Note>Partial data — this period may include days recorded before the app was used.</Note>}
+      <NoteGroup>
+        {inProgress ? `Month in progress (${daysIn} days) — figures are incomplete, so the comparison with last month isn’t for a full month.` : null}
+        {insight}
+        {partial ? 'Partial data — this period may include days recorded before the app was used.' : null}
+      </NoteGroup>
       <ReportCard month={month} txs={txs} prevTxs={prevTxs} targetPct={targetPct} essential={essential} />
       <TargetGapCard txs={txs} targetPct={targetPct} />
       <BigOneOffCard txs={txs} />
@@ -297,9 +298,11 @@ function MonthlyBody({
       </Section>
       {selCat && <CategoryHistorySheet name={selCat} txs={txs} cats={cats} onClose={() => setSelCat(null)} />}
       <KeyNumbers avgExpense={avgExpense} avgSavings={avgSavings} runway={runway} ytd={ytd} thisExpense={t.expense} />
-      <LeakCard txs={txs} essential={essential} />
-      <WeekdayCard txs={weekdayTxs} end={weekdayEnd} />
-      <NoSpendCalendarCard month={month} txs={txs} today={today} />
+      <MoreInsights count={3}>
+        <LeakCard txs={txs} essential={essential} />
+        <WeekdayCard txs={weekdayTxs} end={weekdayEnd} />
+        <NoSpendCalendarCard month={month} txs={txs} today={today} />
+      </MoreInsights>
     </>
   );
 }
@@ -431,17 +434,17 @@ function YearlyBody({
         deltaLabel="last year"
       />
       {(best || worst) && (
-        <div className="mx-4 mt-3 grid grid-cols-2 gap-2">
+        <div className="mx-4 mt-2.5 grid grid-cols-2 gap-2">
           {best && (
-            <Card className="flex items-center gap-2 px-3 py-2.5">
+            <Card className="flex items-center gap-2 px-3 py-2">
               <IconBadge icon={Trophy} tone="income" size={28} />
-              <p className="min-w-0 text-xs leading-tight text-muted">Best month<span className="block truncate text-sm font-semibold text-income">{monthLabel(best.yyyymm).split(' ')[0]} ({formatNet(roundWhole(best.savingsMinor))})</span></p>
+              <p className="min-w-0 text-xs leading-tight text-muted">Best month<span className="block text-sm font-semibold text-income">{monthLabel(best.yyyymm).split(' ')[0]}</span><span className="block text-xs font-medium text-income">{formatNetTakaWhole(best.savingsMinor)}</span></p>
             </Card>
           )}
           {worst && (
-            <Card className="flex items-center gap-2 px-3 py-2.5">
+            <Card className="flex items-center gap-2 px-3 py-2">
               <IconBadge icon={TrendingDown} tone="expense" size={28} />
-              <p className="min-w-0 text-xs leading-tight text-muted">Toughest month<span className="block truncate text-sm font-semibold text-expense">{monthLabel(worst.yyyymm).split(' ')[0]} ({formatNet(roundWhole(worst.savingsMinor))})</span></p>
+              <p className="min-w-0 text-xs leading-tight text-muted">Toughest month<span className="block text-sm font-semibold text-expense">{monthLabel(worst.yyyymm).split(' ')[0]}</span><span className="block text-xs font-medium text-expense">{formatNetTakaWhole(worst.savingsMinor)}</span></p>
             </Card>
           )}
         </div>
@@ -459,15 +462,16 @@ function YearlyBody({
       {year === thisYear && snapshots && <RealGrowthCard snapshots={snapshots} inflationPct={inflationPct} />}
       {year === thisYear && investments && <InvestmentHonestCard investments={investments} today={toDhakaDate(new Date())} />}
       {isHist && (
-        <Note>
-          Pre-app record — totals come from your saved yearly summary
-          {row.depositMinor !== null ? ` (Total Deposit ${formatAmount(row.depositMinor)})` : ''}. Charts below show only data recorded in the app (Partial data).
-        </Note>
+        <NoteGroup>
+          {`Pre-app record — totals come from your saved yearly summary${row.depositMinor !== null ? ` (Total Deposit ${formatAmount(row.depositMinor)})` : ''}. Charts below show only data recorded in the app (Partial data).`}
+        </NoteGroup>
       )}
       {!isHist && txs.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted">No data for this year.</p>}
       {(txs.length > 0 || flow.size > 0) && (
         <>
-          <Section title="Income vs expense by month" icon={BarChart3} right={<IncomeExpenseLegend />}><IncomeExpenseBars rows={months} /></Section>
+          <MoreInsights label="Income vs expense by month">
+            <Section title="Income vs expense by month" icon={BarChart3} right={<IncomeExpenseLegend />}><IncomeExpenseBars rows={months} /></Section>
+          </MoreInsights>
           {txs.length > 0 && (
             <Section title="Expense by category" icon={PieChart}>
               <CategoryDonut items={cats} totalMinor={row.expenseMinor} />
@@ -509,12 +513,11 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
 
   return (
     <>
-      <div className="px-2 py-3 text-center text-base font-semibold text-fg">All-Time</div>
       <Totals income={sum.i} expense={sum.e} savings={sum.i - sum.e} savingsPct={savingsRatePct(sum.i, sum.e)} />
       {snaps.state.status === 'ready' && (() => {
         const growth = netWorthGrowthAllTime(snaps.state.data);
         return growth ? (
-          <Card as="section" ariaLabel="Net worth growth" className="mx-4 mt-3 flex items-center gap-2 px-3 py-2.5">
+          <Card as="section" ariaLabel="Net worth growth" className="mx-4 mt-2.5 flex items-center gap-2 px-3 py-2">
             <IconBadge icon={Wallet} tone="primary" size={28} />
             <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-xs text-muted">Net Worth</p>
@@ -546,7 +549,7 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
         <Section title="Expense by category" icon={PieChart}>
           <CategoryDonut items={cats} totalMinor={catTotal} />
           <CategoryBars items={cats} onSelect={setSelCat} />
-          <p className="mt-3 text-xs leading-relaxed text-muted">All years, entries recorded in the app only — pre-app years may not add up to the yearly totals.</p>
+          <p className="mt-2 text-xs leading-relaxed text-muted">All years, entries recorded in the app only — pre-app years may not add up to the yearly totals.</p>
         </Section>
       )}
       {selCat && <CategoryHistorySheet name={selCat} txs={allTxs} cats={cats} onClose={() => setSelCat(null)} />}

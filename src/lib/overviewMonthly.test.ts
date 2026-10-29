@@ -26,7 +26,7 @@ describe('spendPer100', () => {
     expect(r.savingsPer100).toBe(r.segments.find((s) => s.kind === 'savings')!.value);
     expect(r.overspendMinor).toBe(0);
   });
-  it('শীর্ষ ৫-এর বাইরে "অন্যান্য"', () => {
+  it('শীর্ষ ৫-এর বাইরে "Other"', () => {
     const txs = [tx('2026-10-01', 'income', 100000), ...['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((c, i) => tx('2026-10-02', 'expense', 1000 * (10 - i), c))];
     const r = spendPer100(txs)!;
     expect(r.segments.filter((s) => s.kind === 'category')).toHaveLength(5);
@@ -139,29 +139,29 @@ describe('monthReport', () => {
   const flat = (l: ReturnType<typeof monthReport>[number]) => l.map((p) => p.text).join('');
   it('খরচ কম + টার্গেটের নিচে', () => {
     const lines = monthReport([tx('2026-10-01', 'income', 100000), tx('2026-10-02', 'expense', 72000, 'খাবার')], [tx('2026-09-02', 'expense', 80000, 'খাবার')], 40, fmt);
-    expect(flat(lines[0])).toBe('খরচ গত মাসের চেয়ে 10% কম, কিন্তু সঞ্চয় টার্গেটের (40%) 12 পয়েন্ট নিচে');
+    expect(flat(lines[0])).toBe('Spending is 10% lower than last month, but 12 pts below your savings target (40%)');
   });
   it('টার্গেট null → ডিফল্ট ২০%; ছুঁলে "ছুঁয়েছে"', () => {
     const lines = monthReport(cur, prev, null, fmt);
     expect(flat(lines[0])).toContain('(20%)');
-    expect(flat(lines[0])).toContain('ছুঁয়েছে');
+    expect(flat(lines[0])).toContain('reached');
   });
   it('সবচেয়ে বাড়া খাত (গত মাসে > ০), নতুন খাত বাদ', () => {
     const c2 = [...cur, tx('2026-10-04', 'expense', 20000, 'নতুন')];
     const p2 = [tx('2026-09-02', 'expense', 20000, 'খাবার'), tx('2026-09-03', 'expense', 40000, 'ভাড়া')];
     const lines = monthReport(c2, p2, 20, fmt);
-    expect(lines.map(flat).some((s) => s === 'সবচেয়ে বেড়েছে: খাবার (+100%)')).toBe(true);
+    expect(lines.map(flat).some((s) => s === 'Biggest increase: খাবার (+100%)')).toBe(true);
   });
   it('prev না থাকলে শুধু সঞ্চয় লাইন; আয়ও না থাকলে কিছুই না', () => {
     const lines = monthReport(cur, null, 20, fmt);
     expect(lines).toHaveLength(1);
-    expect(flat(lines[0])).toBe('সঞ্চয় টার্গেট (20%) ছুঁয়েছে');
+    expect(flat(lines[0])).toBe('Savings target (20%) reached');
     expect(monthReport([tx('2026-10-01', 'expense', 100)], null, 20, fmt)).toEqual([]);
   });
   it('ছোট-ফাঁক লাইন', () => {
     const leaks = Array.from({ length: 10 }, (_, i) => tx(`2026-10-${String(i + 1).padStart(2, '0')}`, 'expense', 5000, 'চা-নাস্তা'));
     const lines = monthReport(leaks, null, 20, fmt);
-    expect(lines.map(flat)).toContain('সবচেয়ে বড় ছোট-ফাঁক: চা-নাস্তা, মাসে ৳500');
+    expect(lines.map(flat)).toContain('Biggest small leak: চা-নাস্তা, ৳500 a month');
   });
 });
 

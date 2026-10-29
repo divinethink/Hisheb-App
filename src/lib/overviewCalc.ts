@@ -575,10 +575,10 @@ export function spendPer100(txs: readonly TxLite[], topN = 5): SpendPer100 | nul
   const top = cats.slice(0, topN);
   const restMinor = cats.slice(topN).reduce((a, c) => a + c.totalMinor, 0);
   const raw: { key: string; name: string; minor: number; kind: HundredSegment['kind'] }[] = top.map((c) => ({ key: c.name, name: c.name, minor: c.totalMinor, kind: 'category' }));
-  if (restMinor > 0) raw.push({ key: 'others', name: 'অন্যান্য', minor: restMinor, kind: 'others' });
+  if (restMinor > 0) raw.push({ key: 'others', name: 'Other', minor: restMinor, kind: 'others' });
   const over = expense > income;
   const overspendMinor = Math.max(0, expense - income);
-  if (!over) raw.push({ key: 'savings', name: 'সঞ্চয়', minor: income - expense, kind: 'savings' });
+  if (!over) raw.push({ key: 'savings', name: 'Savings', minor: income - expense, kind: 'savings' });
   const denom = over ? expense : income;
 
   // largest remainder: যোগফল ঠিক ১০০
@@ -805,17 +805,17 @@ export function monthReport(
   let expenseDown: boolean | null = null;
   if (prevTxs && prevExpense > 0) {
     const diff = Math.round(((expense - prevExpense) / prevExpense) * 100);
-    if (diff === 0) l1.push({ text: 'খরচ গত মাসের প্রায় সমান' });
+    if (diff === 0) l1.push({ text: 'Spending is about the same as last month' });
     else {
       expenseDown = diff < 0;
-      l1.push({ text: `খরচ গত মাসের চেয়ে ` }, { text: `${Math.abs(diff)}% ${diff < 0 ? 'কম' : 'বেশি'}`, tone: diff < 0 ? 'good' : 'bad' });
+      l1.push({ text: 'Spending is ' }, { text: `${Math.abs(diff)}% ${diff < 0 ? 'lower' : 'higher'}`, tone: diff < 0 ? 'good' : 'bad' }, { text: ' than last month' });
     }
   }
   if (pct != null) {
     const gap = target - pct;
-    const lead = l1.length > 0 ? (expenseDown === true && gap > 0 ? ', কিন্তু ' : expenseDown === false && gap <= 0 ? ', তবে ' : ', ') : '';
-    if (gap > 0.05) l1.push({ text: `${lead}সঞ্চয় টার্গেটের (${target}%) ` }, { text: `${pctText(gap)} পয়েন্ট নিচে`, tone: 'bad' });
-    else l1.push({ text: `${lead}সঞ্চয় টার্গেট (${target}%) ` }, { text: 'ছুঁয়েছে', tone: 'good' });
+    const lead = l1.length > 0 ? (expenseDown === true && gap > 0 ? ', but ' : expenseDown === false && gap <= 0 ? ', yet ' : ', ') : '';
+    if (gap > 0.05) l1.push({ text: lead }, { text: `${pctText(gap)} pts`, tone: 'bad' }, { text: ` below your savings target (${target}%)` });
+    else l1.push({ text: `${lead}${lead ? 'savings' : 'Savings'} target (${target}%) ` }, { text: 'reached', tone: 'good' });
   }
   if (l1.length > 0) lines.push(l1);
 
@@ -831,11 +831,11 @@ export function monthReport(
       const inc = cur - prev;
       if (!best || inc > best.inc) best = { name, inc, pct: Math.round((inc / prev) * 100) };
     }
-    if (best) lines.push([{ text: 'সবচেয়ে বেড়েছে: ' }, { text: best.name, tone: undefined }, { text: ` (+${best.pct}%)`, tone: 'bad' }]);
+    if (best) lines.push([{ text: 'Biggest increase: ' }, { text: best.name, tone: undefined }, { text: ` (+${best.pct}%)`, tone: 'bad' }]);
   }
 
   const leak = leakFinder(txs, 1, essentialCategories)[0];
-  if (leak) lines.push([{ text: `সবচেয়ে বড় ছোট-ফাঁক: ${leak.name}, মাসে ${fmtTaka(leak.totalMinor)}` }]);
+  if (leak) lines.push([{ text: `Biggest small leak: ${leak.name}, ${fmtTaka(leak.totalMinor)} a month` }]);
   return lines;
 }
 
