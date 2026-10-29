@@ -154,7 +154,7 @@ export function RealGrowthCard({ snapshots, inflationPct }: { snapshots: readonl
   if (inflationPct == null) {
     return (
       <Block icon={LineChart} title="আসল বৃদ্ধি" sub="মূল্যস্ফীতি বাদ দিলে সম্পদ আসলে কতটা বাড়ল">
-        <p className="text-xs text-muted">মূল্যস্ফীতির হার বসিয়ে দিন (মেনু → Monthly Target & More → মূল্যস্ফীতি), ফলাফল এখানেই দেখা যাবে।</p>
+        <p className="text-xs text-muted">মূল্যস্ফীতির হার বসিয়ে দিন (মেনু → Target & More → মূল্যস্ফীতি), ফলাফল এখানেই দেখা যাবে।</p>
       </Block>
     );
   }

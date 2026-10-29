@@ -138,7 +138,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       )}
 
       <MenuSection title="Budget & alerts">
-        <MenuRow icon={Target} tint="c4" label="Monthly Target & More" value={budget != null ? formatTaka(budget) : 'Not set'} onClick={() => setBudgetOpen(true)} />
+        <MenuRow icon={Target} tint="c4" label="Target & More" value={budget != null ? formatTaka(budget) : 'Not set'} onClick={() => setBudgetOpen(true)} />
         <MenuRow icon={TriangleAlert} tint="c5" label="Large-amount warning" value={threshold != null ? formatTaka(threshold) : 'Off'} onClick={() => setLargeOpen(true)} />
         <ToggleRow icon={Bell} tint="c7" label="Reminders" checked={remindersOn} onChange={(v) => void updateSettings(user.uid, { reminderEnabled: v })} />
       </MenuSection>

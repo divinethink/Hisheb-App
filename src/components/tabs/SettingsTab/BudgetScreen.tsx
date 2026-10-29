@@ -27,7 +27,7 @@ const FIELD_INPUT = 'min-h-11 w-full min-w-0 bg-transparent text-base text-fg ou
 const SAVE_BTN = 'min-h-11 shrink-0 rounded-xl bg-primary px-5 text-sm font-medium text-canvas disabled:opacity-60';
 const LINK_BTN = 'min-h-11 text-xs text-muted underline';
 
-// Monthly Target & More (Overall budget + Overview লক্ষ্য + মূল্যস্ফীতি + প্রয়োজনীয় খাত) — লজিক অপরিবর্তিত, শুধু UI কার্ড-ভিত্তিক (owner-request ২০২৬-১০-৩০)।
+// Target & More (Overall budget + Overview লক্ষ্য + মূল্যস্ফীতি + প্রয়োজনীয় খাত) — লজিক অপরিবর্তিত, শুধু UI কার্ড-ভিত্তিক (owner-request ২০২৬-১০-৩০)।
 export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: () => void }) {
   const settings = useSettings(uid);
   const saved = settings.state.status === 'ready' ? settings.state.data.overallMonthlyBudgetMinor : null;
@@ -108,7 +108,7 @@ export default function BudgetScreen({ uid, onClose }: { uid: string; onClose: (
   }
 
   return (
-    <FullScreenPage title="Monthly Target & More" onBack={onClose}>
+    <FullScreenPage title="Target & More" onBack={onClose}>
       <div className="flex flex-col gap-3">
         <Section icon={Target} title="Monthly target" value={saved != null ? formatTaka(saved) : 'Not set'}>
           <p className="mt-2 text-xs text-muted">

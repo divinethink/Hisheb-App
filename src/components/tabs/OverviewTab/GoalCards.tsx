@@ -77,7 +77,7 @@ export function GoalCard({ currentMinor, latestYyyymm, goalMinor, avgSavingsMino
       <p className="text-xs text-muted">{rate !== null && rate > 0 ? '৫০ বছরের বেশি লাগবে' : 'এই গতিতে লক্ষ্যে পৌঁছানো যাবে না'}</p>
     );
   return (
-    <Block icon={Flag} title="লক্ষ্য ও পূর্বাভাস" sub={`লক্ষ্য ${formatTakaWhole(goal)}${goalMinor === null ? ' (ডিফল্ট)' : ''} · বদলাতে: মেনু → Monthly Target & More`}>
+    <Block icon={Flag} title="লক্ষ্য ও পূর্বাভাস" sub={`লক্ষ্য ${formatTakaWhole(goal)}${goalMinor === null ? ' (ডিফল্ট)' : ''} · বদলাতে: মেনু → Target & More`}>
       <div className="mb-1.5 flex justify-between text-sm">
         <b className="text-fg">{formatTakaWhole(currentMinor)}</b>
         <span className="text-muted">{Math.floor(pct)}% অর্জিত</span>

@@ -464,7 +464,7 @@ export default function InvestmentSheet({
           <SectionLabel icon={FileText} text="Terms & contract" />
           <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" aria-label="Contract PDF file" onChange={(e) => void pickPdf(e.target.files?.[0])} />
           <div className="mt-2 grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-center gap-2">
-            <FieldCard label="Duration" htmlFor="inv-duration">
+            <FieldCard label="Duration (m)" htmlFor="inv-duration">
               <input id="inv-duration" value={duration} maxLength={40} onChange={(e) => setDuration(e.target.value)} className={INPUT} />
             </FieldCard>
             {pdfFile ? (
