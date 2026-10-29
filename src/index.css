@@ -3,11 +3,10 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root { height: 100%; }
-/* মোবাইলে ব্রাউজার-বার/স্ক্রিন-অন বদলালেও আসল দৃশ্যমান উচ্চতা (নেভ বার নিচে সেঁটে থাকে) */
-@supports (height: 100dvh) {
-  html, body, #root { height: 100dvh; }
-}
+/* নেভ বার নিচে স্থির: 100dvh মোবাইলে দৃশ্যমান উচ্চতার সাথে মিলত না (নেভ নিচে হারাত/মাঝে উঠত) —
+   তাই #root সরাসরি স্ক্রিনে fixed (inset:0); পেজ নিজে স্ক্রল/ওভারস্ক্রল হয় না, স্ক্রল শুধু ট্যাবের ভেতরে */
+html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+#root { position: fixed; inset: 0; box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); }
 body {
   margin: 0;
   background: rgb(var(--color-canvas));
@@ -16,7 +15,6 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Bengali', 'Nirmala UI', sans-serif;
   line-height: 1.6;
   box-sizing: border-box;
-  padding-top: env(safe-area-inset-top, 0px);
   /* UI Polish [1_4] ধাপ ২/৩, item ৭: টাকার অঙ্কের digit-width সবসময় align — non-digit
      টেক্সটে কোনো visual effect নেই (font-variant-numeric শুধু digit glyph বদলায়), তাই
      global-এ বসানো নিরাপদ ও প্রতিটা amount-জায়গায় আলাদা ক্লাস বসানোর চেয়ে minimal। */
