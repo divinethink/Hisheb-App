@@ -18,7 +18,7 @@ export default function CompanyPickerScreen({
   uid: string;
   selectedId: string | null;
   onSelect: (c: InvestmentCompany) => void;
-  /** দিলে "Other company" সারি দেখায় — কোম্পানি সেভ না করে এন্ট্রিতে নাম টাইপ */
+  /** দিলে "Type company name" সারি দেখায় — কোম্পানি সেভ না করে এন্ট্রিতে নাম টাইপ */
   onSelectOther?: () => void;
   onClose: () => void;
 }) {
@@ -77,8 +77,8 @@ export default function CompanyPickerScreen({
             <Plus size={20} />
           </span>
           <span>
-            <span className="block text-sm font-medium text-primary">Add new company</span>
-            <span className="block text-xs text-muted">Name · Medium · Logo — saved once</span>
+            <span className="block text-sm font-medium text-primary">Save new company</span>
+            <span className="block text-xs text-muted">Name · Medium · Logo — saved for reuse</span>
           </span>
         </button>
 
@@ -88,8 +88,8 @@ export default function CompanyPickerScreen({
               <PenLine size={20} />
             </span>
             <span>
-              <span className="block text-sm font-medium text-fg">Other company</span>
-              <span className="block text-xs text-muted">Just type a name — not saved</span>
+              <span className="block text-sm font-medium text-fg">Type company name</span>
+              <span className="block text-xs text-muted">Not added to your company list</span>
             </span>
           </button>
         )}
