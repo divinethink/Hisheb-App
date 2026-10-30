@@ -1,12 +1,12 @@
 rules_version = '2';
 // একটাই match + validWrite(col, data), default-deny (Architecture Plan §৩, B7/R1)।
-// ⚠️ DEPLOY-এর আগে OWNER_GMAIL নিজের Gmail দিয়ে বদলান (Staging ও Production আলাদা)।
+// ⚠️ DEPLOY-এর আগে tuhin.msg@gmail.com নিজের Gmail দিয়ে বদলান (Staging ও Production আলাদা)।
 // না বদলালে কেউই ঢুকতে পারবে না — নিরাপদ ডিফল্ট।
 service cloud.firestore {
   match /databases/{database}/documents {
     function isOwner(uid) {
       return request.auth != null && request.auth.uid == uid
-             && request.auth.token.email == 'OWNER_GMAIL'
+             && request.auth.token.email == 'tuhin.msg@gmail.com'
              && request.auth.token.email_verified == true;
     }
     function nameOk(d) {
