@@ -20,7 +20,7 @@ import { receivableTotalMinor, runningInvestmentTotalMinor, accountsTotalMinor, 
 import { lastDayOfMonth, receivableAsOfMinor, runningInvestmentAsOfMinor, depositNetAsOfMinor } from './ledgerAsOf';
 
 // লাখ-স্টাইল গ্রুপিং (1,62,417.00); ঋণাত্মক সংখ্যা শেষ section-এ পড়ে, minus চিহ্ন সহ।
-const MONEY_FMT = '[>=10000000]##\,##\,##\,##0.00;[>=100000]##\,##\,##0.00;##,##0.00';
+const MONEY_FMT = '[>=10000000]##,##,##,##0.00;[>=100000]##,##,##0.00;##,##0.00';
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function toTaka(minor: number): number {
@@ -165,11 +165,11 @@ function buildInvestmentSheet(investments: readonly Investment[]): { ws: XLSX.Wo
 function buildMonthlySheet(year: number, currentYm: string, i: FullReportInput): XLSX.WorkSheet {
   const aoa: (string | number)[][] = [];
   const formulas: { row: number; col: number; f: string }[] = [];
-  const header = ['মাস', 'Salary', 'Other Income', 'মোট আয়', 'মোট ব্যয়', 'সঞ্চয়/(-)', 'মোট পাওনা', 'বাসায় মোট জমা', 'Running Investment', 'Accounts (Bank+MB+Cash)', 'Total Deposit', 'Cross check', 'Deviation'];
+  const headRow = ['মাস', 'Salary', 'Other Income', 'মোট আয়', 'মোট ব্যয়', 'সঞ্চয়/(-)', 'মোট পাওনা', 'বাসায় মোট জমা', 'Running Investment', 'Accounts (Bank+MB+Cash)', 'Total Deposit', 'Cross check', 'Deviation'];
   [year, year - 1].forEach((y) => {
     aoa.push([`${y} Income, Expenditure & Deposit`]);
     aoa.push(['', 'আয়', '', '', '', '', 'মূলধন']);
-    aoa.push(header);
+    aoa.push(headRow);
     let prevK = false;
     MONTHS.forEach((name, mi) => {
       const ym = `${y}-${String(mi + 1).padStart(2, '0')}`;
