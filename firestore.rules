@@ -28,6 +28,7 @@ service cloud.firestore {
              || (d.logo is string && d.logo.size() <= 40000
                  && d.logo.matches('^data:image/(webp|png|jpeg);base64,[A-Za-z0-9+/=]+$'));
     }
+    // নতুন collection যোগ করলে: (১) নিচে নাম ও যাচাই যোগ করুন (নইলে লেখা বন্ধ), (২) src/data/backupRepo.ts-এর BACKUP_COLLECTIONS-এ নাম দিন, (৩) tests/rules-এ কেস যোগ করুন।
     function validWrite(col, d) {
       return (col == 'transactions'
                 ? (posInt(d.amountMinor) && d.type in ['income', 'expense']
