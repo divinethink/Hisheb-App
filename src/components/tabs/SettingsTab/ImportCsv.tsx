@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useDirtyGuard } from '../../../hooks/useDirtyGuard';
 import { useBackClose } from '../../../hooks/useBackClose';
 import { dateRangeOf, dedupeRows, mergeParseResults, parseSpendeeCsv, type ParsedRow, type ParseResult, type SkippedRow } from '../../../lib/csvImport';
 import { addCategory, addLabel } from '../../../data/catalogRepo';
@@ -48,6 +49,7 @@ function SkippedRowsPanel({ rows }: { rows: SkippedRow[] }) {
 }
 
 export default function ImportCsv({ uid, onClose }: { uid: string; onClose: () => void }) {
+  useDirtyGuard(); // Import চলাকালীন PWA auto-reload স্কিপ
   useBackClose(onClose); // ফোনের ব্যাক = বন্ধ
   const [step, setStep] = useState<Step>('pick');
   const [busy, setBusy] = useState(false);

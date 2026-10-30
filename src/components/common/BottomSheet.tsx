@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useBackClose } from '../../hooks/useBackClose';
+import { useDirtyGuard } from '../../hooks/useDirtyGuard';
 
 // UI Mockup §৩.১ (owner-request, ২০২৬-০৯-২৬): sheet এখন পুরো viewport (100dvh) জুড়ে —
 // Spendee-স্টাইল full-screen entry, আগের max-h-[90dvh] partial-sheet না। ভেতরে এখনও
@@ -20,6 +21,8 @@ export default function BottomSheet({
   const panelRef = useRef<HTMLDivElement>(null);
   // ফোনের ব্যাক বাটন = Cancel/বন্ধ (unsaved-confirm থাকলে সেটাই চলে, কারণ onRequestClose-ই ডাকা হয়)
   useBackClose(onRequestClose);
+  // শিট খোলা থাকলে PWA auto-reload স্কিপ (আধা-লেখা ফর্ম/চলমান সেভ হারানো এড়াতে)
+  useDirtyGuard();
 
   const closeRef = useRef(onRequestClose);
   useEffect(() => {

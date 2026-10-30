@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useDirtyGuard } from '../../../hooks/useDirtyGuard';
 import { useBackClose } from '../../../hooks/useBackClose';
 import type { SessionUser } from '../../../auth/AuthProvider';
 import { getEnv } from '../../../config/env';
@@ -24,6 +25,7 @@ function dateStamp(): string {
 }
 
 export default function BackupRestore({ user, onClose }: { user: SessionUser; onClose: () => void }) {
+  useDirtyGuard(); // Restore/Backup চলাকালীন PWA auto-reload স্কিপ
   const [driveBusy, setDriveBusy] = useState(false);
   const [deviceBusy, setDeviceBusy] = useState(false);
   const [status, setStatus] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
