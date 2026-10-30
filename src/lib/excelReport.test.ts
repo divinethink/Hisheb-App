@@ -33,13 +33,21 @@ it('workbook follows original Excel structure, no daily entries', () => {
       { accountId: 'a1', yyyymm: '2026-08', balanceMinor: 21250300 }, { accountId: 'a2', yyyymm: '2026-08', balanceMinor: 98000 },
     ] as any,
   });
-  expect(wb.SheetNames).toEqual(['Investment', 'Monthly Statement', 'Yearly Statement', 'Calculation', 'Debts', 'HomeDeposit', 'GPF', 'Net Worth']);
+  expect(wb.SheetNames).toEqual(['Investment', 'Home Deposit', 'Debt', 'GPF', 'Net Worth', 'Monthly Statement', 'Yearly Statement']);
   const ms = XLSX.utils.sheet_to_json(wb.Sheets['Monthly Statement'], { header: 1 }) as unknown[][];
   expect(ms.some((r) => r[0] === 'August' && r.includes(44408) && r.includes(10881))).toBe(true);
   expect(wb.Sheets['Monthly Statement']['F11'].f).toBe('D11-E11');
   const inv = wb.Sheets['Investment'];
-  expect(inv['J4'].f).toBe('H4-E4');
+  // Ledger-ক্রম: Running (Synod) row 4 ওপরে, Closed (Best Electronics) row 5 নিচে; Closed = সবুজ, Running = রঙহীন
+  expect(inv['C4'].v).toBe('Synod');
+  expect(inv['C5'].v).toBe('Best Electronics');
+  expect(inv['J5'].f).toBe('H5-E5');
   expect(inv['G7'].f).toBe('E7-I7');
+  expect((inv['A5'] as any).s.fill.fgColor.rgb).toBe('C6EFCE');
+  expect((inv['A4'] as any).s?.fill).toBeUndefined();
+  expect((inv['A5'] as any).s.border.top.style).toBe('thin');
+  expect(wb.Sheets['Net Worth']['B9'].f).toMatch(/^Debt!/);
+  expect(wb.Sheets['Net Worth']['B11'].f).toBe("'Home Deposit'!" + wb.Sheets['Net Worth']['B11'].f!.split('!')[1]);
   // দৈনিক entry (Date/Type/Note কলাম) কোথাও নেই
   for (const n of wb.SheetNames) expect(JSON.stringify(XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1 }))).not.toContain('"Transactions"');
 });
