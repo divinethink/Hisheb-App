@@ -7,12 +7,13 @@ import { addGpfEntry, updateGpfEntry } from '../../../data/gpfRepo';
 import { settleOrPending } from '../../../lib/async';
 import type { GpfEntry } from '../../../validation/gpfSchema';
 import DateInput from '../../common/DateInput';
+import { toDhakaDate } from '../../../lib/date';
 
 type EntryType = GpfEntry['type'];
 const TYPES: EntryType[] = ['contribution', 'interest', 'withdrawal'];
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toDhakaDate(new Date()); // Asia/Dhaka (UTC নয়) — রাত ১২–ভোর ৬টায় আগের দিন বসত
 }
 
 export default function GpfEntrySheet({

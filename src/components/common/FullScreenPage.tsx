@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useBackClose } from '../../hooks/useBackClose';
 
@@ -17,8 +17,10 @@ export default function FullScreenPage({
   actions?: ReactNode;
   children: ReactNode;
 }) {
-  const backRef = { current: onBack };
-  backRef.current = onBack;
+  const backRef = useRef(onBack);
+  useEffect(() => {
+    backRef.current = onBack;
+  });
   // ফোনের ব্যাক বাটন: অ্যাপ থেকে না বেরিয়ে এই পেজ বন্ধ (owner-request, ২০২৬-১০-২৫)
   useBackClose(onBack);
   useEffect(() => {
@@ -27,7 +29,6 @@ export default function FullScreenPage({
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

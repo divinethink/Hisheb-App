@@ -7,11 +7,12 @@ import { settleOrPending } from '../../../lib/async';
 import { HomeDepositTypeSchema, type HomeDepositEntry } from '../../../validation/homeDepositSchema';
 import type { z } from 'zod';
 import DateInput from '../../common/DateInput';
+import { toDhakaDate } from '../../../lib/date';
 
 type EntryType = z.infer<typeof HomeDepositTypeSchema>;
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toDhakaDate(new Date()); // Asia/Dhaka (UTC নয়) — রাত ১২–ভোর ৬টায় আগের দিন বসত
 }
 
 export default function HomeDepositEntrySheet({

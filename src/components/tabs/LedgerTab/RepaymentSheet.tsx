@@ -4,7 +4,7 @@ import AmountInput from '../../common/AmountInput';
 import { resolveAmountMinor, minorToInput } from '../../../lib/money';
 import { lineViews, sumRepayments } from '../../../lib/debtCalc';
 import { formatAmount } from '../../../lib/format';
-import { formatDisplayDate } from '../../../lib/date';
+import { formatDisplayDate, toDhakaDate } from '../../../lib/date';
 import { setRepayments } from '../../../data/debtRepo';
 import { useSettings } from '../../../hooks/useData';
 import { settleOrPending } from '../../../lib/async';
@@ -12,7 +12,7 @@ import type { Debt } from '../../../validation/debtSchema';
 import DateInput from '../../common/DateInput';
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toDhakaDate(new Date()); // Asia/Dhaka (UTC নয়) — রাত ১২–ভোর ৬টায় আগের দিন বসত
 }
 
 export default function RepaymentSheet({

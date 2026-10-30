@@ -7,9 +7,10 @@ import { newBorrowingId, setBorrowings } from '../../../data/debtRepo';
 import { settleOrPending } from '../../../lib/async';
 import type { Debt } from '../../../validation/debtSchema';
 import DateInput from '../../common/DateInput';
+import { toDhakaDate } from '../../../lib/date';
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toDhakaDate(new Date()); // Asia/Dhaka (UTC নয়) — রাত ১২–ভোর ৬টায় আগের দিন বসত
 }
 
 export default function BorrowingSheet({

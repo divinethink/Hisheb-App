@@ -49,6 +49,10 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
       }
       setP(Math.min(MAX_PULL, dy * 0.5));
     };
+    const onCancel = () => {
+      start.current = null;
+      setP(0);
+    };
     const onEnd = () => {
       const was = pullRef.current;
       start.current = null;
@@ -63,12 +67,12 @@ export default function PullToRefresh({ children }: { children: ReactNode }) {
     root.addEventListener('touchstart', onStart, { passive: true });
     root.addEventListener('touchmove', onMove, { passive: true });
     root.addEventListener('touchend', onEnd, { passive: true });
-    root.addEventListener('touchcancel', onEnd, { passive: true });
+    root.addEventListener('touchcancel', onCancel, { passive: true });
     return () => {
       root.removeEventListener('touchstart', onStart);
       root.removeEventListener('touchmove', onMove);
       root.removeEventListener('touchend', onEnd);
-      root.removeEventListener('touchcancel', onEnd);
+      root.removeEventListener('touchcancel', onCancel);
     };
   }, []);
 
