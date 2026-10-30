@@ -8,9 +8,31 @@ on:
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: true
+permissions:
+  contents: read
 jobs:
-  build_and_deploy:
+  # CI-গেট: lint + typecheck + test সবুজ না হলে deploy চলবে না
+  check:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Create .env file (test-এর জন্য, ENV_STAGING reuse)
+        env:
+          ENV_FILE: ${{ secrets.ENV_STAGING }}
+        run: printf '%s\n' "$ENV_FILE" > .env
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  build_and_deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
 
@@ -18,8 +40,9 @@ jobs:
         with: { node-version: 20, cache: npm }
 
       - name: Create .env.production file (live সাইট — debug token কখনো না)
-        run: |
-          echo "${{ secrets.ENV_PRODUCTION }}" > .env.production
+        env:
+          ENV_FILE: ${{ secrets.ENV_PRODUCTION }}
+        run: printf '%s\n' "$ENV_FILE" > .env.production
 
       - name: Install Dependencies and Build
         run: npm ci && npx vite build --mode production

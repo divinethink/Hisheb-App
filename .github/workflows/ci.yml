@@ -4,6 +4,8 @@ on:
     paths-ignore: ['*.zip']
   pull_request:
   workflow_dispatch:
+permissions:
+  contents: read
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -18,7 +20,9 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - run: npm ci
       - name: Create .env file (test/build-এর জন্য VITE_FIREBASE_* দরকার, deploy workflow-এর ENV_STAGING secret reuse)
-        run: echo "${{ secrets.ENV_STAGING }}" > .env
+        env:
+          ENV_FILE: ${{ secrets.ENV_STAGING }}
+        run: printf '%s\n' "$ENV_FILE" > .env
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test

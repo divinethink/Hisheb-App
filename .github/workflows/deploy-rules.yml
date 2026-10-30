@@ -1,15 +1,40 @@
 name: deploy-rules
 # Actions -> deploy-rules -> Run workflow (মোবাইল থেকেও চলে)। শুধু firestore.rules deploy করে।
+# আগে rules-test পাস করতে হবে; OWNER_GMAIL secret থেকে আসল ইমেইল বসে (repo-র ফাইল বদলায় না)।
 on:
   workflow_dispatch:
+permissions:
+  contents: read
 jobs:
   rules:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with: { node-version: 20, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - run: npm ci
+      - name: Create .env file (ENV_STAGING reuse)
+        env:
+          ENV_FILE: ${{ secrets.ENV_STAGING }}
+        run: printf '%s\n' "$ENV_FILE" > .env
+      - name: Rules test (placeholder সহ ফাইলেই চলে)
+        run: npm run test:rules
+      - name: Insert owner email from secret
+        env:
+          OWNER_GMAIL: ${{ secrets.OWNER_GMAIL }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$OWNER_GMAIL" | grep -Eq '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'; then
+            echo "::error::OWNER_GMAIL secret খালি বা ইমেইল-ফরম্যাট ভুল — deploy বন্ধ"; exit 1
+          fi
+          sed -i "s|OWNER_GMAIL|${OWNER_GMAIL}|g" firestore.rules
+          if grep -q "OWNER_GMAIL" firestore.rules; then
+            echo "::error::placeholder রয়ে গেছে — deploy বন্ধ"; exit 1
+          fi
+          echo "owner email inserted"
       - name: Service account
         run: printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
         env:
@@ -18,3 +43,6 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         run: npx --yes firebase-tools@13 deploy --only firestore:rules --project hishab-nikash-41b9b --non-interactive
+      - name: Remove service account file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/sa.json"
