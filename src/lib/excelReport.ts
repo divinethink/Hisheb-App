@@ -283,7 +283,14 @@ function buildDebtsSheet(debts: readonly Debt[]): { ws: XLSX.WorkSheet; receivab
   aoa.push(['ID', 'Person', 'Direction', 'Total (BDT)', 'Date', 'Status', 'Repaid (BDT)', 'Outstanding (BDT)', 'Written-off (BDT)']);
   const summaryStart = aoa.length;
   const { open, settled } = partitionDebtsForList(debts);
-  const ordered = [...open, ...settled];
+  // ক্রম: active (বাকি আছে) → doubtful → পুরো-শোধ → written-off সবার নিচে; প্রতি গ্রুপে Ledger-এর ক্রম (নতুন আগে) বজায় থাকে।
+  const rank = (d: Debt): number => {
+    const isOweMe = d.direction === 'owe_me';
+    if (isOweMe && writtenOffOutstandingMinor(d) > 0) return 3;
+    if (isOweMe && lineViews(d).some((v) => v.status === 'doubtful' && !v.excluded && v.outstandingMinor > 0)) return 1;
+    return outstandingMinor(d.totalAmountMinor, d.repayments) > 0 ? 0 : 2;
+  };
+  const ordered = [...open, ...settled].map((d, idx) => ({ d, idx, k: rank(d) })).sort((a, b) => a.k - b.k || a.idx - b.idx).map((x) => x.d);
   const fills: (string | null)[] = [];
   for (const d of ordered) {
     const isOweMe = d.direction === 'owe_me';
@@ -438,55 +445,57 @@ function buildNetWorthSheet(accounts: readonly Account[], balances: readonly Acc
     const cur = latestYm.get(b.accountId);
     if (!cur || b.yyyymm > cur) latestYm.set(b.accountId, b.yyyymm);
   }
-  const aoa: (string | number)[][] = [['Net Worth'], [], ['Assets'], ['Account', 'Holder', 'As of', 'Balance (BDT)']];
+  // সব অঙ্ক একটাই কলামে (E) — Accounts Total থেকে Total Assets পর্যন্ত হিসাব এক নজরে; প্রতি সারির আগে SL।
+  const aoa: (string | number)[][] = [['Net Worth'], [], ['Assets'], ['SL', 'Account', 'Holder', 'As of', 'Balance (BDT)']];
   const accStart = aoa.length;
-  for (const a of accounts) aoa.push([a.name, a.holder ?? '', latestYm.get(a.id) ?? '', toTaka(latest.get(a.id) ?? 0)]);
+  accounts.forEach((a, i) => aoa.push([i + 1, a.name, a.holder ?? '', latestYm.get(a.id) ?? '', toTaka(latest.get(a.id) ?? 0)]));
   const accEnd = aoa.length - 1;
-  if (accEnd < accStart) aoa.push(['', '', '', '']);
+  if (accEnd < accStart) aoa.push(['', '', '', '', '']);
   aoa.push([]);
   const accTotalRow = aoa.length;
   const accTotalMinor = accountsTotalMinor(accounts.map((a) => ({ balanceMinor: latest.get(a.id) ?? 0 })));
-  aoa.push(['Accounts Total', toTaka(accTotalMinor)]);
+  aoa.push([1, 'Accounts Total', '', '', toTaka(accTotalMinor)]);
   const recvRow = aoa.length;
-  aoa.push(['+ Total Receivable (Ledger)', toTaka(t.receivableMinor)]);
+  aoa.push([2, '+ Total Receivable (Ledger)', '', '', toTaka(t.receivableMinor)]);
   const invRow = aoa.length;
-  aoa.push(['+ Running Investment', toTaka(t.runningTotalMinor)]);
+  aoa.push([3, '+ Running Investment', '', '', toTaka(t.runningTotalMinor)]);
   const hdRow = aoa.length;
-  aoa.push(['+ Home Deposit (Net)', toTaka(t.netTotalMinor)]);
+  aoa.push([4, '+ Home Deposit (Net)', '', '', toTaka(t.netTotalMinor)]);
   const gpfRow = aoa.length;
-  aoa.push(['+ GPF Balance', toTaka(t.balanceMinor)]);
+  aoa.push([5, '+ GPF Balance', '', '', toTaka(t.balanceMinor)]);
   aoa.push([]);
   const totalAssetsRow = aoa.length;
-  aoa.push(['Total Assets (Gross)', toTaka(accTotalMinor) + toTaka(t.receivableMinor) + toTaka(t.runningTotalMinor) + toTaka(t.netTotalMinor) + toTaka(t.balanceMinor)]);
+  const grossTaka = toTaka(accTotalMinor) + toTaka(t.receivableMinor) + toTaka(t.runningTotalMinor) + toTaka(t.netTotalMinor) + toTaka(t.balanceMinor);
+  aoa.push(['', 'Total Assets (Gross)', '', '', grossTaka]);
   aoa.push([]);
   aoa.push(['Liabilities']);
   const ioweRow = aoa.length;
-  aoa.push(['I Owe (Outstanding) — not deducted above, per app policy', toTaka(t.ioweMinor)]);
+  aoa.push([1, 'I Owe (Outstanding) — not deducted above, per app policy', '', '', toTaka(t.ioweMinor)]);
   const netOfIoweRow = aoa.length;
-  aoa.push(['Net of I Owe (informational only)', toTaka(accTotalMinor) + toTaka(t.receivableMinor) + toTaka(t.runningTotalMinor) + toTaka(t.netTotalMinor) + toTaka(t.balanceMinor) - toTaka(t.ioweMinor)]);
+  aoa.push([2, 'Net of I Owe (informational only)', '', '', grossTaka - toTaka(t.ioweMinor)]);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  if (accEnd >= accStart) ws[cellRef(accTotalRow, 1)].f = `SUM(D${accStart + 1}:D${accEnd + 1})`;
-  ws[cellRef(recvRow, 1)].f = `Debt!${t.receivableCellRef}`;
-  ws[cellRef(invRow, 1)].f = `Investment!${t.runningCellRef}`;
-  ws[cellRef(hdRow, 1)].f = `'Home Deposit'!${t.netCellRef}`;
-  ws[cellRef(gpfRow, 1)].f = `GPF!${t.balanceCellRef}`;
-  ws[cellRef(totalAssetsRow, 1)].f = `B${accTotalRow + 1}+B${recvRow + 1}+B${invRow + 1}+B${hdRow + 1}+B${gpfRow + 1}`;
-  ws[cellRef(ioweRow, 1)].f = `Debt!${t.ioweCellRef}`;
-  ws[cellRef(netOfIoweRow, 1)].f = `B${totalAssetsRow + 1}-B${ioweRow + 1}`;
+  if (accEnd >= accStart) ws[cellRef(accTotalRow, 4)].f = `SUM(E${accStart + 1}:E${accEnd + 1})`;
+  ws[cellRef(recvRow, 4)].f = `Debt!${t.receivableCellRef}`;
+  ws[cellRef(invRow, 4)].f = `Investment!${t.runningCellRef}`;
+  ws[cellRef(hdRow, 4)].f = `'Home Deposit'!${t.netCellRef}`;
+  ws[cellRef(gpfRow, 4)].f = `GPF!${t.balanceCellRef}`;
+  ws[cellRef(totalAssetsRow, 4)].f = `E${accTotalRow + 1}+E${recvRow + 1}+E${invRow + 1}+E${hdRow + 1}+E${gpfRow + 1}`;
+  ws[cellRef(ioweRow, 4)].f = `Debt!${t.ioweCellRef}`;
+  ws[cellRef(netOfIoweRow, 4)].f = `E${totalAssetsRow + 1}-E${ioweRow + 1}`;
 
-  title(ws, 0, 3);
+  title(ws, 0, 4);
   bold(ws, 2, 0, 0);
-  header(ws, 3, 0, 3);
-  box(ws, 3, Math.max(accEnd, accStart), 0, 3);
-  box(ws, accTotalRow, gpfRow, 0, 1);
-  bold(ws, accTotalRow, 0, 1);
-  box(ws, totalAssetsRow, totalAssetsRow, 0, 1);
-  bold(ws, totalAssetsRow, 0, 1, TOTAL_BG);
+  header(ws, 3, 0, 4);
+  box(ws, 3, Math.max(accEnd, accStart), 0, 4);
+  box(ws, accTotalRow, gpfRow, 0, 4);
+  bold(ws, accTotalRow, 0, 4);
+  box(ws, totalAssetsRow, totalAssetsRow, 0, 4);
+  bold(ws, totalAssetsRow, 0, 4, TOTAL_BG);
   bold(ws, ioweRow - 1, 0, 0);
-  box(ws, ioweRow, netOfIoweRow, 0, 1);
-  applyMoneyFormat(ws, [1, 3]);
-  ws['!cols'] = [{ wch: 54 }, { wch: 14 }, { wch: 10 }, { wch: 14 }];
+  box(ws, ioweRow, netOfIoweRow, 0, 4);
+  applyMoneyFormat(ws, [4]);
+  ws['!cols'] = [{ wch: 6 }, { wch: 54 }, { wch: 14 }, { wch: 10 }, { wch: 16 }];
   return ws;
 }
 
