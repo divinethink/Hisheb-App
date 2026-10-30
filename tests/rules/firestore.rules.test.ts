@@ -64,6 +64,13 @@ describe('Data isolation / access', () => {
     await assertFails(setDoc(doc(db, 'transactions/t1'), validTx));
     await assertFails(setDoc(doc(db, `users/${OWNER_UID}/transactions/t1/sub/s1`), { a: 1 }));
   });
+  it('unknown collection is denied, known free-form ones allowed', async () => {
+    const db = owner();
+    await assertFails(setDoc(doc(db, `users/${OWNER_UID}/randomStuff/x1`), { a: 1 }));
+    await assertSucceeds(setDoc(doc(db, `users/${OWNER_UID}/accounts/a1`), { name: 'Cash' }));
+    await assertSucceeds(setDoc(doc(db, `users/${OWNER_UID}/depositFunds/d1`), { name: 'Fund' }));
+    await assertSucceeds(setDoc(doc(db, `users/${OWNER_UID}/settings/main`), { theme: 'dark' }));
+  });
   it('owner can delete own doc', async () => {
     const db = owner();
     await assertSucceeds(setDoc(doc(db, `users/${OWNER_UID}/transactions/t1`), validTx));

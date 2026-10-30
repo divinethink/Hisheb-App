@@ -1,6 +1,6 @@
 rules_version = '2';
 // একটাই match + validWrite(col, data), default-deny (Architecture Plan §৩, B7/R1)।
-// ⚠️ DEPLOY-এর আগে tuhin.msg@gmail.com নিজের Gmail দিয়ে বদলান (Staging ও Production আলাদা)।
+// ⚠️ DEPLOY-এর আগে GitHub Secret OWNER_GMAIL-এ নিজের Gmail দিন (Staging ও Production আলাদা)।
 // না বদলালে কেউই ঢুকতে পারবে না — নিরাপদ ডিফল্ট।
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -48,7 +48,7 @@ service cloud.firestore {
               : col == 'zakatPayments' ? posInt(d.amountMinor)
               : col == 'historicalYearlyTotals'
                 ? (d.totalIncomeMinor is int && d.totalExpenseMinor is int && d.totalDepositMinor is int)
-              : true);
+              : col in ['accounts', 'depositFunds', 'settings']);  // অজানা collection → false (whitelist)
     }
     match /users/{uid}/{col}/{id} {
       allow read, delete: if isOwner(uid);
