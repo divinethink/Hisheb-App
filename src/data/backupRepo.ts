@@ -1,11 +1,13 @@
 // পুরো Firestore ডেটার হুবহু JSON ব্যাকআপ (Architecture Plan §৫) — data/ layer।
 // ইচ্ছাকৃতভাবে প্রতিটা repo-র Zod parse বাইপাস করে raw doc.data() পড়া হয় —
 // ব্যাকআপ round-trip-এ প্রতিটা ফিল্ড (এমনকি ভবিষ্যতে UI-অজানা ফিল্ডও) অবিকৃত
-// থাকা দরকার (Zero Data Loss)। Restore = full replace: প্রতিটা collection-এ
-// আগে delete-all তারপর backup-doc set, chunked writeBatch (৪৫০/chunk, Architecture
-// Plan §২.২ chunking-নিয়ম) দিয়ে — Firestore-এর ৫০০-ডকুমেন্ট batch-লিমিট এড়াতে।
+// থাকা দরকার (Zero Data Loss)। Restore = full replace, নিরাপদ ক্রমে: (১) সব doc আগে যাচাই
+// (backupValidate — একটাও অবৈধ হলে কিছুই ছোঁয়া হয় না), (২) প্রতিটা collection-এ backup-doc set,
+// (৩) তারপর backup-এ নেই এমন doc delete — মাঝপথে ব্যর্থ হলেও পুরনো ডেটা মোছা থাকে না।
+// Chunked writeBatch (৪৫০/chunk, Architecture Plan §২.২ chunking-নিয়ম) — ৫০০-ডকুমেন্ট batch-লিমিট এড়াতে।
 import { collection, doc, getDoc, getDocs, setDoc, writeBatch, Timestamp } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import { assertBackupValid } from './backupValidate';
 
 export const BACKUP_SCHEMA_VERSION = 1;
 const RESTORE_CHUNK = 450;
@@ -116,12 +118,16 @@ export function parseBackupPayload(raw: unknown): BackupPayload {
   ) {
     throw new Error('Invalid backup file — this does not look like a হিসাব-নিকাশ backup.');
   }
-  return obj as BackupPayload;
+  const payload = obj as BackupPayload;
+  // ফাইল বাছাইয়ের সময়ই অবৈধ doc ধরা — restore শুরুর (এবং confirm-এর) আগে
+  assertBackupValid(payload.collections, BACKUP_COLLECTIONS, payload.settings);
+  return payload;
 }
 
-async function deleteAllDocs(uid: string, col: string): Promise<void> {
+// backup-এ নেই এমন doc মোছে (লেখা শেষ হওয়ার পরে চলে)
+async function deleteDocsNotIn(uid: string, col: string, keep: Set<string>): Promise<void> {
   const snap = await getDocs(collection(db, 'users', uid, col));
-  const ids = snap.docs.map((d) => d.id);
+  const ids = snap.docs.map((d) => d.id).filter((id) => !keep.has(id));
   for (let i = 0; i < ids.length; i += RESTORE_CHUNK) {
     const batch = writeBatch(db);
     for (const id of ids.slice(i, i + RESTORE_CHUNK)) batch.delete(doc(db, 'users', uid, col, id));
@@ -141,8 +147,8 @@ async function writeAllDocs(uid: string, col: string, docs: Record<string, unkno
 }
 
 /**
- * Full-replace restore (Roadmap §৪.৮) — প্রতিটা active collection-এ আগের সব doc
- * delete করে backup-এর doc বসানো হয়। কল করার আগে auto-backup + owner-confirmation
+ * Full-replace restore (Roadmap §৪.৮) — প্রতিটা active collection-এ আগে backup-এর doc
+ * বসানো, তারপর backup-এ নেই এমন doc মোছা (শেষ অবস্থা আগের মতোই; ক্রমটা নিরাপদ)। কল করার আগে auto-backup + owner-confirmation
  * নেওয়া UI-র দায়িত্ব (BackupRestore.tsx)।
  */
 export async function restoreFromBackup(
@@ -150,13 +156,15 @@ export async function restoreFromBackup(
   payload: BackupPayload,
   onProgress?: (label: string) => void,
 ): Promise<void> {
+  // কিছু লেখা/মোছার আগে আবার যাচাই (parseBackupPayload ছাড়া সরাসরি কল হলেও নিরাপদ)
+  assertBackupValid(payload.collections, BACKUP_COLLECTIONS, payload.settings);
   for (const col of BACKUP_COLLECTIONS) {
     // পুরনো ব্যাকআপে এই collection-এর key-ই নেই (পরে যোগ হওয়া) → বর্তমান ডেটা মোছা নয় (Zero Data Loss)
     if (!(col in payload.collections)) continue;
     onProgress?.(`Restoring ${col}…`);
-    await deleteAllDocs(uid, col);
-    const docs = payload.collections[col];
-    if (docs && Object.keys(docs).length > 0) await writeAllDocs(uid, col, docs);
+    const docs = payload.collections[col] ?? {};
+    if (Object.keys(docs).length > 0) await writeAllDocs(uid, col, docs);
+    await deleteDocsNotIn(uid, col, new Set(Object.keys(docs)));
   }
   if (payload.settings) {
     onProgress?.('Restoring settings…');
