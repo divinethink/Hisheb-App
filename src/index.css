@@ -7,6 +7,16 @@
    তাই #root সরাসরি স্ক্রিনে fixed (inset:0); পেজ নিজে স্ক্রল/ওভারস্ক্রল হয় না, স্ক্রল শুধু ট্যাবের ভেতরে */
 html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 #root { position: fixed; inset: 0; box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); }
+
+/* ট্যাবলেট/পিসি: অ্যাপ মাঝখানের একটা কলামে (ফোনের চেহারা ≥768px-এর নিচে অপরিবর্তিত)।
+   transform থাকায় কলামের ভেতরের position:fixed (পূর্ণ-স্ক্রিন পেজ, bottom-sheet, লক-স্ক্রিন) কলামেই আটকে থাকে, পুরো উইন্ডোতে ছড়ায় না। */
+@media (min-width: 768px) {
+  body { background: rgb(var(--color-muted) / 0.14); }
+  #root { inset: 0; margin-inline: auto; width: min(100%, 680px); transform: translateZ(0); box-shadow: 0 0 0 1px rgb(var(--color-muted) / 0.15), 0 0 32px rgb(0 0 0 / 0.08); }
+}
+@media (min-width: 1280px) {
+  #root { width: min(100%, 760px); }
+}
 body {
   margin: 0;
   background: rgb(var(--color-canvas));
