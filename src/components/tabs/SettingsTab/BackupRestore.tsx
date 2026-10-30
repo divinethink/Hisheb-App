@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useDirtyGuard } from '../../../hooks/useDirtyGuard';
+import { useGoogleDriveScript } from '../../../hooks/useGoogleDriveScript';
 import { useBackClose } from '../../../hooks/useBackClose';
 import type { SessionUser } from '../../../auth/AuthProvider';
 import { getEnv } from '../../../config/env';
@@ -26,6 +27,7 @@ function dateStamp(): string {
 
 export default function BackupRestore({ user, onClose }: { user: SessionUser; onClose: () => void }) {
   useDirtyGuard(); // Restore/Backup চলাকালীন PWA auto-reload স্কিপ
+  useGoogleDriveScript(); // Drive ব্যাকআপের জন্য GIS লোড (ক্লিকের আগে)
   const [driveBusy, setDriveBusy] = useState(false);
   const [deviceBusy, setDeviceBusy] = useState(false);
   const [status, setStatus] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);

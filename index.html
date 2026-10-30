@@ -16,12 +16,11 @@
     <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin />
-    <!-- P5 Google Drive backup: Google Identity Services (GIS) OAuth token client -->
+    <!-- Google Identity Services (GIS) স্ক্রিপ্ট এখন দরকারের সময় লোড হয় (data/googleDrive.ts → loadGoogleIdentity); preconnect Auth popup-এও কাজে লাগে -->
     <link rel="preconnect" href="https://accounts.google.com" crossorigin />
   </head>
   <body>
     <div id="root"></div>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

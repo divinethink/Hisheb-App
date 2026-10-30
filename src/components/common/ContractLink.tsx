@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { FileText } from 'lucide-react';
 import { getEnv } from '../../config/env';
+import { useGoogleDriveScript } from '../../hooks/useGoogleDriveScript';
 import { driveNotReadyReason, getContractViewLink, isGoogleDriveConfigured } from '../../data/googleDrive';
 
 const DRIVE_CLIENT_ID = getEnv().googleDriveClientId;
 
 /** সংযুক্ত PDF খোলার বাটন — Drive-এর দেখার লিংকে। ফাইল না থাকলে স্পষ্ট error (silent fail নয়)। */
 export default function ContractLink({ fileId, name }: { fileId: string; name: string | null }) {
+  useGoogleDriveScript(); // ক্লিকের আগেই GIS লোড (popup-blocker এড়াতে)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 

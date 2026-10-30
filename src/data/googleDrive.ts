@@ -39,12 +39,38 @@ declare global {
   }
 }
 
+const GIS_SRC = 'https://accounts.google.com/gsi/client';
+let gisLoading: Promise<void> | null = null;
+
+/** GIS স্ক্রিপ্ট দরকারের সময় লোড (আগে index.html-এ প্রতি launch-এ লোড হতো)। বারবার ডাকলেও একবারই; ব্যর্থ হলে আবার চেষ্টা করা যায়।
+ *  popup-blocker এড়াতে Drive-স্ক্রিন mount-এই ডাকতে হবে (ক্লিকের আগে) — hooks/useGoogleDriveScript.ts। */
+export function loadGoogleIdentity(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.reject(new Error('no-window'));
+  if (window.google?.accounts?.oauth2) return Promise.resolve();
+  if (gisLoading) return gisLoading;
+  gisLoading = new Promise<void>((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = GIS_SRC;
+    s.async = true;
+    s.onload = () => (window.google?.accounts?.oauth2 ? resolve() : reject(new Error('gis-not-ready')));
+    s.onerror = () => {
+      s.remove();
+      reject(new Error('gis-load-failed'));
+    };
+    document.head.appendChild(s);
+  }).catch((e: unknown) => {
+    gisLoading = null; // পরের বার আবার চেষ্টা
+    throw e;
+  });
+  return gisLoading;
+}
+
 let tokenClient: GisTokenClient | null = null;
 let accessToken: string | null = null;
 let tokenExpiresAt = 0;
 let tokenRequestInFlight: Promise<string> | null = null;
 
-/** GIS script (index.html-এ লোড হয়) ও client-id দুটোই থাকলে true — না থাকলে ফিচার নীরবে বন্ধ থাকে। */
+/** GIS script (loadGoogleIdentity দিয়ে লোড হয়) ও client-id দুটোই থাকলে true — না থাকলে ফিচার নীরবে বন্ধ থাকে। */
 export function isGoogleDriveConfigured(clientId: string | undefined): clientId is string {
   return !!clientId && typeof window !== 'undefined' && !!window.google?.accounts?.oauth2;
 }

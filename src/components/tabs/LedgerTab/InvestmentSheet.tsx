@@ -23,6 +23,7 @@ import {
   parseRoundInput,
 } from '../../../lib/investmentName';
 import { useInvestmentCompanies, useInvestments } from '../../../hooks/useData';
+import { useGoogleDriveScript } from '../../../hooks/useGoogleDriveScript';
 import type { Investment } from '../../../validation/investmentSchema';
 
 const DRIVE_CLIENT_ID = getEnv().googleDriveClientId;
@@ -108,6 +109,7 @@ export default function InvestmentSheet({
   const [pdfError, setPdfError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const uploadedRef = useRef<{ file: File; fileId: string; name: string } | null>(null); // সেভ আটকে retry হলে দ্বিতীয়বার আপলোড নয়
+  useGoogleDriveScript(); // কনট্রাক্ট PDF আপলোডের জন্য GIS লোড (ক্লিকের আগে)
   const driveReady = isGoogleDriveConfigured(DRIVE_CLIENT_ID);
   const hasSavedContract = !!initial?.contractFileId && !removeContract;
 
