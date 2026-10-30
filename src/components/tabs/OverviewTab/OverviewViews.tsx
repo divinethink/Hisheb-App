@@ -5,7 +5,8 @@ import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
 import CategoryHistorySheet from './CategoryHistorySheet';
 import { YearlyBreakdown, YearsCard } from './BreakdownLists';
-import { Block, MoreInsights, NoteGroup } from './OverviewBits';
+import { Block, NoteGroup, OrderedCards } from './OverviewBits';
+import { defaultLayout, type OverviewLayout } from '../../../lib/overviewLayout';
 import { CategoryBars, CategoryDonut, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
 import { BigOneOffCard, HundredCard, LeakCard, NoSpendCalendarCard, ReportCard, TargetGapCard, WeekdayCard } from './MonthlyCards';
 import { InvestmentHonestCard, LifestyleCreepCard, RealGrowthCard, SavingsRateCard } from './YearlyCards';
@@ -62,6 +63,8 @@ export function PeriodNav({ label, onPrev, onNext, prevDisabled, nextDisabled, r
     </div>
   );
 }
+
+const DEFAULT_LAYOUT = defaultLayout();
 
 function Totals({
   income,
@@ -226,6 +229,7 @@ export function MonthlyView({ uid, historical }: { uid: string; historical: read
             today={today}
             targetPct={settings.state.status === 'ready' ? settings.state.data.savingsTargetPct : null}
             essential={settings.state.status === 'ready' ? settings.state.data.essentialCategories : NO_ESSENTIAL}
+            layout={settings.state.status === 'ready' ? settings.state.data.overviewLayout : DEFAULT_LAYOUT}
           />
         )
       )}
@@ -246,7 +250,9 @@ function MonthlyBody({
   today,
   targetPct,
   essential,
+  layout,
 }: {
+  layout: OverviewLayout;
   essential: readonly string[];
   month: string;
   txs: readonly TxLite[];
@@ -283,26 +289,34 @@ function MonthlyBody({
   return (
     <>
       <Totals income={t.income} expense={t.expense} savings={savings} savingsPct={savingsPct} savingsPctDeltaPt={savingsPctDeltaPt} />
-      <NoteGroup>
-        {inProgress ? `Month in progress (${daysIn} days) — figures are incomplete, so the comparison with last month isn’t for a full month.` : null}
-        {insight}
-        {partial ? 'Partial data — this period may include days recorded before the app was used.' : null}
-      </NoteGroup>
-      <ReportCard month={month} txs={txs} prevTxs={prevTxs} targetPct={targetPct} essential={essential} />
-      <TargetGapCard txs={txs} targetPct={targetPct} />
-      <BigOneOffCard txs={txs} />
-      <HundredCard month={month} txs={txs} />
-      <Section title="Expense by category" icon={PieChart}>
-        <CategoryDonut items={cats} totalMinor={t.expense} />
-        <CategoryBars items={cats} onSelect={setSelCat} />
-      </Section>
+      {layout.banners && (
+        <NoteGroup>
+          {inProgress ? `Month in progress (${daysIn} days) — figures are incomplete, so the comparison with last month isn’t for a full month.` : null}
+          {insight}
+          {partial ? 'Partial data — this period may include days recorded before the app was used.' : null}
+        </NoteGroup>
+      )}
+      <OrderedCards
+        tab="monthly"
+        layout={layout}
+        cards={{
+          report: <ReportCard month={month} txs={txs} prevTxs={prevTxs} targetPct={targetPct} essential={essential} />,
+          target: <TargetGapCard txs={txs} targetPct={targetPct} />,
+          oneoffs: <BigOneOffCard txs={txs} />,
+          hundred: <HundredCard month={month} txs={txs} />,
+          category: (
+            <Section title="Expense by category" icon={PieChart}>
+              <CategoryDonut items={cats} totalMinor={t.expense} />
+              <CategoryBars items={cats} onSelect={setSelCat} />
+            </Section>
+          ),
+          keynums: <KeyNumbers avgExpense={avgExpense} avgSavings={avgSavings} runway={runway} ytd={ytd} thisExpense={t.expense} />,
+          leak: <LeakCard txs={txs} essential={essential} />,
+          weekday: <WeekdayCard txs={weekdayTxs} end={weekdayEnd} />,
+          nospend: <NoSpendCalendarCard month={month} txs={txs} today={today} />,
+        }}
+      />
       {selCat && <CategoryHistorySheet name={selCat} txs={txs} cats={cats} onClose={() => setSelCat(null)} />}
-      <KeyNumbers avgExpense={avgExpense} avgSavings={avgSavings} runway={runway} ytd={ytd} thisExpense={t.expense} />
-      <MoreInsights count={3}>
-        <LeakCard txs={txs} essential={essential} />
-        <WeekdayCard txs={weekdayTxs} end={weekdayEnd} />
-        <NoSpendCalendarCard month={month} txs={txs} today={today} />
-      </MoreInsights>
     </>
   );
 }
@@ -368,6 +382,7 @@ export function YearlyView({ uid, historical }: { uid: string; historical: reado
           investments={inv.state.status === 'ready' ? inv.state.data : null}
           targetPct={settings.state.status === 'ready' ? settings.state.data.savingsTargetPct : null}
           inflationPct={settings.state.status === 'ready' ? settings.state.data.inflationPct : null}
+          layout={settings.state.status === 'ready' ? settings.state.data.overviewLayout : DEFAULT_LAYOUT}
         />
       )}
     </>
@@ -389,7 +404,9 @@ function YearlyBody({
   targetPct,
   inflationPct,
   prevMonths,
+  layout,
 }: {
+  layout: OverviewLayout;
   prevMonths: readonly MonthRow[] | null;
   uid: string;
   historical: readonly HistoricalLite[];
@@ -433,7 +450,17 @@ function YearlyBody({
         savingsPctDeltaPt={savingsPctDeltaPt}
         deltaLabel="last year"
       />
-      {(best || worst) && (
+      {isHist && layout.banners && (
+        <NoteGroup>
+          {`Pre-app record — totals come from your saved yearly summary${row.depositMinor !== null ? ` (Total Deposit ${formatAmount(row.depositMinor)})` : ''}. Charts below show only data recorded in the app (Partial data).`}
+        </NoteGroup>
+      )}
+      {!isHist && txs.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted">No data for this year.</p>}
+      <OrderedCards
+        tab="yearly"
+        layout={layout}
+        cards={{
+          bestworst: best || worst ? (
         <div className="mx-4 mt-2.5 grid grid-cols-2 gap-2">
           {best && (
             <Card className="flex items-center gap-2 px-3 py-2">
@@ -448,40 +475,37 @@ function YearlyBody({
             </Card>
           )}
         </div>
-      )}
-      <SavingsRateCard year={year} rows={savingsRows} targetPct={targetPct} partialMonth={partialMonthNo} />
-      <LifestyleCreepCard
-        year={year}
-        prev={samePeriod ? samePeriod : { incomeMinor: prevRow.incomeMinor, expenseMinor: prevRow.expenseMinor }}
-        cur={{ incomeMinor: row.incomeMinor, expenseMinor: row.expenseMinor }}
-        monthsCur={monthsCur}
-        monthsPrev={samePeriod ? monthsCur : 12}
-        samePeriod={samePeriod !== null}
-        prevFromRecord={prevRow.source === 'historical'}
+      
+          ) : null,
+          savingsrate: <SavingsRateCard year={year} rows={savingsRows} targetPct={targetPct} partialMonth={partialMonthNo} />,
+          creep: (
+            <LifestyleCreepCard
+              year={year}
+              prev={samePeriod ? samePeriod : { incomeMinor: prevRow.incomeMinor, expenseMinor: prevRow.expenseMinor }}
+              cur={{ incomeMinor: row.incomeMinor, expenseMinor: row.expenseMinor }}
+              monthsCur={monthsCur}
+              monthsPrev={samePeriod ? monthsCur : 12}
+              samePeriod={samePeriod !== null}
+              prevFromRecord={prevRow.source === 'historical'}
+            />
+          ),
+          realgrowth: year === thisYear && snapshots ? <RealGrowthCard snapshots={snapshots} inflationPct={inflationPct} /> : null,
+          invcheck: year === thisYear && investments ? <InvestmentHonestCard investments={investments} today={toDhakaDate(new Date())} /> : null,
+          monthbars:
+            txs.length > 0 || flow.size > 0 ? (
+              <Section title="Income vs expense by month" icon={BarChart3} right={<IncomeExpenseLegend />}><IncomeExpenseBars rows={months} /></Section>
+            ) : null,
+          category:
+            txs.length > 0 ? (
+              <Section title="Expense by category" icon={PieChart}>
+                <CategoryDonut items={cats} totalMinor={row.expenseMinor} />
+                <CategoryBars items={cats} onSelect={setSelCat} />
+              </Section>
+            ) : null,
+          breakdown: <YearlyBreakdown uid={uid} historical={historical} thisYear={thisYear} snapshots={snapshots} />,
+        }}
       />
-      {year === thisYear && snapshots && <RealGrowthCard snapshots={snapshots} inflationPct={inflationPct} />}
-      {year === thisYear && investments && <InvestmentHonestCard investments={investments} today={toDhakaDate(new Date())} />}
-      {isHist && (
-        <NoteGroup>
-          {`Pre-app record — totals come from your saved yearly summary${row.depositMinor !== null ? ` (Total Deposit ${formatAmount(row.depositMinor)})` : ''}. Charts below show only data recorded in the app (Partial data).`}
-        </NoteGroup>
-      )}
-      {!isHist && txs.length === 0 && <p className="px-6 py-8 text-center text-sm text-muted">No data for this year.</p>}
-      {(txs.length > 0 || flow.size > 0) && (
-        <>
-          <MoreInsights label="Income vs expense by month">
-            <Section title="Income vs expense by month" icon={BarChart3} right={<IncomeExpenseLegend />}><IncomeExpenseBars rows={months} /></Section>
-          </MoreInsights>
-          {txs.length > 0 && (
-            <Section title="Expense by category" icon={PieChart}>
-              <CategoryDonut items={cats} totalMinor={row.expenseMinor} />
-              <CategoryBars items={cats} onSelect={setSelCat} />
-            </Section>
-          )}
-          {selCat && <CategoryHistorySheet name={selCat} txs={txs} cats={cats} onClose={() => setSelCat(null)} />}
-        </>
-      )}
-      <YearlyBreakdown uid={uid} historical={historical} thisYear={thisYear} snapshots={snapshots} />
+      {selCat && <CategoryHistorySheet name={selCat} txs={txs} cats={cats} onClose={() => setSelCat(null)} />}
     </>
   );
 }
@@ -509,12 +533,17 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
   // মিশ্রণ ও Runway: breakdown আছে এমন সর্বশেষ snapshot (সর্বশেষটায় না থাকলে আগেরটা)
   const mixSnap = snaps.state.status === 'ready' ? latestWithBreakdown(snaps.state.data) : null;
   const goalMinor = settings.state.status === 'ready' ? settings.state.data.netWorthGoalMinor : null;
+  const layout = settings.state.status === 'ready' ? settings.state.data.overviewLayout : DEFAULT_LAYOUT;
   const sum = rows.reduce((a, r) => ({ i: a.i + r.incomeMinor, e: a.e + r.expenseMinor }), { i: 0, e: 0 });
 
   return (
     <>
       <Totals income={sum.i} expense={sum.e} savings={sum.i - sum.e} savingsPct={savingsRatePct(sum.i, sum.e)} />
-      {snaps.state.status === 'ready' && (() => {
+      <OrderedCards
+        tab="alltime"
+        layout={layout}
+        cards={{
+          networth: snaps.state.status === 'ready' ? (() => {
         const growth = netWorthGrowthAllTime(snaps.state.data);
         return growth ? (
           <Card as="section" ariaLabel="Net worth growth" className="mx-4 mt-2.5 flex items-center gap-2 px-3 py-2">
@@ -532,28 +561,29 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
             )}
           </Card>
         ) : null;
-      })()}
-      {snaps.state.status === 'ready' && latestSnap && (
-        <>
-          <NetWorthBridgeCard snapshots={snaps.state.data} txs={allTxs} />
-          <GoalCard currentMinor={latestSnap.totalAssetsMinor} latestYyyymm={latestSnap.yyyymm} goalMinor={goalMinor} avgSavingsMinor={avgSav} pace={netWorthPace(snaps.state.data)} />
-          {mixSnap && (
-            <>
-              <AssetMixCard yyyymm={mixSnap.yyyymm} breakdown={mixSnap.breakdown} />
+          })() : null,
+          bridge: snaps.state.status === 'ready' && latestSnap ? <NetWorthBridgeCard snapshots={snaps.state.data} txs={allTxs} /> : null,
+          goal:
+            snaps.state.status === 'ready' && latestSnap ? (
+              <GoalCard currentMinor={latestSnap.totalAssetsMinor} latestYyyymm={latestSnap.yyyymm} goalMinor={goalMinor} avgSavingsMinor={avgSav} pace={netWorthPace(snaps.state.data)} />
+            ) : null,
+          assetmix: snaps.state.status === 'ready' && latestSnap && mixSnap ? <AssetMixCard yyyymm={mixSnap.yyyymm} breakdown={mixSnap.breakdown} /> : null,
+          runway:
+            snaps.state.status === 'ready' && latestSnap && mixSnap ? (
               <RunwayCard yyyymm={mixSnap.yyyymm} cashMinor={mixSnap.breakdown ? mixSnap.breakdown.accountsMinor : null} totalMinor={mixSnap.totalAssetsMinor} avgExpenseMinor={avgExp} />
-            </>
-          )}
-        </>
-      )}
-      {allTxs.length > 0 && (
-        <Section title="Expense by category" icon={PieChart}>
-          <CategoryDonut items={cats} totalMinor={catTotal} />
-          <CategoryBars items={cats} onSelect={setSelCat} />
-          <p className="mt-2 text-xs leading-relaxed text-muted">All years, entries recorded in the app only — pre-app years may not add up to the yearly totals.</p>
-        </Section>
-      )}
+            ) : null,
+          category:
+            allTxs.length > 0 ? (
+              <Section title="Expense by category" icon={PieChart}>
+                <CategoryDonut items={cats} totalMinor={catTotal} />
+                <CategoryBars items={cats} onSelect={setSelCat} />
+                <p className="mt-2 text-xs leading-relaxed text-muted">All years, entries recorded in the app only — pre-app years may not add up to the yearly totals.</p>
+              </Section>
+            ) : null,
+          years: <YearsCard uid={uid} rows={rows} historical={historical} liveTxs={tx.state.data} />,
+        }}
+      />
       {selCat && <CategoryHistorySheet name={selCat} txs={allTxs} cats={cats} onClose={() => setSelCat(null)} />}
-      <YearsCard uid={uid} rows={rows} historical={historical} liveTxs={tx.state.data} />
     </>
   );
 }

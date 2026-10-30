@@ -1,6 +1,7 @@
 // settings/{doc} — সব ফিল্ড optional/nullable + default (defensive read, Roadmap Ai-নিয়ম E.4)।
 // P1a-তে schema-তে থাকা নিশ্চিত করা হচ্ছে (B1, C4, G2, G3); UI/লজিক পরের Phase-এ।
 import { z } from 'zod';
+import { sanitizeLayout } from '../lib/overviewLayout';
 
 const minorOrNull = z.number().int().positive().nullish().transform((v) => v ?? null);
 const dateOrNull = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().transform((v) => v ?? null);
@@ -26,6 +27,8 @@ export const SettingsSchema = z.object({
   zakatGoldPriceMinor: minorOrNull,
   zakatSilverPriceMinor: minorOrNull,
   zakatCalculationDate: dateOrNull,
+  // Overview কাস্টমাইজ: ঐচ্ছিক; না থাকলে/অবৈধ হলে ডিফল্ট layout (আগের আচরণ)। sanitize lib/overviewLayout.ts-এ।
+  overviewLayout: z.unknown().transform((v) => sanitizeLayout(v)),
   legacyAccessNote: z.string().nullish().transform((v) => v ?? null),
 });
 export type Settings = z.infer<typeof SettingsSchema>;

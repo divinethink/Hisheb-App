@@ -1,7 +1,8 @@
-import { useId, useState, type ReactNode } from 'react';
+import { Fragment, useId, useState, type ReactNode } from 'react';
 import { ChevronDown, Info, type LucideIcon } from 'lucide-react';
 import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
+import { cardTitle, type OverviewLayout, type OverviewTabKey } from '../../../lib/overviewLayout';
 
 // Overview-এর সব কার্ডের শেয়ার-করা presentational অংশ (আগে MonthlyCards/YearlyCards/GoalCards-এ তিন কপি ছিল)।
 // শুধু দেখার স্টাইল — কোনো হিসাব/ডেটা/schema নেই। কার্ড-শিরোনামে আইকন-ব্যাজ, কার্ডের বাইরের নোট এখন Callout কার্ড।
@@ -63,8 +64,8 @@ export function Callout({ children }: { children: ReactNode }) {
 }
 
 /** কম-দরকারি কার্ডের ভাঁজ-করা গ্রুপ — ডিফল্ট বন্ধ; খুললে তবেই ভেতরের কার্ড রেন্ডার হয়। */
-export function MoreInsights({ label = 'More insights', count, children }: { label?: string; count?: number; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+export function MoreInsights({ label = 'More insights', count, defaultOpen = false, children }: { label?: string; count?: number; defaultOpen?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
   const id = useId();
   return (
     <section className="mx-4 mt-2.5">
@@ -80,5 +81,19 @@ export function MoreInsights({ label = 'More insights', count, children }: { lab
       </button>
       <div id={id} hidden={!open} className="-mx-4">{open ? children : null}</div>
     </section>
+  );
+}
+
+/** Customize Overview অনুযায়ী কার্ড সাজানো: ক্রম/লুকানো/ভাঁজ। cards-এ null/false মানে কার্ডটা এখন প্রযোজ্য না (ডেটা নেই ইত্যাদি) — বাদ যায়। */
+export function OrderedCards({ tab, layout, cards }: { tab: OverviewTabKey; layout: OverviewLayout; cards: Record<string, ReactNode> }) {
+  return (
+    <>
+      {layout.tabs[tab].map((p) => {
+        const node = cards[p.id];
+        if (!p.visible || !node) return null;
+        if (p.fold === 'fixed') return <Fragment key={p.id}>{node}</Fragment>;
+        return <MoreInsights key={p.id} label={cardTitle(tab, p.id)} defaultOpen={p.fold === 'open'}>{node}</MoreInsights>;
+      })}
+    </>
   );
 }

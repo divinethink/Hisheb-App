@@ -46,6 +46,7 @@ const AppearanceScreen = lazy(() => import('./AppearanceScreen'));
 const PasscodeScreen = lazy(() => import('./PasscodeScreen'));
 const BudgetScreen = lazy(() => import('./BudgetScreen'));
 const LargeAmountScreen = lazy(() => import('./LargeAmountScreen'));
+const OverviewLayoutScreen = lazy(() => import('./OverviewLayoutScreen'));
 const ManageCatalog = lazy(() => import('./ManageCatalog'));
 
 
@@ -96,6 +97,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
   const [passcodeOpen, setPasscodeOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [largeOpen, setLargeOpen] = useState(false);
+  const [overviewLayoutOpen, setOverviewLayoutOpen] = useState(false);
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
   const { canInstall, install } = useInstallPrompt();
@@ -146,6 +148,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       <MenuSection title="Organize">
         <MenuRow icon={Tags} tint="c1" label="Categories" value={cats.state.status === 'ready' ? String(cats.state.data.length) : undefined} onClick={() => setManageCategoriesOpen(true)} />
         <MenuRow icon={Tag} tint="c6" label="Labels" value={lbls.state.status === 'ready' ? String(lbls.state.data.length) : undefined} onClick={() => setManageLabelsOpen(true)} />
+        <MenuRow icon={BarChart3} tint="c3" label="Customize Overview" onClick={() => setOverviewLayoutOpen(true)} />
       </MenuSection>
 
       {/* এককালীন cutover-টুল — Gate F-এর পরে অপ্রয়োজনীয় হয়ে যাবে, তাই ডিফল্ট ভাঁজ-করা (native <details>, অতিরিক্ত state ছাড়াই) */}
@@ -195,6 +198,11 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       {budgetOpen && (
         <Suspense fallback={<SkeletonLoader />}>
           <BudgetScreen uid={user.uid} onClose={() => setBudgetOpen(false)} />
+        </Suspense>
+      )}
+      {overviewLayoutOpen && (
+        <Suspense fallback={<SkeletonLoader />}>
+          <OverviewLayoutScreen uid={user.uid} onClose={() => setOverviewLayoutOpen(false)} />
         </Suspense>
       )}
       {largeOpen && (
