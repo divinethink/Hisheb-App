@@ -1,5 +1,5 @@
 // debts repo — §২.২ প্যাটার্ন। repayments[] সবসময় পুরো array রিপ্লেস হয় (Firestore-এ array-item-edit সরাসরি নেই)।
-import { addDoc, collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { toDhakaDate } from '../lib/date';
 import { sumRepayments } from '../lib/debtCalc';
@@ -96,4 +96,9 @@ export async function setBorrowings(uid: string, id: string, borrowings: Borrowi
 export async function setBorrowingStatus(uid: string, debt: Debt, index: number, status: LineStatus): Promise<void> {
   const next = debt.borrowings.map((b, i) => (i === index ? { ...b, status, statusChangedAt: toDhakaDate(new Date()) } : b));
   await setBorrowings(uid, debt.id, next);
+}
+
+/** ভুল এন্ট্রি স্থায়ীভাবে মোছা (hard delete) — borrowings ও repayments সহ পুরো ডক। */
+export async function deleteDebt(uid: string, id: string): Promise<void> {
+  await deleteDoc(doc(debtCol(uid), id));
 }

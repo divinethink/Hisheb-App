@@ -1,5 +1,5 @@
 // investments repo — §২.২ প্যাটার্ন। repayments[] সবসময় পুরো array রিপ্লেস হয় (Firestore-এ array-item-edit সরাসরি নেই)।
-import { addDoc, collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { toDhakaDate } from '../lib/date';
 import { InvestmentSchema, type Investment, type InvestmentInput, type Repayment } from '../validation/investmentSchema';
@@ -60,4 +60,9 @@ export async function setInvestmentOutcome(
 /** ➕/✎/✕ — caller নতুন সম্পূর্ণ array পাঠায় (idempotent না, তবে UI single-tap action)। */
 export async function setInvestmentRepayments(uid: string, id: string, repayments: Repayment[]): Promise<void> {
   await updateDoc(doc(investmentCol(uid), id), { repayments, updatedAt: serverTimestamp() });
+}
+
+/** ভুল এন্ট্রি স্থায়ীভাবে মোছা (hard delete)। Drive-এর contract PDF মোছা হয় না (data-loss এড়াতে)। */
+export async function deleteInvestment(uid: string, id: string): Promise<void> {
+  await deleteDoc(doc(investmentCol(uid), id));
 }

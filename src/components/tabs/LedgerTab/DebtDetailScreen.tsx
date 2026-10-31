@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Pencil, ChevronRight } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import StatStrip from '../../common/StatStrip';
+import DeleteEntryButton from '../../common/DeleteEntryButton';
 import RepaymentSheet from './RepaymentSheet';
 import BorrowingSheet from './BorrowingSheet';
 import DebtSheet from './DebtSheet';
@@ -10,7 +11,7 @@ import { formatAmount } from '../../../lib/format';
 import { formatDisplayDate, isOverdue, toDhakaDate } from '../../../lib/date';
 import { useSettings } from '../../../hooks/useData';
 import { lineViews, repaymentStatus, sumRepayments, REPAYMENT_STATUS_LABEL, type LineView } from '../../../lib/debtCalc';
-import { setRepayments, setBorrowings, updateDebt } from '../../../data/debtRepo';
+import { deleteDebt, setRepayments, setBorrowings, updateDebt } from '../../../data/debtRepo';
 import { settleOrPending } from '../../../lib/async';
 import type { Debt } from '../../../validation/debtSchema';
 
@@ -220,6 +221,15 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
         {sumRepayments(debt.repayments) > debt.totalAmountMinor && (
           <p className="text-sm text-muted">Total paid exceeds the original amount — please confirm.</p>
         )}
+
+        <DeleteEntryButton
+          label="Delete this entry"
+          warning={`Delete "${debt.person}" (${formatAmount(debt.totalAmountMinor)}) with all its borrowings and repayments? This cannot be undone.`}
+          onDelete={async () => {
+            await settleOrPending(deleteDebt(uid, debt.id), 3000);
+            onBack();
+          }}
+        />
       </div>
 
       {addOpen && (

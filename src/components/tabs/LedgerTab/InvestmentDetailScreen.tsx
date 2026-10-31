@@ -4,6 +4,7 @@ import FullScreenPage from '../../common/FullScreenPage';
 import StatStrip from '../../common/StatStrip';
 import CompanyLogo from '../../common/CompanyLogo';
 import ContractLink from '../../common/ContractLink';
+import DeleteEntryButton from '../../common/DeleteEntryButton';
 import InvestmentRepaymentSheet from './InvestmentRepaymentSheet';
 import InvestmentSheet from './InvestmentSheet';
 import { formatAmount } from '../../../lib/format';
@@ -11,7 +12,7 @@ import { formatDisplayDate, isOverdue } from '../../../lib/date';
 import { useInvestmentCompanies, useSettings } from '../../../hooks/useData';
 import { stripRoundTag } from '../../../lib/investmentName';
 import { runningMinor, investmentStatus, profitMinor, INVESTMENT_STATUS_LABEL } from '../../../lib/investmentCalc';
-import { setInvestmentOutcome, setInvestmentRepayments, updateInvestment } from '../../../data/investmentRepo';
+import { deleteInvestment, setInvestmentOutcome, setInvestmentRepayments, updateInvestment } from '../../../data/investmentRepo';
 import { settleOrPending } from '../../../lib/async';
 import { InvestmentOutcomeSchema, type Investment } from '../../../validation/investmentSchema';
 import type { z } from 'zod';
@@ -204,6 +205,15 @@ export default function InvestmentDetailScreen({
             <span className="font-medium text-fg">{formatAmount(running)}</span>
           </p>
         )}
+
+        <DeleteEntryButton
+          label="Delete this entry"
+          warning={`Delete "${investment.investedTo}" (${formatAmount(investment.principalMinor)})${investment.repayments.length ? ` and its ${investment.repayments.length} repayment(s)` : ''}? This cannot be undone.`}
+          onDelete={async () => {
+            await settleOrPending(deleteInvestment(uid, investment.id), 3000);
+            onBack();
+          }}
+        />
       </div>
 
       {addOpen && <InvestmentRepaymentSheet uid={uid} investment={investment} onClose={() => setAddOpen(false)} />}
