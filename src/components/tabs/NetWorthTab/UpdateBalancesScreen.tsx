@@ -14,6 +14,8 @@ import type { Investment } from '../../../validation/investmentSchema';
 import type { HomeDepositEntry } from '../../../validation/homeDepositSchema';
 import type { GpfEntry } from '../../../validation/gpfSchema';
 import DateInput from '../../common/DateInput';
+import SnapshotDateNote from './SnapshotDateNote';
+import { checkSnapshotDate } from '../../../lib/snapshotDateCheck';
 
 function shiftMonth(yyyymm: string, delta: number): string {
   const [y, m] = yyyymm.split('-').map(Number);
@@ -127,11 +129,19 @@ export default function UpdateBalancesScreen({
 
   const allFilled = parsed.every((p) => p.minor !== null);
 
-  async function handleSave() {
+  // তারিখ-যাচাই inline বার্তায় (পপআপ নয়): প্রত্যাশিত না হলে সতর্কতা, আগের snapshot-এর আগে/সমান হলে Save বন্ধ
+  const dateVerdict = checkSnapshotDate(snapshotDate, month, toDhakaDate(new Date()), balances);
+
+  function handleSave() {
     if (!allFilled) {
       setError('Enter a valid amount for every account.');
       return;
     }
+    if (dateVerdict.kind === 'invalid') return;
+    void doSave();
+  }
+
+  async function doSave() {
     setSaving(true);
     setError(null);
     try {
@@ -166,7 +176,7 @@ export default function UpdateBalancesScreen({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || !allFilled}
+            disabled={saving || !allFilled || dateVerdict.kind === 'invalid'}
             className="min-h-11 flex-1 rounded-lg bg-primary text-sm font-medium text-canvas disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save & Snapshot'}
@@ -192,6 +202,7 @@ export default function UpdateBalancesScreen({
           <span className="text-muted">Snapshot date</span>
           <DateInput uid={uid} id="snapshot-date" value={snapshotDate} onChange={setSnapshotDate} wrapperClassName="w-40" />
         </label>
+        <SnapshotDateNote uid={uid} snapshotDate={snapshotDate} verdict={dateVerdict} />
 
         <ul className="flex flex-col gap-3">
           {accounts.map((a) => {
