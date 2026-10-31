@@ -66,7 +66,20 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
   const pctOf = (v: LineView) => (v.line.amountMinor > 0 ? Math.min(100, Math.round((v.paidMinor / v.line.amountMinor) * 100)) : 0);
 
   return (
-    <FullScreenPage title={debt.person} onBack={onBack}>
+    <FullScreenPage
+      title={debt.person}
+      onBack={onBack}
+      actions={
+        <DeleteEntryButton
+          title="Delete this entry?"
+          detail={`${debt.person} · ${formatAmount(debt.totalAmountMinor)} — all its borrowings and repayments will be deleted too.`}
+          onDelete={async () => {
+            await settleOrPending(deleteDebt(uid, debt.id), 3000);
+            onBack();
+          }}
+        />
+      }
+    >
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
@@ -221,15 +234,6 @@ export default function DebtDetailScreen({ uid, debt, onBack }: { uid: string; d
         {sumRepayments(debt.repayments) > debt.totalAmountMinor && (
           <p className="text-sm text-muted">Total paid exceeds the original amount — please confirm.</p>
         )}
-
-        <DeleteEntryButton
-          label="Delete this entry"
-          warning={`Delete "${debt.person}" (${formatAmount(debt.totalAmountMinor)}) with all its borrowings and repayments? This cannot be undone.`}
-          onDelete={async () => {
-            await settleOrPending(deleteDebt(uid, debt.id), 3000);
-            onBack();
-          }}
-        />
       </div>
 
       {addOpen && (

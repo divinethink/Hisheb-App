@@ -64,7 +64,21 @@ export default function InvestmentDetailScreen({
   );
 
   return (
-    <FullScreenPage title={investment.investedTo} onBack={onBack} footer={footer}>
+    <FullScreenPage
+      title={investment.investedTo}
+      onBack={onBack}
+      footer={footer}
+      actions={
+        <DeleteEntryButton
+          title="Delete this entry?"
+          detail={`${investment.investedTo} · ${formatAmount(investment.principalMinor)}${investment.repayments.length ? ` — its ${investment.repayments.length} repayment(s) will be deleted too.` : ''}`}
+          onDelete={async () => {
+            await settleOrPending(deleteInvestment(uid, investment.id), 3000);
+            onBack();
+          }}
+        />
+      }
+    >
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-3">
@@ -205,15 +219,6 @@ export default function InvestmentDetailScreen({
             <span className="font-medium text-fg">{formatAmount(running)}</span>
           </p>
         )}
-
-        <DeleteEntryButton
-          label="Delete this entry"
-          warning={`Delete "${investment.investedTo}" (${formatAmount(investment.principalMinor)})${investment.repayments.length ? ` and its ${investment.repayments.length} repayment(s)` : ''}? This cannot be undone.`}
-          onDelete={async () => {
-            await settleOrPending(deleteInvestment(uid, investment.id), 3000);
-            onBack();
-          }}
-        />
       </div>
 
       {addOpen && <InvestmentRepaymentSheet uid={uid} investment={investment} onClose={() => setAddOpen(false)} />}
