@@ -143,6 +143,25 @@ export function pickSnapshotPair(
   return { previous: before.length ? before[before.length - 1] : null, current };
 }
 
+/**
+ * Net Worth ট্যাবের জন্য pair বাছাই (owner-request 2026-11-01)।
+ * - `period`-এর snapshot থাকলে: current = সেই snapshot (পুরনো মাস দেখলেও Cross-check থাকে)।
+ * - চলতি মাসে snapshot নেই এবং মাস-বদলের পর Account balance আগের snapshot-এর পরে আপডেট হয়নি (`basisDate` ≤ সর্বশেষ
+ *   snapshot-তারিখ) → তুলনার নতুন কিছু নেই; তাই সর্বশেষ snapshot-ই current ধরে তার আগেরটার সাথে Cross-check (fallback)।
+ * - নইলে আগের আচরণ: current = লাইভ।
+ */
+export function pickCrossCheckPair(
+  snapshots: readonly SnapshotLike[],
+  period: string,
+  basisDate: string,
+): { previous: SnapshotLike | null; current: SnapshotLike | null; fellBack: boolean } {
+  const pair = pickSnapshotPair(snapshots, period);
+  if (pair.current === null && pair.previous !== null && basisDate <= pair.previous.snapshotDate) {
+    return { ...pickSnapshotPair(snapshots, pair.previous.yyyymm), fellBack: true };
+  }
+  return { ...pair, fellBack: false };
+}
+
 export interface CrossCheckInput {
   previous: SnapshotLike;
   /** চলতি snapshot doc; null হলে live ব্যবহার হয় */

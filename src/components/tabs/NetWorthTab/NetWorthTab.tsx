@@ -150,7 +150,7 @@ export default function NetWorthTab({
     { label: '+ GPF Balance', value: gpfBalance, dot: 'bg-rose-400' },
   ];
   const barTotal = parts.reduce((t, x) => t + Math.max(0, x.value), 0);
-  const crossProps = { uid, liveTotalMinor: totalAssets, basisDate, debts: debtList, investments: invList, gpfEntries: gpfList, balances };
+  const crossProps = { uid, liveTotalMinor: totalAssets, basisDate, debts: debtList, investments: invList, gpfEntries: gpfList, balances, period: viewMonth, derivedByMonth };
 
   const dateFormat = settings.state.status === 'ready' ? settings.state.data.dateFormat : 'dmy';
   // item ১: hero trend — আগের মাসের netWorthSnapshots-এর সাথে তুলনা (CrossCheckView-এর একই pickSnapshotPair reuse)।
@@ -191,6 +191,10 @@ export default function NetWorthTab({
         )}
         {snaps.state.status === 'ready' && (
           <PastMonthView month={viewMonth} dateFormat={dateFormat} detail={monthDetail(snaps.state.data, viewMonth, acc.state.status === 'ready' ? acc.state.data.map((a) => a.name) : [], derivedByMonth.get(viewMonth) ?? [])} />
+        )}
+        {/* পুরনো মাসেও Cross-check + Insight (owner-request 2026-11-01) — শুধু সেই মাসের snapshot থাকলে */}
+        {snaps.state.status === 'ready' && snaps.state.data.some((s) => s.yyyymm === viewMonth) && debts.state.status === 'ready' && investments.state.status === 'ready' && gpf.state.status === 'ready' && (
+          <CrossCheckView {...crossProps} mode="summary" onOpen={() => setCrossOpen(true)} />
         )}
       </div>
     );

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   addDays,
   computeCrossCheck,
+  pickCrossCheckPair,
   pickSnapshotPair,
   type CrossCheckInput,
   type DebtLite,
@@ -271,5 +272,47 @@ describe('pickSnapshotPair', () => {
   });
   it('কোনো আগের snapshot না থাকলে previous=null', () => {
     expect(pickSnapshotPair([], '2026-09').previous).toBeNull();
+  });
+});
+
+describe('pickCrossCheckPair — মাস-শেষ/পুরনো মাসে Cross-check (owner-request 2026-11-01)', () => {
+  const snaps = [
+    { yyyymm: '2026-08', totalAssetsMinor: 100, snapshotDate: '2026-08-31' },
+    { yyyymm: '2026-09', totalAssetsMinor: 110, snapshotDate: '2026-09-30' },
+    { yyyymm: '2026-10', totalAssetsMinor: 120, snapshotDate: '2026-10-31' },
+  ];
+  it('নভেম্বরে snapshot নেই, balance আপডেট নেই → সর্বশেষ (অক্টোবর) snapshot বনাম সেপ্টেম্বর', () => {
+    const r = pickCrossCheckPair(snaps, '2026-11', '2026-10-31');
+    expect(r.fellBack).toBe(true);
+    expect(r.current?.yyyymm).toBe('2026-10');
+    expect(r.previous?.yyyymm).toBe('2026-09');
+  });
+  it('নভেম্বরে নতুন balance আপডেট হয়েছে (basis > সর্বশেষ snapshot) কিন্তু snapshot নেই → লাইভ, আগের আচরণ', () => {
+    const r = pickCrossCheckPair(snaps, '2026-11', '2026-11-02');
+    expect(r.fellBack).toBe(false);
+    expect(r.current).toBeNull();
+    expect(r.previous?.yyyymm).toBe('2026-10');
+  });
+  it('চলতি মাসের snapshot থাকলে সেটাই current', () => {
+    const r = pickCrossCheckPair([...snaps, { yyyymm: '2026-11', totalAssetsMinor: 130, snapshotDate: '2026-11-30' }], '2026-11', '2026-11-30');
+    expect(r.fellBack).toBe(false);
+    expect(r.current?.yyyymm).toBe('2026-11');
+    expect(r.previous?.yyyymm).toBe('2026-10');
+  });
+  it('পুরনো মাস (সেপ্টেম্বর) দেখলে current = সেপ্টেম্বর snapshot, previous = আগস্ট', () => {
+    const r = pickCrossCheckPair(snaps, '2026-09', '2026-10-31');
+    expect(r.fellBack).toBe(false);
+    expect(r.current?.yyyymm).toBe('2026-09');
+    expect(r.previous?.yyyymm).toBe('2026-08');
+  });
+  it('একটাই snapshot থাকলে fallback-এ previous = null', () => {
+    const r = pickCrossCheckPair([snaps[0]], '2026-09', '2026-08-31');
+    expect(r.fellBack).toBe(true);
+    expect(r.current?.yyyymm).toBe('2026-08');
+    expect(r.previous).toBeNull();
+  });
+  it('snapshot একটাও না থাকলে সব null', () => {
+    const r = pickCrossCheckPair([], '2026-11', '2026-11-01');
+    expect(r).toEqual({ previous: null, current: null, fellBack: false });
   });
 });

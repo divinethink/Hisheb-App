@@ -3,16 +3,20 @@ import { ChevronRight, CircleCheck, TriangleAlert } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import IconBadge from '../../common/IconBadge';
 import { useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
-import { computeCrossCheck, pickSnapshotPair, addDays, type CrossCheckResult, type FactorKey } from '../../../lib/crossCheck';
+import { computeCrossCheck, pickCrossCheckPair, addDays, type CrossCheckResult, type FactorKey, type SnapshotLike } from '../../../lib/crossCheck';
+import { buildSnapshotInsight, type NamedBalance } from '../../../lib/snapshotInsight';
+import { monthName } from '../../../lib/historyCalc';
+import SnapshotInsightCard from './SnapshotInsightCard';
 import { currentMonth, formatDisplayDate, toDhakaDate } from '../../../lib/date';
 import { formatAmount, formatNet } from '../../../lib/format';
 import type { Debt } from '../../../validation/debtSchema';
 import type { Investment } from '../../../validation/investmentSchema';
-import type { AccountBalance } from '../../../validation/netWorthSchema';
+import type { AccountBalance, NetWorthSnapshot } from '../../../validation/netWorthSchema';
 import type { GpfEntry } from '../../../validation/gpfSchema';
 
 // Cross-check Summary → Details (UI Mockup §৬/§৬.২, progressive disclosure)। ফর্মুলা/লজিক lib/crossCheck.ts-এ।
-// শুধু current-vs-previous-snapshot prospective (C7)।
+// শুধু current-vs-previous-snapshot prospective (C7)। `period` = যে মাস দেখা হচ্ছে (Net Worth ‹ মাস ›); চলতি মাসে snapshot না
+// থাকলে ও নতুন আপডেট না হলে সর্বশেষ snapshot-এর Cross-check দেখায় (pickCrossCheckPair, owner-request 2026-11-01)।
 
 const FACTOR_LABEL: Record<FactorKey, string> = {
   investmentClosure: 'Closed / written-off investments',
@@ -25,6 +29,10 @@ const FACTOR_LABEL: Record<FactorKey, string> = {
 interface Props {
   uid: string;
   mode: 'summary' | 'details';
+  /** দেখা হচ্ছে যে মাস (yyyymm) */
+  period: string;
+  /** মাস অনুযায়ী accountBalances-derived account-তালিকা (Insight কার্ডে account-ভিত্তিক তুলনার জন্য) */
+  derivedByMonth: ReadonlyMap<string, NamedBalance[]>;
   liveTotalMinor: number;
   /** লাইভ Total Assets-এর as-of তারিখ (সর্বশেষ account-snapshot) — এটা previous snapshot-এর পরে না হলে Cross-check অর্থহীন */
   basisDate: string;
@@ -38,9 +46,9 @@ interface Props {
 
 export default function CrossCheckView(props: Props) {
   const snaps = useNetWorthSnapshots(props.uid);
-  const period = currentMonth();
+  const { period, basisDate } = props;
   const snapshots = snaps.state.status === 'ready' ? snaps.state.data : null;
-  const pair = useMemo(() => (snapshots ? pickSnapshotPair(snapshots, period) : null), [snapshots, period]);
+  const pair = useMemo(() => (snapshots ? pickCrossCheckPair(snapshots, period, basisDate) : null), [snapshots, period, basisDate]);
 
   if (!pair) {
     if (props.mode === 'details') {
@@ -58,14 +66,14 @@ export default function CrossCheckView(props: Props) {
   }
 
   if (!pair.previous) {
-    return props.mode === 'summary' ? (
+    return props.mode === 'summary' && period === currentMonth() ? (
       <p className="px-4 pt-4 text-sm text-muted">
         ℹ️ Cross-check starts after your first monthly snapshot (use “Update This Month’s Balance”).
       </p>
     ) : null;
   }
 
-  return <Loaded {...props} period={period} previous={pair.previous} current={pair.current} />;
+  return <Loaded {...props} snapshots={snapshots!} period={pair.current ? pair.current.yyyymm : period} previous={pair.previous} current={pair.current} />;
 }
 
 function Loaded({
@@ -79,13 +87,15 @@ function Loaded({
   balances,
   onOpen,
   onBack,
+  derivedByMonth,
+  snapshots,
   period,
   previous,
   current,
 }: Props & {
-  period: string;
-  previous: NonNullable<ReturnType<typeof pickSnapshotPair>['previous']>;
-  current: ReturnType<typeof pickSnapshotPair>['current'];
+  snapshots: readonly NetWorthSnapshot[];
+  previous: SnapshotLike;
+  current: SnapshotLike | null;
 }) {
   const settings = useSettings(uid);
   const dateFormat = settings.state.status === 'ready' ? settings.state.data.dateFormat : 'dmy';
@@ -111,6 +121,24 @@ function Loaded({
       period,
     });
   }, [tx.state, previous, current, liveTotalMinor, today, debts, investments, gpfEntries, balances, period]);
+
+  // Insight কার্ড: শুধু যখন চলতি দিকে একটা সংরক্ষিত snapshot আছে (লাইভ তুলনায় নয়) — snapshot আপডেট হলে এটাই "বিবরণ কার্ড"
+  const insight = useMemo(() => {
+    if (!result || !current || tx.state.status !== 'ready') return null;
+    const cur = snapshots.find((s) => s.yyyymm === current.yyyymm);
+    const prev = snapshots.find((s) => s.yyyymm === previous.yyyymm);
+    if (!cur || !prev) return null;
+    return buildSnapshotInsight({
+      previous: prev,
+      current: cur,
+      previousDerivedAccounts: derivedByMonth.get(prev.yyyymm) ?? [],
+      currentDerivedAccounts: derivedByMonth.get(cur.yyyymm) ?? [],
+      transactions: tx.state.data,
+      cross: result,
+      fmt: formatAmount,
+      monthShort: (m) => monthName(m, true),
+    });
+  }, [result, current, previous, snapshots, derivedByMonth, tx.state]);
 
   // চলতি মাসের snapshot নেই এবং Account balance previous snapshot-এর পরে আপডেট হয়নি → তুলনার কিছু নেই
   // (নইলে ভুয়া "Deviation = −সঞ্চয়" দেখাত)। আপডেটের পর Cross-check চলে।
@@ -157,6 +185,7 @@ function Loaded({
     // UI Polish [1_5] §২ item ৪: icon-badge স্টাইল, matched-state-এও সমান visual treatment।
     const matched = result.status === 'matched';
     return (
+      <>
       <div className="px-4 pb-3 pt-1">
         <button
           type="button"
@@ -166,10 +195,15 @@ function Loaded({
           <IconBadge icon={matched ? CircleCheck : TriangleAlert} tone={matched ? 'income' : 'warning'} size={32} />
           <span className="min-w-0 flex-1 text-sm text-fg">
             {matched ? 'Cross-check Matched' : `Deviation: ${formatNet(result.deviationMinor)}`}
+            <span className="block text-xs text-muted">
+              {result.currentIsLive ? 'Live' : `Snapshot ${formatDisplayDate(result.windowEnd, dateFormat)}`} vs snapshot {formatDisplayDate(result.previous.snapshotDate, dateFormat)}
+            </span>
           </span>
           <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
         </button>
       </div>
+      {insight && <SnapshotInsightCard insight={insight} />}
+      </>
     );
   }
 
