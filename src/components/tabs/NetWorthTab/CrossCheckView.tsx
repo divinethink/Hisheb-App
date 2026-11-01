@@ -262,14 +262,18 @@ function Details({ r, onBack, dateFormat }: { r: CrossCheckResult; onBack: () =>
     <FullScreenPage title="Cross-check Details" onBack={onBack}>
       <div className="flex flex-col gap-3 pb-8">
         {/* ফলাফল-হিরো */}
-        <Card className={`flex flex-col items-center gap-1.5 border p-5 text-center ${matched ? 'border-income/25' : 'border-warning/30'}`}>
-          <IconBadge icon={matched ? CircleCheck : TriangleAlert} tone={matched ? 'income' : 'warning'} size={52} />
-          <span className={`rounded-full px-3 py-0.5 text-xs font-medium ${matched ? 'bg-income/10 text-income' : 'bg-warning/10 text-warning'}`}>
-            {matched ? 'Matched' : 'Deviation'}
-          </span>
-          <p className="text-3xl font-semibold tabular-nums text-fg">{matched ? 'All figures agree' : formatNet(r.deviationMinor)}</p>
-          <p className="text-xs text-muted">current − expected</p>
-          <p className="mt-1 rounded-full bg-muted/10 px-3 py-1 text-xs text-fg">Window · {windowText}</p>
+        <Card className={`flex items-center gap-3 border p-3.5 ${matched ? 'border-income/25' : 'border-warning/30'}`}>
+          <IconBadge icon={matched ? CircleCheck : TriangleAlert} tone={matched ? 'income' : 'warning'} size={44} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${matched ? 'bg-income/10 text-income' : 'bg-warning/10 text-warning'}`}>
+                {matched ? 'Matched' : 'Deviation'}
+              </span>
+              <span className="text-xs text-muted">current − expected</span>
+            </div>
+            <p className="mt-0.5 text-2xl font-semibold leading-tight tabular-nums text-fg">{matched ? 'All figures agree' : formatNet(r.deviationMinor)}</p>
+            <p className="mt-0.5 text-xs text-muted">Window: {windowText}</p>
+          </div>
         </Card>
 
         {/* হিসাব কীভাবে হলো */}
