@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSnapshotInsight, type InsightInput, type InsightSnapshot } from './snapshotInsight';
+import { buildSnapshotInsight, listInsightPairs, swipeDirection, type InsightInput, type InsightSnapshot } from './snapshotInsight';
 
 const T = (n: number) => n * 100; // টাকা → minor
 const fmt = (m: number) => `৳${Math.abs(m) / 100}`;
@@ -125,5 +125,32 @@ describe('buildSnapshotInsight', () => {
   it('নোট সর্বোচ্চ ৬টা', () => {
     const r = buildSnapshotInsight(base({ cross: { status: 'deviation', deviationMinor: T(-1), unexplainedMinor: T(-1), ...WIN }, transactions: [{ type: 'expense', amountMinor: T(5) }] }));
     expect(r.notes.length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe('listInsightPairs', () => {
+  it('নতুন → পুরনো; প্রতিটার আগের snapshot-এর সাথে জোড়া; সবচেয়ে পুরনোটা বাদ', () => {
+    const r = listInsightPairs([{ yyyymm: '2026-09' }, { yyyymm: '2026-07' }, { yyyymm: '2026-10' }]);
+    expect(r).toEqual([
+      { currentYyyymm: '2026-10', previousYyyymm: '2026-09' },
+      { currentYyyymm: '2026-09', previousYyyymm: '2026-07' },
+    ]);
+  });
+  it('০ বা ১টা snapshot হলে খালি; ডুপ্লিকেট মাস একবার', () => {
+    expect(listInsightPairs([])).toEqual([]);
+    expect(listInsightPairs([{ yyyymm: '2026-10' }])).toEqual([]);
+    expect(listInsightPairs([{ yyyymm: '2026-10' }, { yyyymm: '2026-10' }])).toEqual([]);
+  });
+});
+
+describe('swipeDirection', () => {
+  it('Home ট্যাবের মতো: বাঁয়ে টান (dx<0) → newer (পরের মাস), ডানে টান (dx>0) → older (আগের মাস)', () => {
+    expect(swipeDirection(-90, 5)).toBe('newer');
+    expect(swipeDirection(90, 5)).toBe('older');
+  });
+  it('ছোট নড়াচড়া বা প্রায়-উল্লম্ব টান (স্ক্রল) উপেক্ষা', () => {
+    expect(swipeDirection(40, 0)).toBeNull();
+    expect(swipeDirection(80, 70)).toBeNull();
+    expect(swipeDirection(0, 200)).toBeNull();
   });
 });

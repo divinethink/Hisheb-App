@@ -235,3 +235,26 @@ export function buildSnapshotInsight(inp: InsightInput): SnapshotInsight {
     notes: notes.map((n, i) => ({ n, i })).sort((a, b) => TONE_RANK[a.n.tone] - TONE_RANK[b.n.tone] || a.i - b.i).map((x) => x.n).slice(0, 6),
   };
 }
+
+// ---- স্বাইপ-নেভিগেশন (আগের মাসের বিশ্লেষণ) — pure অংশ ----
+export interface InsightPair {
+  currentYyyymm: string;
+  previousYyyymm: string;
+}
+
+/** প্রতিটা snapshot-এর সাথে তার ঠিক আগের snapshot — নতুন → পুরনো। সবচেয়ে পুরনো snapshot-এর আগে কিছু নেই, তাই বাদ। */
+export function listInsightPairs(snaps: readonly { yyyymm: string }[]): InsightPair[] {
+  const asc = [...new Set(snaps.map((s) => s.yyyymm))].sort();
+  const out: InsightPair[] = [];
+  for (let i = asc.length - 1; i >= 1; i--) out.push({ currentYyyymm: asc[i], previousYyyymm: asc[i - 1] });
+  return out;
+}
+
+/**
+ * আঙুল-টানা থেকে দিক — Home ট্যাবের মাস-স্বাইপের হুবহু একই (owner-নির্দেশ 2026-11-01): বাঁয়ে টানলে (dx<0) পরের/নতুন মাস, ডানে টানলে (dx>0) আগের/পুরনো মাস।
+ * প্রায়-উল্লম্ব টান (স্ক্রল) বা ছোট নড়াচড়া (threshold-এর কম) হলে null।
+ */
+export function swipeDirection(dx: number, dy: number, threshold = 60): 'older' | 'newer' | null {
+  if (Math.abs(dx) < threshold || Math.abs(dx) < Math.abs(dy) * 1.5) return null;
+  return dx < 0 ? 'newer' : 'older';
+}
