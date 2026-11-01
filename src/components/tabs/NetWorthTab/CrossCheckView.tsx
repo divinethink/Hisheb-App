@@ -4,10 +4,10 @@ import FullScreenPage from '../../common/FullScreenPage';
 import IconBadge from '../../common/IconBadge';
 import { useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
 import { computeCrossCheck, pickCrossCheckPair, addDays, type CrossCheckResult, type FactorKey, type SnapshotLike } from '../../../lib/crossCheck';
-import { buildSnapshotInsight, type NamedBalance } from '../../../lib/snapshotInsight';
-import SnapshotInsightCard from './SnapshotInsightCard';
-import { currentMonth, formatDisplayDate, monthLabelBn, toDhakaDate } from '../../../lib/date';
-import { formatAmount, formatNet, formatTaka } from '../../../lib/format';
+import type { NamedBalance } from '../../../lib/snapshotInsight';
+import InsightPager from './InsightPager';
+import { currentMonth, formatDisplayDate, toDhakaDate } from '../../../lib/date';
+import { formatAmount, formatNet } from '../../../lib/format';
 import type { Debt } from '../../../validation/debtSchema';
 import type { Investment } from '../../../validation/investmentSchema';
 import type { AccountBalance, NetWorthSnapshot } from '../../../validation/netWorthSchema';
@@ -121,24 +121,6 @@ function Loaded({
     });
   }, [tx.state, previous, current, liveTotalMinor, today, debts, investments, gpfEntries, balances, period]);
 
-  // Insight কার্ড: শুধু যখন চলতি দিকে একটা সংরক্ষিত snapshot আছে (লাইভ তুলনায় নয়) — snapshot আপডেট হলে এটাই "বিবরণ কার্ড"
-  const insight = useMemo(() => {
-    if (!result || !current || tx.state.status !== 'ready') return null;
-    const cur = snapshots.find((s) => s.yyyymm === current.yyyymm);
-    const prev = snapshots.find((s) => s.yyyymm === previous.yyyymm);
-    if (!cur || !prev) return null;
-    return buildSnapshotInsight({
-      previous: prev,
-      current: cur,
-      previousDerivedAccounts: derivedByMonth.get(prev.yyyymm) ?? [],
-      currentDerivedAccounts: derivedByMonth.get(cur.yyyymm) ?? [],
-      transactions: tx.state.data,
-      cross: result,
-      fmt: formatTaka,
-      monthName: (m) => monthLabelBn(m).split(' ')[0],
-    });
-  }, [result, current, previous, snapshots, derivedByMonth, tx.state]);
-
   // চলতি মাসের snapshot নেই এবং Account balance previous snapshot-এর পরে আপডেট হয়নি → তুলনার কিছু নেই
   // (নইলে ভুয়া "Deviation = −সঞ্চয়" দেখাত)। আপডেটের পর Cross-check চলে।
   if (current === null && basisDate <= previous.snapshotDate) {
@@ -189,19 +171,52 @@ function Loaded({
         <button
           type="button"
           onClick={onOpen}
-          className="flex min-h-11 w-full items-center gap-3 rounded-2xl border border-muted/10 bg-canvas p-3 text-left shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          className={`flex min-h-11 w-full items-center gap-3 rounded-2xl border bg-canvas p-3.5 text-left shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
+            matched ? 'border-income/25' : 'border-warning/30'
+          }`}
         >
-          <IconBadge icon={matched ? CircleCheck : TriangleAlert} tone={matched ? 'income' : 'warning'} size={32} />
-          <span className="min-w-0 flex-1 text-sm text-fg">
-            {matched ? 'Cross-check Matched' : `Deviation: ${formatNet(result.deviationMinor)}`}
-            <span className="block text-xs text-muted">
-              {result.currentIsLive ? 'Live' : `Snapshot ${formatDisplayDate(result.windowEnd, dateFormat)}`} vs snapshot {formatDisplayDate(result.previous.snapshotDate, dateFormat)}
+          <IconBadge icon={matched ? CircleCheck : TriangleAlert} tone={matched ? 'income' : 'warning'} size={44} />
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Cross-check</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                  matched ? 'bg-income/10 text-income' : 'bg-warning/10 text-warning'
+                }`}
+              >
+                {matched ? 'Matched' : 'Deviation'}
+              </span>
+            </span>
+            <span className="mt-0.5 block text-lg font-semibold leading-tight text-fg">
+              {matched ? 'All figures agree' : formatNet(result.deviationMinor)}
+            </span>
+            {!matched && (
+              <span className={`block text-xs ${result.unexplainedMinor === 0 ? 'text-muted' : 'text-expense'}`}>
+                {result.unexplainedMinor === 0 ? 'Fully explained by known factors' : `Unexplained: ${formatNet(result.unexplainedMinor)}`}
+              </span>
+            )}
+            <span className="mt-0.5 block text-xs text-muted">
+              {result.currentIsLive ? 'Live' : formatDisplayDate(result.windowEnd, dateFormat)} vs {formatDisplayDate(result.previous.snapshotDate, dateFormat)} snapshot
             </span>
           </span>
-          <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
+          <ChevronRight aria-hidden size={20} className="shrink-0 text-muted" />
         </button>
       </div>
-      {insight && <SnapshotInsightCard insight={insight} dateFormat={dateFormat} />}
+      {/* "মাসিক বিশ্লেষণ" — আঙুল টেনে আগের মাসেও যাওয়া যায়; শুরু হয় এই snapshot থেকে (লাইভ তুলনায় কার্ড নেই) */}
+      {current && (
+        <InsightPager
+          key={current.yyyymm}
+          startYyyymm={current.yyyymm}
+          uid={uid}
+          snapshots={snapshots}
+          debts={debts}
+          investments={investments}
+          gpfEntries={gpfEntries}
+          balances={balances}
+          derivedByMonth={derivedByMonth}
+          dateFormat={dateFormat}
+        />
+      )}
       </>
     );
   }
