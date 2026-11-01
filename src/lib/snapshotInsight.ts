@@ -85,7 +85,7 @@ const COMPONENT_LABEL: Record<ComponentKey, string> = {
   receivable: 'পাওনা',
   investment: 'চলমান বিনিয়োগ',
   homeDeposit: 'হোম ডিপোজিট',
-  gpf: 'জিপিএফ',
+  gpf: 'GPF',
   ledgerOthers: 'লেজার ও অন্যান্য',
 };
 
@@ -161,10 +161,10 @@ export function buildSnapshotInsight(inp: InsightInput): SnapshotInsight {
   if (inp.cross.status === 'deviation' && inp.cross.unexplainedMinor !== 0) {
     notes.push({
       tone: 'warn',
-      text: `ক্রসচেকে ${fmt(Math.abs(inp.cross.unexplainedMinor))} ব্যাখ্যাহীন অমিল আছে। কোনো লেনদেন বাদ পড়েছে, দুবার উঠেছে, কিংবা ব্যালেন্স ভুল লেখা হয়েছে কি না দেখে নিন।`,
+      text: `ক্রসচেকে ${fmt(Math.abs(inp.cross.unexplainedMinor))} ব্যাখ্যাহীন Deviation আছে। কোনো লেনদেন বাদ পড়েছে, দুবার উঠেছে, কিংবা ব্যালেন্স ভুল লেখা হয়েছে কি না দেখে নিন।`,
     });
   } else if (inp.cross.status === 'matched') {
-    notes.push({ tone: 'good', text: 'ক্রসচেক মিলে গেছে। আপনার লেনদেন আর ব্যালেন্সের হিসাব পরস্পরের সঙ্গে সংগতিপূর্ণ।' });
+    notes.push({ tone: 'good', text: 'ক্রসচেক মিলেছে। আপনার লেনদেন আর ব্যালেন্স একে অপরের সঙ্গে ঠিকঠাক মিলছে।' });
   }
 
   // (২) খরচ আয়ের চেয়ে বেশি
@@ -181,7 +181,7 @@ export function buildSnapshotInsight(inp: InsightInput): SnapshotInsight {
     const moved = Math.min(-accMove.deltaMinor, ledgerDelta);
     notes.push({
       tone: 'info',
-      text: `প্রায় ${fmt(moved)} ব্যাংক/নগদ থেকে ধার, বিনিয়োগ, ডিপোজিট বা জিপিএফ-এ সরে গেছে। এটি ক্ষতি নয়; তবে এই টাকা এখন সহজে হাতে পাওয়া যাবে না।`,
+      text: `প্রায় ${fmt(moved)} ব্যাংক/নগদ থেকে ধার, বিনিয়োগ, ডিপোজিট বা GPF-এ সরে গেছে। এটি ক্ষতি নয়; তবে এই টাকা এখন সহজে হাতে পাওয়া যাবে না।`,
     });
   }
 

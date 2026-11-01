@@ -89,12 +89,12 @@ describe('buildSnapshotInsight', () => {
   it('Unexplained ≠ ০ হলে warn নোট সবার আগে', () => {
     const r = buildSnapshotInsight(base({ cross: { status: 'deviation', deviationMinor: T(-500), unexplainedMinor: T(-500), ...WIN } }));
     expect(r.notes[0].tone).toBe('warn');
-    expect(r.notes[0].text).toContain('ব্যাখ্যাহীন অমিল');
+    expect(r.notes[0].text).toContain('ব্যাখ্যাহীন Deviation');
   });
 
   it('matched হলে good নোট; এক account >৫০% হলে concentration নোট', () => {
     const r = buildSnapshotInsight(base());
-    expect(r.notes.some((n) => n.tone === 'good' && n.text.includes('মিলে গেছে'))).toBe(true);
+    expect(r.notes.some((n) => n.tone === 'good' && n.text.includes('ক্রসচেক মিলেছে'))).toBe(true);
     expect(r.notes.some((n) => n.text.includes('57 শতাংশই SIBL-এ'))).toBe(true);
   });
 
