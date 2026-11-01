@@ -5,10 +5,9 @@ import IconBadge from '../../common/IconBadge';
 import { useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
 import { computeCrossCheck, pickCrossCheckPair, addDays, type CrossCheckResult, type FactorKey, type SnapshotLike } from '../../../lib/crossCheck';
 import { buildSnapshotInsight, type NamedBalance } from '../../../lib/snapshotInsight';
-import { monthName } from '../../../lib/historyCalc';
 import SnapshotInsightCard from './SnapshotInsightCard';
-import { currentMonth, formatDisplayDate, toDhakaDate } from '../../../lib/date';
-import { formatAmount, formatNet } from '../../../lib/format';
+import { currentMonth, formatDisplayDate, monthLabelBn, toDhakaDate } from '../../../lib/date';
+import { formatAmount, formatNet, formatTaka } from '../../../lib/format';
 import type { Debt } from '../../../validation/debtSchema';
 import type { Investment } from '../../../validation/investmentSchema';
 import type { AccountBalance, NetWorthSnapshot } from '../../../validation/netWorthSchema';
@@ -135,8 +134,8 @@ function Loaded({
       currentDerivedAccounts: derivedByMonth.get(cur.yyyymm) ?? [],
       transactions: tx.state.data,
       cross: result,
-      fmt: formatAmount,
-      monthShort: (m) => monthName(m, true),
+      fmt: formatTaka,
+      monthName: (m) => monthLabelBn(m).split(' ')[0],
     });
   }, [result, current, previous, snapshots, derivedByMonth, tx.state]);
 
@@ -202,7 +201,7 @@ function Loaded({
           <ChevronRight aria-hidden size={18} className="shrink-0 text-muted" />
         </button>
       </div>
-      {insight && <SnapshotInsightCard insight={insight} />}
+      {insight && <SnapshotInsightCard insight={insight} dateFormat={dateFormat} />}
       </>
     );
   }

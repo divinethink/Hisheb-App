@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buildSnapshotInsight, type InsightInput, type InsightSnapshot } from './snapshotInsight';
 
 const T = (n: number) => n * 100; // টাকা → minor
-const fmt = (m: number) => `BDT ${Math.abs(m) / 100}`;
+const fmt = (m: number) => `৳${Math.abs(m) / 100}`;
+const WIN = { windowStart: '2026-10-01', windowEnd: '2026-10-31' };
 
 // owner-এর বাস্তব স্ক্রিনশট (সেপ্টেম্বর: ভাঙা-হিসাব নেই, শুধু accountBalances; অক্টোবর: পূর্ণ breakdown)
 const sep: InsightSnapshot = { yyyymm: '2026-09', totalAssetsMinor: T(612_169), snapshotDate: '2026-09-30' };
@@ -35,9 +36,9 @@ const base = (o: Partial<InsightInput> = {}): InsightInput => ({
   previousDerivedAccounts: sepAccounts,
   currentDerivedAccounts: [],
   transactions: [],
-  cross: { status: 'matched', deviationMinor: 0, unexplainedMinor: 0 },
+  cross: { status: 'matched', deviationMinor: 0, unexplainedMinor: 0, ...WIN },
   fmt,
-  monthShort: () => 'Sep',
+  monthName: () => 'সেপ্টেম্বর',
   ...o,
 });
 
@@ -72,29 +73,41 @@ describe('buildSnapshotInsight', () => {
   it('আয়-ব্যয়-সঞ্চয়', () => {
     const r = buildSnapshotInsight(base({ transactions: [{ type: 'income', amountMinor: T(100_000) }, { type: 'expense', amountMinor: T(60_000) }] }));
     expect([r.incomeMinor, r.expenseMinor, r.savingsMinor]).toEqual([T(100_000), T(60_000), T(40_000)]);
-    expect(r.notes.some((n) => n.tone === 'good' && n.text.includes('Saved'))).toBe(true);
+    expect(r.notes.some((n) => n.tone === 'good' && n.text.includes('সঞ্চয় হয়েছে'))).toBe(true);
   });
 
   it('খরচ > আয় হলে warn নোট', () => {
     const r = buildSnapshotInsight(base({ transactions: [{ type: 'income', amountMinor: T(10) }, { type: 'expense', amountMinor: T(60) }] }));
-    expect(r.notes.some((n) => n.tone === 'warn' && n.text.includes('more than you earned'))).toBe(true);
+    expect(r.notes.some((n) => n.tone === 'warn' && n.text.includes('বেশি খরচ হয়েছে'))).toBe(true);
   });
 
   it('account কমল + ledger বাড়ল → "moved, not a loss" নোট (ছোট দিকটা)', () => {
     const r = buildSnapshotInsight(base());
-    expect(r.notes.some((n) => n.text.includes('BDT 39257') && n.text.includes('not a loss'))).toBe(true);
+    expect(r.notes.some((n) => n.text.includes('৳39257') && n.text.includes('ক্ষতি নয়'))).toBe(true);
   });
 
   it('Unexplained ≠ ০ হলে warn নোট সবার আগে', () => {
-    const r = buildSnapshotInsight(base({ cross: { status: 'deviation', deviationMinor: T(-500), unexplainedMinor: T(-500) } }));
+    const r = buildSnapshotInsight(base({ cross: { status: 'deviation', deviationMinor: T(-500), unexplainedMinor: T(-500), ...WIN } }));
     expect(r.notes[0].tone).toBe('warn');
-    expect(r.notes[0].text).toContain('Unexplained');
+    expect(r.notes[0].text).toContain('ব্যাখ্যাহীন অমিল');
   });
 
   it('matched হলে good নোট; এক account >৫০% হলে concentration নোট', () => {
     const r = buildSnapshotInsight(base());
-    expect(r.notes.some((n) => n.tone === 'good' && n.text.includes('matched'))).toBe(true);
-    expect(r.notes.some((n) => n.text.includes('SIBL holds 57%'))).toBe(true);
+    expect(r.notes.some((n) => n.tone === 'good' && n.text.includes('মিলে গেছে'))).toBe(true);
+    expect(r.notes.some((n) => n.text.includes('57 শতাংশই SIBL-এ'))).toBe(true);
+  });
+
+  it('অপরিবর্তিত account আলাদা তালিকায়, window ও দুই মাসের মোট বহন করে', () => {
+    const r = buildSnapshotInsight(base());
+    expect(r.unchangedAccounts).toEqual(['SIBL', 'IBBL']);
+    expect([r.previousTotalMinor, r.currentTotalMinor]).toEqual([T(612_169), T(602_623)]);
+    expect([r.windowStart, r.windowEnd]).toEqual(['2026-10-01', '2026-10-31']);
+  });
+
+  it('মোট কমলে সবচেয়ে বড় কমতির নোট বাংলায়, পরিমাণ ধনাত্মক', () => {
+    const r = buildSnapshotInsight(base());
+    expect(r.notes.some((n) => n.text.includes('আগের মাসের (সেপ্টেম্বর) চেয়ে ৳9546 কমেছে') && n.text.includes('DBBL-এ (৳51408)'))).toBe(true);
   });
 
   it('কোনো মাসেই account-তথ্য না থাকলে components/accountMoves খালি, ক্র্যাশ নয়', () => {
@@ -110,7 +123,7 @@ describe('buildSnapshotInsight', () => {
   });
 
   it('নোট সর্বোচ্চ ৬টা', () => {
-    const r = buildSnapshotInsight(base({ cross: { status: 'deviation', deviationMinor: T(-1), unexplainedMinor: T(-1) }, transactions: [{ type: 'expense', amountMinor: T(5) }] }));
+    const r = buildSnapshotInsight(base({ cross: { status: 'deviation', deviationMinor: T(-1), unexplainedMinor: T(-1), ...WIN }, transactions: [{ type: 'expense', amountMinor: T(5) }] }));
     expect(r.notes.length).toBeLessThanOrEqual(6);
   });
 });

@@ -1,11 +1,11 @@
-import { CircleAlert, CircleCheck, Info, TrendingDown, TrendingUp } from 'lucide-react';
+import { CircleAlert, CircleCheck, Info } from 'lucide-react';
 import Card from '../../common/Card';
-import { formatAmount, formatNet } from '../../../lib/format';
-import { monthName } from '../../../lib/historyCalc';
+import { formatNet, formatPlain, formatTaka } from '../../../lib/format';
+import { formatDisplayDate, monthLabelBn } from '../../../lib/date';
 import type { NoteTone, SnapshotInsight } from '../../../lib/snapshotInsight';
 
-// Net Worth → "Monthly Insight" কার্ড (owner-request 2026-11-01): snapshot বনাম আগের snapshot — কোথায় বাড়ল/কমল, আয়-ব্যয়,
-// সচেতনতার নোট। শুধু দেখানো; হিসাব lib/snapshotInsight.ts-এ (pure)। কিছু store হয় না।
+// Net Worth → "মাসিক বিশ্লেষণ" কার্ড (owner-request 2026-11-01): স্ন্যাপশট বনাম আগের স্ন্যাপশট — তুলনা-টেবিল
+// (আগের মাস | এ মাস | পার্থক্য), আয়-ব্যয় ও সচেতনতার নোট। শুধু দেখানো; হিসাব lib/snapshotInsight.ts-এ (pure)। কিছু store হয় না।
 
 const NOTE_ICON: Record<NoteTone, { Icon: typeof Info; cls: string }> = {
   warn: { Icon: CircleAlert, cls: 'text-expense' },
@@ -13,80 +13,99 @@ const NOTE_ICON: Record<NoteTone, { Icon: typeof Info; cls: string }> = {
   good: { Icon: CircleCheck, cls: 'text-income' },
 };
 
-const lbl = (m: string) => `${monthName(m, true)} ${m.slice(0, 4)}`;
+const monthOnly = (yyyymm: string) => monthLabelBn(yyyymm).split(' ')[0];
+const COLS = 'grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.05fr)] items-center gap-x-2';
 
-function Delta({ minor }: { minor: number }) {
-  if (minor === 0) return <span className="text-muted">No change</span>;
-  const up = minor > 0;
-  const Icon = up ? TrendingUp : TrendingDown;
+/** পার্থক্য-ঘর: + সবুজ, − লাল, ০ ধূসর — কোনো BDT/৳ ছাড়া (জায়গা কম) */
+function Diff({ minor, strong }: { minor: number; strong?: boolean }) {
+  const cls = minor === 0 ? 'text-muted' : minor > 0 ? 'text-income' : 'text-expense';
+  const text = minor === 0 ? '0' : `${minor > 0 ? '+' : '−'}${formatPlain(Math.abs(minor))}`;
+  return <span className={`text-right tabular-nums ${strong ? 'font-semibold' : 'font-medium'} ${cls}`}>{text}</span>;
+}
+
+function Row({ label, from, to, diff, strong }: { label: string; from: number; to: number; diff: number; strong?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 ${up ? 'text-income' : 'text-expense'}`}>
-      <Icon aria-hidden size={12} />
-      {formatNet(minor)}
-    </span>
+    <div className={`${COLS} border-t border-muted/10 py-2 text-[13px] leading-snug first:border-t-0 ${strong ? 'font-semibold' : ''}`}>
+      <span className="break-words text-fg">{label}</span>
+      <span className="text-right tabular-nums text-muted">{formatPlain(from)}</span>
+      <span className="text-right tabular-nums text-fg">{formatPlain(to)}</span>
+      <Diff minor={diff} strong={strong} />
+    </div>
   );
 }
 
-export default function SnapshotInsightCard({ insight: i }: { insight: SnapshotInsight }) {
-  const movers = i.accountMoves.slice(0, 3);
+function Head({ title, prev, cur }: { title: string; prev: string; cur: string }) {
+  return (
+    <div className={`${COLS} pb-1 pt-3 text-xs text-muted`}>
+      <span className="font-medium">{title}</span>
+      <span className="text-right">{prev}</span>
+      <span className="text-right">{cur}</span>
+      <span className="text-right">পার্থক্য</span>
+    </div>
+  );
+}
+
+export default function SnapshotInsightCard({ insight: i, dateFormat }: { insight: SnapshotInsight; dateFormat: 'dmy' | 'mdy' }) {
+  const prevName = monthOnly(i.previousYyyymm);
+  const curName = monthOnly(i.currentYyyymm);
+  const d = (s: string) => formatDisplayDate(s, dateFormat);
   return (
     <Card className="mx-4 mb-3 p-4">
-      <h2 className="text-sm font-semibold text-fg">
-        Monthly Insight <span className="font-normal text-muted">· {lbl(i.currentYyyymm)} vs {lbl(i.previousYyyymm)}</span>
-      </h2>
-      <p className="mt-1 flex items-center justify-between text-sm">
-        <span className="text-muted">Total assets</span>
-        <span className="font-medium">
-          <Delta minor={i.totalDeltaMinor} />
-          {i.totalDeltaPct !== null && i.totalDeltaMinor !== 0 ? <span className="text-muted"> ({i.totalDeltaPct}%)</span> : null}
-        </span>
-      </p>
+      <header className="pb-1 text-center">
+        <h2 className="text-lg font-semibold text-fg">মাসিক বিশ্লেষণ</h2>
+        <p className="mt-0.5 text-sm text-muted">
+          {monthLabelBn(i.currentYyyymm)} বনাম {monthLabelBn(i.previousYyyymm)}
+        </p>
+      </header>
 
-      {i.components.length > 0 && (
-        <dl className="mt-3 flex flex-col gap-1 border-t border-muted/10 pt-2 text-sm">
-          <dt className="text-xs text-muted">Where it moved</dt>
-          {i.components.map((c) => (
-            <div key={c.key} className="flex items-center justify-between gap-3">
-              <dd className="min-w-0 truncate text-fg">{c.label}</dd>
-              <dd className="shrink-0"><Delta minor={c.deltaMinor} /></dd>
-            </div>
-          ))}
-        </dl>
+      <Head title="সম্পদ (টাকা)" prev={prevName} cur={curName} />
+      <Row strong label="মোট সম্পদ" from={i.previousTotalMinor} to={i.currentTotalMinor} diff={i.totalDeltaMinor} />
+      {i.totalDeltaPct !== null && i.totalDeltaMinor !== 0 && (
+        <p className="-mt-1 pb-1 text-right text-xs text-muted">আগের মাসের তুলনায় {i.totalDeltaPct} শতাংশ {i.totalDeltaMinor > 0 ? 'বেশি' : 'কম'}</p>
       )}
+      {i.components.map((c) => (
+        <Row key={c.key} label={c.label} from={c.fromMinor} to={c.toMinor} diff={c.deltaMinor} />
+      ))}
 
-      {movers.length > 0 && (
-        <dl className="mt-3 flex flex-col gap-1 border-t border-muted/10 pt-2 text-sm">
-          <dt className="text-xs text-muted">Biggest account changes</dt>
-          {movers.map((a) => (
-            <div key={a.name} className="flex items-center justify-between gap-3">
-              <dd className="min-w-0 truncate text-fg">{a.name}</dd>
-              <dd className="shrink-0"><Delta minor={a.deltaMinor} /></dd>
-            </div>
+      {i.accountMoves.length > 0 && (
+        <>
+          <Head title="অ্যাকাউন্ট" prev={prevName} cur={curName} />
+          {i.accountMoves.map((a) => (
+            <Row key={a.name} label={a.name} from={a.fromMinor} to={a.toMinor} diff={a.deltaMinor} />
           ))}
-        </dl>
+          {i.unchangedAccounts.length > 0 && <p className="border-t border-muted/10 pt-2 text-xs text-muted">অপরিবর্তিত: {i.unchangedAccounts.join(', ')}</p>}
+        </>
       )}
 
       {(i.incomeMinor > 0 || i.expenseMinor > 0) && (
-        <dl className="mt-3 flex flex-col gap-1 border-t border-muted/10 pt-2 text-sm">
-          <dt className="text-xs text-muted">Income &amp; expense in this period</dt>
-          <div className="flex justify-between"><dd className="text-muted">Income</dd><dd className="text-fg">{formatAmount(i.incomeMinor)}</dd></div>
-          <div className="flex justify-between"><dd className="text-muted">Expense</dd><dd className="text-fg">{formatAmount(i.expenseMinor)}</dd></div>
-          <div className="flex justify-between"><dd className="font-medium text-fg">Saved</dd><dd className="font-medium"><Delta minor={i.savingsMinor} /></dd></div>
-        </dl>
+        <section className="mt-3 border-t border-muted/10 pt-3 text-sm">
+          <p className="pb-1 text-xs text-muted">
+            আয়-ব্যয় ({d(i.windowStart)} – {d(i.windowEnd)})
+          </p>
+          <p className="flex justify-between py-0.5"><span className="text-muted">আয়</span><span className="tabular-nums text-fg">{formatTaka(i.incomeMinor)}</span></p>
+          <p className="flex justify-between py-0.5"><span className="text-muted">ব্যয়</span><span className="tabular-nums text-fg">{formatTaka(i.expenseMinor)}</span></p>
+          <p className="flex justify-between py-0.5 font-medium">
+            <span className="text-fg">{i.savingsMinor < 0 ? 'ঘাটতি (আয় − ব্যয়)' : 'সঞ্চয় (আয় − ব্যয়)'}</span>
+            <span className={`tabular-nums ${i.savingsMinor < 0 ? 'text-expense' : 'text-income'}`}>{formatNet(i.savingsMinor).replace('BDT ', '৳')}</span>
+          </p>
+        </section>
       )}
 
       {i.notes.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-2 border-t border-muted/10 pt-3">
-          {i.notes.map((n, idx) => {
-            const { Icon, cls } = NOTE_ICON[n.tone];
-            return (
-              <li key={idx} className="flex items-start gap-2 text-sm text-fg">
-                <Icon aria-hidden size={16} className={`mt-0.5 shrink-0 ${cls}`} />
-                <span>{n.text}</span>
-              </li>
-            );
-          })}
-        </ul>
+        <section className="mt-3 border-t border-muted/10 pt-3">
+          <p className="pb-2 text-xs text-muted">যা খেয়াল রাখা দরকার</p>
+          <ul className="flex flex-col gap-2.5">
+            {i.notes.map((n, idx) => {
+              const { Icon, cls } = NOTE_ICON[n.tone];
+              return (
+                <li key={idx} className="flex items-start gap-2 text-[15px] leading-relaxed text-fg">
+                  <Icon aria-hidden size={18} className={`mt-1 shrink-0 ${cls}`} />
+                  <span>{n.text}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
     </Card>
   );
