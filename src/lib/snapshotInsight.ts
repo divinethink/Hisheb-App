@@ -81,11 +81,11 @@ export interface InsightInput {
 }
 
 const COMPONENT_LABEL: Record<ComponentKey, string> = {
-  accounts: 'ব্যাংক/নগদ (অ্যাকাউন্ট)',
-  receivable: 'পাওনা (লেজার)',
+  accounts: 'ব্যাংক/নগদ',
+  receivable: 'পাওনা',
   investment: 'চলমান বিনিয়োগ',
-  homeDeposit: 'হোম ডিপোজিট (নিট)',
-  gpf: 'জিপিএফ ব্যালান্স',
+  homeDeposit: 'হোম ডিপোজিট',
+  gpf: 'জিপিএফ',
   ledgerOthers: 'লেজার ও অন্যান্য',
 };
 
