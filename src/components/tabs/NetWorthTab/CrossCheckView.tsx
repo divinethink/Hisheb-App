@@ -8,7 +8,7 @@ import { computeCrossCheck, pickCrossCheckPair, addDays, type CrossCheckResult, 
 import type { NamedBalance } from '../../../lib/snapshotInsight';
 import InsightPager from './InsightPager';
 import { currentMonth, formatDisplayDate, toDhakaDate } from '../../../lib/date';
-import { formatNetTaka, formatTaka } from '../../../lib/format';
+import { formatAmount, formatNet } from '../../../lib/format';
 import type { Debt } from '../../../validation/debtSchema';
 import type { Investment } from '../../../validation/investmentSchema';
 import type { AccountBalance, NetWorthSnapshot } from '../../../validation/netWorthSchema';
@@ -18,25 +18,12 @@ import type { GpfEntry } from '../../../validation/gpfSchema';
 // শুধু current-vs-previous-snapshot prospective (C7)। `period` = যে মাস দেখা হচ্ছে (Net Worth ‹ মাস ›); চলতি মাসে snapshot না
 // থাকলে ও নতুন আপডেট না হলে সর্বশেষ snapshot-এর Cross-check দেখায় (pickCrossCheckPair, owner-request 2026-11-01)।
 
-/** crossCheck.ts-এর ইংরেজি detail-টেক্সট (নাম + সংক্ষিপ্ত স্থিতি) শুধু দেখানোর সময় বাংলায় — lib/টেস্ট অপরিবর্তিত */
-const DETAIL_BN: [string, string][] = [
-  [' (closed)', ' (শেষ)'],
-  [' (written off)', ' (অনাদায়ী)'],
-  [' (extra repayment)', ' (অতিরিক্ত ফেরত)'],
-];
-const GPF_KIND_BN: Record<string, string> = { contribution: 'জমা', interest: 'সুদ', withdrawal: 'উত্তোলন' };
-const bnDetail = (d: string) => {
-  if (GPF_KIND_BN[d]) return GPF_KIND_BN[d];
-  for (const [en, bn] of DETAIL_BN) if (d.endsWith(en)) return d.slice(0, -en.length) + bn;
-  return d;
-};
-
 const FACTOR_LABEL: Record<FactorKey, string> = {
-  investmentClosure: 'শেষ হওয়া বা অনাদায়ী বিনিয়োগ',
-  debtForgiven: 'মওকুফ করা পাওনা',
-  debtExcessRepayment: 'পাওনার চেয়ে বেশি ফেরত',
-  iOweChange: 'আমার ধার (নেওয়া ও শোধ)',
-  gpfChange: 'GPF-এর পরিবর্তন',
+  investmentClosure: 'Closed / written-off investments',
+  debtForgiven: 'Forgiven receivables',
+  debtExcessRepayment: 'Extra repayment received (debts)',
+  iOweChange: 'Borrowed / repaid (I Owe)',
+  gpfChange: 'GPF change',
 };
 
 interface Props {
@@ -66,14 +53,14 @@ export default function CrossCheckView(props: Props) {
   if (!pair) {
     if (props.mode === 'details') {
       return (
-        <FullScreenPage title="ক্রসচেকের বিস্তারিত" onBack={props.onBack!}>
-          <p className="text-sm text-muted">{snaps.state.status === 'error' ? 'স্ন্যাপশট লোড করা যায়নি।' : 'লোড হচ্ছে…'}</p>
+        <FullScreenPage title="Cross-check Details" onBack={props.onBack!}>
+          <p className="text-sm text-muted">{snaps.state.status === 'error' ? 'Couldn’t load snapshots.' : 'Loading…'}</p>
         </FullScreenPage>
       );
     }
     return snaps.state.status === 'error' ? (
       <p role="alert" className="px-4 pt-4 text-sm text-muted">
-        ক্রসচেক এখন দেখানো যাচ্ছে না — স্ন্যাপশট লোড করা যায়নি।
+        Cross-check unavailable — couldn’t load snapshots.
       </p>
     ) : null;
   }
@@ -81,7 +68,7 @@ export default function CrossCheckView(props: Props) {
   if (!pair.previous) {
     return props.mode === 'summary' && period === currentMonth() ? (
       <p className="px-4 pt-4 text-sm text-muted">
-        ℹ️ প্রথম মাসিক স্ন্যাপশটের পর থেকে ক্রসচেক শুরু হবে (“Update This Month’s Balance” ব্যবহার করুন)।
+        ℹ️ Cross-check starts after your first monthly snapshot (use “Update This Month’s Balance”).
       </p>
     ) : null;
   }
@@ -138,9 +125,9 @@ function Loaded({
   // চলতি মাসের snapshot নেই এবং Account balance previous snapshot-এর পরে আপডেট হয়নি → তুলনার কিছু নেই
   // (নইলে ভুয়া "Deviation = −সঞ্চয়" দেখাত)। আপডেটের পর Cross-check চলে।
   if (current === null && basisDate <= previous.snapshotDate) {
-    const note = `${formatDisplayDate(basisDate, dateFormat)} তারিখের পর ব্যালেন্স হালনাগাদ হয়নি — পরের হালনাগাদের পর ক্রসচেক চলবে।`;
+    const note = `Balances haven’t been updated since ${formatDisplayDate(basisDate, dateFormat)} — Cross-check runs after your next balance update.`;
     return mode === 'details' ? (
-      <FullScreenPage title="ক্রসচেকের বিস্তারিত" onBack={onBack!}>
+      <FullScreenPage title="Cross-check Details" onBack={onBack!}>
         <p className="text-sm text-muted">{note}</p>
       </FullScreenPage>
     ) : (
@@ -151,14 +138,14 @@ function Loaded({
   if (tx.state.status === 'error') {
     const retry = (
       <div role="alert" className="rounded-lg border border-muted/10 bg-canvas p-3 text-sm text-fg">
-        ক্রসচেকের তথ্য লোড করা যায়নি।{' '}
+        Couldn’t load Cross-check data.{' '}
         <button type="button" onClick={tx.retry} className="min-h-11 font-medium text-primary">
-          আবার চেষ্টা করুন
+          Retry
         </button>
       </div>
     );
     return mode === 'details' ? (
-      <FullScreenPage title="ক্রসচেকের বিস্তারিত" onBack={onBack!}>
+      <FullScreenPage title="Cross-check Details" onBack={onBack!}>
         {retry}
       </FullScreenPage>
     ) : (
@@ -168,8 +155,8 @@ function Loaded({
 
   if (!result) {
     return mode === 'details' ? (
-      <FullScreenPage title="ক্রসচেকের বিস্তারিত" onBack={onBack!}>
-        <p className="text-sm text-muted">লোড হচ্ছে…</p>
+      <FullScreenPage title="Cross-check Details" onBack={onBack!}>
+        <p className="text-sm text-muted">Loading…</p>
       </FullScreenPage>
     ) : (
       <div className="mx-4 mt-4 h-11 animate-pulse rounded-lg border border-muted/10 bg-canvas" aria-hidden />
@@ -192,25 +179,25 @@ function Loaded({
           <IconBadge icon={matched ? CircleCheck : TriangleAlert} tone={matched ? 'income' : 'warning'} size={44} />
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-muted">ক্রসচেক</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted">Cross-check</span>
               <span
                 className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
                   matched ? 'bg-income/10 text-income' : 'bg-warning/10 text-warning'
                 }`}
               >
-                {matched ? 'মিলেছে' : 'Deviation'}
+                {matched ? 'Matched' : 'Deviation'}
               </span>
             </span>
             <span className="mt-0.5 block text-lg font-semibold leading-tight text-fg">
-              {matched ? 'সব হিসাব মিলেছে' : formatNetTaka(result.deviationMinor)}
+              {matched ? 'All figures agree' : formatNet(result.deviationMinor)}
             </span>
             {!matched && (
               <span className={`block text-xs ${result.unexplainedMinor === 0 ? 'text-muted' : 'text-expense'}`}>
-                {result.unexplainedMinor === 0 ? 'কারণগুলো দিয়েই পুরোটা মেটানো গেছে' : `ব্যাখ্যাহীন: ${formatNetTaka(result.unexplainedMinor)}`}
+                {result.unexplainedMinor === 0 ? 'Fully explained by known factors' : `Unexplained: ${formatNet(result.unexplainedMinor)}`}
               </span>
             )}
             <span className="mt-0.5 block text-xs text-muted">
-              {result.currentIsLive ? 'লাইভ' : formatDisplayDate(result.windowEnd, dateFormat)} বনাম {formatDisplayDate(result.previous.snapshotDate, dateFormat)}-এর স্ন্যাপশট
+              {result.currentIsLive ? 'Live' : formatDisplayDate(result.windowEnd, dateFormat)} vs {formatDisplayDate(result.previous.snapshotDate, dateFormat)} snapshot
             </span>
           </span>
           <ChevronRight aria-hidden size={20} className="shrink-0 text-muted" />
@@ -265,46 +252,42 @@ function SectionTitle({ children, hint }: { children: string; hint?: string }) {
 function Details({ r, onBack, dateFormat }: { r: CrossCheckResult; onBack: () => void; dateFormat: 'dmy' | 'mdy' }) {
   const d = (x: string) => formatDisplayDate(x, dateFormat);
   const matched = r.status === 'matched';
-  const windowText = r.windowStart > r.windowEnd ? 'আগের স্ন্যাপশটের পর এখনো এক দিনও পার হয়নি' : `${d(r.windowStart)} – ${d(r.windowEnd)}${r.currentIsLive ? ' (লাইভ)' : ''}`;
+  const windowText = r.windowStart > r.windowEnd ? 'No days since the previous snapshot' : `${d(r.windowStart)} – ${d(r.windowEnd)}${r.currentIsLive ? ' (live)' : ''}`;
   const notes: string[] = [];
-  if (r.previousUnverified) notes.push('আগের স্ন্যাপশটটি “অযাচাইকৃত” চিহ্নিত, তাই এই তুলনায় কিছুটা গরমিল থাকতে পারে।');
-  if (r.lateSnapshotDates.length > 0) notes.push(`ব্যালেন্স হালনাগাদ হয়েছে ${r.lateSnapshotDates.map(d).join(', ')} তারিখে (মাসের শেষ থেকে দূরে), তাই সামান্য Deviation স্বাভাবিক।`);
-  notes.push('নিচের কারণগুলো Deviation-এর সম্ভাব্য ব্যাখ্যা। ব্যালেন্স সময়মতো হালনাগাদ না হলেও ফারাক দেখা দিতে পারে। শুধু “ব্যাখ্যাহীন” অংশটুকুতে নজর দিন।');
+  if (r.previousUnverified) notes.push('The previous snapshot is marked unverified, so this comparison may be off.');
+  if (r.lateSnapshotDates.length > 0) notes.push(`Balances were updated on ${r.lateSnapshotDates.map(d).join(', ')}, so a small deviation is expected.`);
+  notes.push('Factors show what may explain the difference; balances you haven’t updated yet can cause timing gaps. Only “Unexplained” needs your attention.');
 
   return (
-    <FullScreenPage title="ক্রসচেকের বিস্তারিত" onBack={onBack}>
+    <FullScreenPage title="Cross-check Details" onBack={onBack}>
       <div className="flex flex-col gap-3 pb-8">
-        {/* ফলাফল — সংক্ষিপ্ত, এক নজরের কার্ড */}
-        <Card className={`flex items-center gap-3 border px-4 py-3 ${matched ? 'border-income/25' : 'border-warning/30'}`}>
-          <IconBadge icon={matched ? CircleCheck : TriangleAlert} tone={matched ? 'income' : 'warning'} size={40} />
-          <div className="min-w-0 flex-1">
-            <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
-              <span className={`rounded-full px-2 py-0.5 font-medium ${matched ? 'bg-income/10 text-income' : 'bg-warning/10 text-warning'}`}>
-                {matched ? 'মিলেছে' : 'Deviation'}
-              </span>
-              বর্তমান − প্রত্যাশিত
-            </p>
-            <p className="text-2xl font-semibold leading-tight tabular-nums text-fg">{matched ? 'সব হিসাব মিলেছে' : formatNetTaka(r.deviationMinor)}</p>
-            <p className="text-xs text-muted">সময়কাল: {windowText}</p>
-          </div>
+        {/* ফলাফল-হিরো */}
+        <Card className={`flex flex-col items-center gap-1.5 border p-5 text-center ${matched ? 'border-income/25' : 'border-warning/30'}`}>
+          <IconBadge icon={matched ? CircleCheck : TriangleAlert} tone={matched ? 'income' : 'warning'} size={52} />
+          <span className={`rounded-full px-3 py-0.5 text-xs font-medium ${matched ? 'bg-income/10 text-income' : 'bg-warning/10 text-warning'}`}>
+            {matched ? 'Matched' : 'Deviation'}
+          </span>
+          <p className="text-3xl font-semibold tabular-nums text-fg">{matched ? 'All figures agree' : formatNet(r.deviationMinor)}</p>
+          <p className="text-xs text-muted">current − expected</p>
+          <p className="mt-1 rounded-full bg-muted/10 px-3 py-1 text-xs text-fg">Window · {windowText}</p>
         </Card>
 
-        {/* হিসাব যেভাবে হলো */}
+        {/* হিসাব কীভাবে হলো */}
         <section>
-          <SectionTitle hint="ধাপে ধাপে">হিসাব যেভাবে হলো</SectionTitle>
+          <SectionTitle hint="step by step">How it’s calculated</SectionTitle>
           <Card className="divide-y divide-muted/10 overflow-hidden">
-            <Line label="আগের স্ন্যাপশট" sub={d(r.previous.snapshotDate)} value={formatTaka(r.previousTotalMinor)} />
-            <Line label="+ এ সময়ের সঞ্চয়" sub="আয় − ব্যয়" value={formatNetTaka(r.savingsMinor)} valueCls={signCls(r.savingsMinor)} />
-            <Line label="= প্রত্যাশিত মোট" value={formatTaka(r.expectedMinor)} tint="bg-primary/5" />
-            <Line label="বর্তমান মোট সম্পদ" sub={r.currentIsLive ? 'লাইভ' : `স্ন্যাপশট ${d(r.windowEnd)}`} value={formatTaka(r.currentMinor)} />
-            <Line label="Deviation" sub="বর্তমান − প্রত্যাশিত" value={formatNetTaka(r.deviationMinor)} valueCls={matched ? 'text-income' : 'text-warning'} tint={matched ? 'bg-income/5' : 'bg-warning/5'} />
+            <Line label="Previous snapshot" sub={d(r.previous.snapshotDate)} value={formatAmount(r.previousTotalMinor)} />
+            <Line label="+ Savings in window" sub="income − expense" value={formatNet(r.savingsMinor)} valueCls={signCls(r.savingsMinor)} />
+            <Line label="= Expected" value={formatAmount(r.expectedMinor)} tint="bg-primary/5" />
+            <Line label="Current total assets" sub={r.currentIsLive ? 'live' : `snapshot ${d(r.windowEnd)}`} value={formatAmount(r.currentMinor)} />
+            <Line label="Deviation" sub="current − expected" value={formatNet(r.deviationMinor)} valueCls={matched ? 'text-income' : 'text-warning'} tint={matched ? 'bg-income/5' : 'bg-warning/5'} />
           </Card>
         </section>
 
-        {/* Deviation-এর সম্ভাব্য কারণ */}
+        {/* কী কী ব্যাখ্যা করতে পারে */}
         {(!matched || r.factors.length > 0) && (
           <section>
-            <SectionTitle hint={r.factors.length ? `${r.factors.length}টি কারণ` : undefined}>Deviation-এর সম্ভাব্য কারণ</SectionTitle>
+            <SectionTitle hint={r.factors.length ? `${r.factors.length} factor${r.factors.length === 1 ? '' : 's'}` : undefined}>What may explain it</SectionTitle>
             <Card className="divide-y divide-muted/10 overflow-hidden">
               {r.factors.map((f) => (
                 <div key={f.key} className="px-4 py-3">
@@ -313,19 +296,19 @@ function Details({ r, onBack, dateFormat }: { r: CrossCheckResult; onBack: () =>
                       <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${f.effectMinor >= 0 ? 'bg-income' : 'bg-expense'}`} />
                       {FACTOR_LABEL[f.key]}
                     </span>
-                    <span className={`shrink-0 text-sm font-semibold tabular-nums ${signCls(f.effectMinor)}`}>{formatNetTaka(f.effectMinor)}</span>
+                    <span className={`shrink-0 text-sm font-semibold tabular-nums ${signCls(f.effectMinor)}`}>{formatNet(f.effectMinor)}</span>
                   </div>
                   <div className="mt-1.5 flex flex-wrap gap-1.5 pl-4">
                     {f.detail.map((n) => (
-                      <span key={n} className="rounded-full bg-muted/10 px-2 py-0.5 text-xs text-muted">{bnDetail(n)}</span>
+                      <span key={n} className="rounded-full bg-muted/10 px-2 py-0.5 text-xs text-muted">{n}</span>
                     ))}
                   </div>
                 </div>
               ))}
               <Line
-                label="ব্যাখ্যাহীন"
-                sub={r.unexplainedMinor === 0 ? 'কারণগুলো দিয়েই পুরো Deviation মেটানো গেছে' : 'এ অংশে আপনার নজর দরকার'}
-                value={formatNetTaka(r.unexplainedMinor)}
+                label="Unexplained"
+                sub={r.unexplainedMinor === 0 ? 'Fully explained by the factors above' : 'Needs your attention'}
+                value={formatNet(r.unexplainedMinor)}
                 valueCls={r.unexplainedMinor === 0 ? 'text-income' : 'text-expense'}
                 tint={r.unexplainedMinor === 0 ? 'bg-income/5' : 'bg-expense/5'}
               />
