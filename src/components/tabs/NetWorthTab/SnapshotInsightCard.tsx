@@ -1,4 +1,4 @@
-import { Banknote, Landmark, Layers, Lightbulb, TrendingDown, TrendingUp, TriangleAlert, CircleCheck, Info, BarChart3, type LucideIcon } from 'lucide-react';
+import { Banknote, Landmark, Layers, Lightbulb, TrendingDown, TrendingUp, TriangleAlert, CircleCheck, Info, BarChart3, ChevronLeft, ChevronRight, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
@@ -67,7 +67,82 @@ function Tile({ label, value, cls = 'text-fg' }: { label: string; value: string;
   );
 }
 
-export default function SnapshotInsightCard({ insight: i, dateFormat }: { insight: SnapshotInsight; dateFormat: 'dmy' | 'mdy' }) {
+/** স্বাইপ/বোতামে মাস-বদলের নিয়ন্ত্রণ (InsightPager দেয়); না দিলে কার্ড একটাই মাস দেখায় */
+export interface InsightNav {
+  canOlder: boolean;
+  canNewer: boolean;
+  onOlder: () => void;
+  onNewer: () => void;
+  /** ১ = সবচেয়ে নতুন */
+  position: number;
+  total: number;
+}
+
+const navBtn = 'flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-primary disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary';
+
+export default function SnapshotInsightCard({
+  insight: i,
+  currentYyyymm,
+  previousYyyymm,
+  dateFormat,
+  nav,
+  status = 'ready',
+  onRetry,
+}: {
+  insight: SnapshotInsight | null;
+  currentYyyymm: string;
+  previousYyyymm: string;
+  dateFormat: 'dmy' | 'mdy';
+  nav?: InsightNav;
+  status?: 'loading' | 'error' | 'ready';
+  onRetry?: () => void;
+}) {
+  const header = (
+    <header className="flex items-center gap-1">
+      {nav ? (
+        <button type="button" aria-label="আগের মাসের বিশ্লেষণ" onClick={nav.onOlder} disabled={!nav.canOlder} className={navBtn}>
+          <ChevronLeft aria-hidden size={22} />
+        </button>
+      ) : null}
+      <div className="flex min-w-0 flex-1 flex-col items-center gap-1 text-center">
+        <IconBadge icon={BarChart3} tone="primary" size={40} />
+        <h2 className="text-xl font-semibold text-fg">মাসিক বিশ্লেষণ</h2>
+        <p className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-medium text-primary">
+          {monthLabelBn(currentYyyymm)} বনাম {monthLabelBn(previousYyyymm)}
+        </p>
+        {nav && nav.total > 1 && (
+          <p className="text-[11px] text-muted" aria-live="polite">
+            {nav.position} / {nav.total} · আঙুল ডানে-বাঁয়ে টানুন
+          </p>
+        )}
+      </div>
+      {nav ? (
+        <button type="button" aria-label="পরের মাসের বিশ্লেষণ" onClick={nav.onNewer} disabled={!nav.canNewer} className={navBtn}>
+          <ChevronRight aria-hidden size={22} />
+        </button>
+      ) : null}
+    </header>
+  );
+
+  if (!i) {
+    return (
+      <Card className="mx-4 mb-3 p-4">
+        {header}
+        {status === 'error' ? (
+          <div role="alert" className="mt-4 text-center text-sm text-fg">
+            বিশ্লেষণ লোড করা যায়নি।{' '}
+            <button type="button" onClick={onRetry} className="min-h-11 font-medium text-primary">আবার চেষ্টা করুন</button>
+          </div>
+        ) : (
+          <div className="mt-4 flex flex-col gap-2" aria-hidden>
+            <div className="h-20 animate-pulse rounded-xl bg-muted/10" />
+            <div className="h-32 animate-pulse rounded-xl bg-muted/10" />
+          </div>
+        )}
+      </Card>
+    );
+  }
+
   const pm = shortMonth(i.previousYyyymm);
   const cm = shortMonth(i.currentYyyymm);
   const d = (s: string) => formatDisplayDate(s, dateFormat);
@@ -78,13 +153,7 @@ export default function SnapshotInsightCard({ insight: i, dateFormat }: { insigh
 
   return (
     <Card className="mx-4 mb-3 p-4">
-      <header className="flex flex-col items-center gap-1 text-center">
-        <IconBadge icon={BarChart3} tone="primary" size={40} />
-        <h2 className="text-xl font-semibold text-fg">মাসিক বিশ্লেষণ</h2>
-        <p className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-medium text-primary">
-          {monthLabelBn(i.currentYyyymm)} বনাম {monthLabelBn(i.previousYyyymm)}
-        </p>
-      </header>
+      {header}
 
       {/* সারসংক্ষেপ-ব্যানার */}
       <div className={`mt-4 rounded-xl px-3 py-3 text-center ${flat ? 'bg-muted/10' : down ? 'bg-expense/10' : 'bg-income/10'}`}>
