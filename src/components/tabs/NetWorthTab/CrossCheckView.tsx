@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { ChevronRight, CircleCheck, TriangleAlert } from 'lucide-react';
+import { ChevronRight, CircleCheck, Info, TriangleAlert } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
+import Card from '../../common/Card';
 import IconBadge from '../../common/IconBadge';
 import { useNetWorthSnapshots, useRangeTransactions, useSettings } from '../../../hooks/useData';
 import { computeCrossCheck, pickCrossCheckPair, addDays, type CrossCheckResult, type FactorKey, type SnapshotLike } from '../../../lib/crossCheck';
@@ -224,56 +225,106 @@ function Loaded({
   return <Details r={result} onBack={onBack!} dateFormat={dateFormat} />;
 }
 
-function Row({ label, value, strong, indent }: { label: string; value: string; strong?: boolean; indent?: boolean }) {
+const signCls = (n: number) => (n === 0 ? 'text-muted' : n > 0 ? 'text-income' : 'text-expense');
+
+/** হিসাবের এক ধাপ: বাঁয়ে নাম (+ ছোট উপ-লেখা), ডানে অঙ্ক */
+function Line({ label, sub, value, valueCls = 'text-fg', tint }: { label: string; sub?: string; value: string; valueCls?: string; tint?: string }) {
   return (
-    <p className={`flex justify-between gap-3 py-1 text-sm ${indent ? 'pl-4' : ''}`}>
-      <span className={strong ? 'font-medium text-fg' : 'text-muted'}>{label}</span>
-      <span className={strong ? 'font-semibold text-fg' : 'text-fg'}>{value}</span>
-    </p>
+    <div className={`flex items-center justify-between gap-3 px-4 py-3 ${tint ?? ''}`}>
+      <span className="min-w-0">
+        <span className="block text-sm text-fg">{label}</span>
+        {sub && <span className="block text-xs text-muted">{sub}</span>}
+      </span>
+      <span className={`shrink-0 text-right text-sm font-semibold tabular-nums ${valueCls}`}>{value}</span>
+    </div>
+  );
+}
+
+function SectionTitle({ children, hint }: { children: string; hint?: string }) {
+  return (
+    <div className="flex items-baseline justify-between px-1 pb-1.5 pt-1">
+      <h3 className="text-sm font-semibold text-fg">{children}</h3>
+      {hint && <span className="text-xs text-muted">{hint}</span>}
+    </div>
   );
 }
 
 function Details({ r, onBack, dateFormat }: { r: CrossCheckResult; onBack: () => void; dateFormat: 'dmy' | 'mdy' }) {
-  const shortDate = (d: string) => formatDisplayDate(d, dateFormat);
+  const d = (x: string) => formatDisplayDate(x, dateFormat);
+  const matched = r.status === 'matched';
+  const windowText = r.windowStart > r.windowEnd ? 'No days since the previous snapshot' : `${d(r.windowStart)} – ${d(r.windowEnd)}${r.currentIsLive ? ' (live)' : ''}`;
+  const notes: string[] = [];
+  if (r.previousUnverified) notes.push('The previous snapshot is marked unverified, so this comparison may be off.');
+  if (r.lateSnapshotDates.length > 0) notes.push(`Balances were updated on ${r.lateSnapshotDates.map(d).join(', ')}, so a small deviation is expected.`);
+  notes.push('Factors show what may explain the difference; balances you haven’t updated yet can cause timing gaps. Only “Unexplained” needs your attention.');
+
   return (
     <FullScreenPage title="Cross-check Details" onBack={onBack}>
-      <p className="pb-2 text-sm text-muted">
-        {r.windowStart > r.windowEnd
-          ? 'Window: no days since the previous snapshot'
-          : `Window: ${shortDate(r.windowStart)} – ${shortDate(r.windowEnd)}`}
-        {r.currentIsLive ? ' (live)' : ''}
-      </p>
+      <div className="flex flex-col gap-3 pb-8">
+        {/* ফলাফল-হিরো */}
+        <Card className={`flex flex-col items-center gap-1.5 border p-5 text-center ${matched ? 'border-income/25' : 'border-warning/30'}`}>
+          <IconBadge icon={matched ? CircleCheck : TriangleAlert} tone={matched ? 'income' : 'warning'} size={52} />
+          <span className={`rounded-full px-3 py-0.5 text-xs font-medium ${matched ? 'bg-income/10 text-income' : 'bg-warning/10 text-warning'}`}>
+            {matched ? 'Matched' : 'Deviation'}
+          </span>
+          <p className="text-3xl font-semibold tabular-nums text-fg">{matched ? 'All figures agree' : formatNet(r.deviationMinor)}</p>
+          <p className="text-xs text-muted">current − expected</p>
+          <p className="mt-1 rounded-full bg-muted/10 px-3 py-1 text-xs text-fg">Window · {windowText}</p>
+        </Card>
 
-      <Row label={`Previous snapshot (${shortDate(r.previous.snapshotDate)})`} value={formatAmount(r.previousTotalMinor)} />
-      <Row label="+ Savings in window" value={formatNet(r.savingsMinor)} />
-      <Row label="= Expected" value={formatAmount(r.expectedMinor)} strong />
-      <Row label={r.currentIsLive ? 'Current Total Assets (live)' : 'Current Total Assets (snapshot)'} value={formatAmount(r.currentMinor)} />
+        {/* হিসাব কীভাবে হলো */}
+        <section>
+          <SectionTitle hint="step by step">How it’s calculated</SectionTitle>
+          <Card className="divide-y divide-muted/10 overflow-hidden">
+            <Line label="Previous snapshot" sub={d(r.previous.snapshotDate)} value={formatAmount(r.previousTotalMinor)} />
+            <Line label="+ Savings in window" sub="income − expense" value={formatNet(r.savingsMinor)} valueCls={signCls(r.savingsMinor)} />
+            <Line label="= Expected" value={formatAmount(r.expectedMinor)} tint="bg-primary/5" />
+            <Line label="Current total assets" sub={r.currentIsLive ? 'live' : `snapshot ${d(r.windowEnd)}`} value={formatAmount(r.currentMinor)} />
+            <Line label="Deviation" sub="current − expected" value={formatNet(r.deviationMinor)} valueCls={matched ? 'text-income' : 'text-warning'} tint={matched ? 'bg-income/5' : 'bg-warning/5'} />
+          </Card>
+        </section>
 
-      <div className="my-2 border-t border-muted/20" />
-      <Row label="Deviation (current − expected)" value={formatNet(r.deviationMinor)} strong />
-      {r.status === 'matched' && <p className="pt-1 text-sm text-fg">✅ Matched — no deviation.</p>}
-
-      {r.factors.map((f) => (
-        <div key={f.key} className="pl-4">
-          <Row label={`└ ${FACTOR_LABEL[f.key]}`} value={formatNet(f.effectMinor)} />
-          <p className="-mt-1 pl-4 text-xs text-muted">{f.detail.join(', ')}</p>
-        </div>
-      ))}
-      {r.status === 'deviation' && <Row indent label="└ Unexplained" value={formatNet(r.unexplainedMinor)} />}
-
-      <div className="mt-4 flex flex-col gap-2 text-xs text-muted">
-        {r.previousUnverified && (
-          <p>ℹ️ The previous snapshot is marked unverified, so this comparison may be off.</p>
+        {/* কী কী ব্যাখ্যা করতে পারে */}
+        {(!matched || r.factors.length > 0) && (
+          <section>
+            <SectionTitle hint={r.factors.length ? `${r.factors.length} factor${r.factors.length === 1 ? '' : 's'}` : undefined}>What may explain it</SectionTitle>
+            <Card className="divide-y divide-muted/10 overflow-hidden">
+              {r.factors.map((f) => (
+                <div key={f.key} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex min-w-0 items-center gap-2 text-sm text-fg">
+                      <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${f.effectMinor >= 0 ? 'bg-income' : 'bg-expense'}`} />
+                      {FACTOR_LABEL[f.key]}
+                    </span>
+                    <span className={`shrink-0 text-sm font-semibold tabular-nums ${signCls(f.effectMinor)}`}>{formatNet(f.effectMinor)}</span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 pl-4">
+                    {f.detail.map((n) => (
+                      <span key={n} className="rounded-full bg-muted/10 px-2 py-0.5 text-xs text-muted">{n}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <Line
+                label="Unexplained"
+                sub={r.unexplainedMinor === 0 ? 'Fully explained by the factors above' : 'Needs your attention'}
+                value={formatNet(r.unexplainedMinor)}
+                valueCls={r.unexplainedMinor === 0 ? 'text-income' : 'text-expense'}
+                tint={r.unexplainedMinor === 0 ? 'bg-income/5' : 'bg-expense/5'}
+              />
+            </Card>
+          </section>
         )}
-        {r.lateSnapshotDates.length > 0 && (
-          <p>
-            ℹ️ Balances were updated on {r.lateSnapshotDates.map(shortDate).join(', ')}, so a small deviation is expected.
-          </p>
-        )}
-        <p>
-          ℹ️ Factors show what may explain the difference; balances you haven’t updated yet can cause timing gaps. Only
-          “Unexplained” needs your attention.
-        </p>
+
+        {/* নোট */}
+        <ul className="flex flex-col gap-2">
+          {notes.map((n) => (
+            <li key={n} className="flex items-start gap-2 rounded-xl bg-muted/10 px-3 py-2.5 text-[13px] leading-relaxed text-muted">
+              <Info aria-hidden size={16} className="mt-0.5 shrink-0" />
+              <span>{n}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </FullScreenPage>
   );
