@@ -48,7 +48,7 @@ export function CategoryBars({ items, onSelect }: { items: readonly CategoryShar
 }
 
 const MONTH_SHORT_TRIO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const PILL = 'inline-flex h-7 w-[68px] shrink-0 items-center justify-center rounded-full px-1 text-[11px] font-semibold tabular-nums';
+const PILL = 'inline-flex h-7 w-[62px] shrink-0 items-center justify-center rounded-full px-0.5 text-[11px] font-semibold tabular-nums';
 
 /** ৩ মাসের ক্যাটাগরি-তুলনা (ডেইলি-টাস্ক চিত্রের স্টাইল): ওপরে ছোট বিশ্লেষণ, নিচে নাম + ৩টি পিল। নতুন query নেই। */
 export function CategoryTrio({
@@ -66,9 +66,7 @@ export function CategoryTrio({
 }) {
   if (rows.length === 0) return <p className="text-sm text-muted">No expenses in this period.</p>;
   const head = months.map((m) => MONTH_SHORT_TRIO[Number(m.slice(5, 7)) - 1] ?? m);
-  const ins = ready ? trioInsight(rows) : { up: null, down: null };
-  const up = ins.up;
-  const down = inProgress ? null : ins.down; // অসম্পূর্ণ মাসে "কমেছে" বার্তা বিভ্রান্তিকর
+  const { up, down } = ready ? trioInsight(rows) : { up: null, down: null };
   const box = 'rounded-xl border px-3 py-2.5';
   return (
     <div className="flex flex-col gap-2.5">
@@ -97,7 +95,7 @@ export function CategoryTrio({
         <div className="flex items-center gap-1 border-b border-muted/20 pb-1.5 text-[11px] text-muted" aria-hidden>
           <span className="min-w-0 flex-1">Category</span>
           {head.map((h, i) => (
-            <span key={`${h}${i}`} className={`w-[68px] shrink-0 text-center ${i === 2 ? 'font-semibold text-primary' : ''}`}>{h}{i === 2 && inProgress ? '*' : ''}</span>
+            <span key={`${h}${i}`} className={`w-[62px] shrink-0 text-center ${i === 2 ? 'font-semibold text-primary' : ''}`}>{h}{i === 2 && inProgress ? '*' : ''}</span>
           ))}
         </div>
         <ul aria-label="Expense by category, last 3 months">
@@ -116,7 +114,7 @@ export function CategoryTrio({
                 >
                   <span className="flex min-w-0 flex-1 items-center gap-1.5">
                     <span aria-hidden className="shrink-0 text-sm leading-none">{getCategoryIcon(r.name, 'expense')}</span>
-                    <span className="line-clamp-2 min-w-0 break-words text-sm font-medium leading-tight text-fg">{r.name}</span>
+                    <span className="line-clamp-2 min-w-0 overflow-hidden text-[13px] font-medium leading-tight text-fg">{r.name}</span>
                   </span>
                   {[r.minors[0], r.minors[1]].map((v, i) => (
                     <span key={i} className={`${PILL} bg-muted/10 font-medium text-muted`}>{!ready ? '…' : v > 0 ? formatTakaWhole(v) : '—'}</span>
