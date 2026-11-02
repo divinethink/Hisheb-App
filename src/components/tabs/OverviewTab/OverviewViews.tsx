@@ -7,7 +7,7 @@ import CategoryHistorySheet from './CategoryHistorySheet';
 import { YearlyBreakdown, YearsCard } from './BreakdownLists';
 import { Block, NoteGroup, OrderedCards } from './OverviewBits';
 import { defaultLayout, type OverviewLayout } from '../../../lib/overviewLayout';
-import { CategoryBars, CategoryDonut, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
+import { CategoryBars, CategoryDonut, CategoryTrio, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
 import { BigOneOffCard, HundredCard, LeakCard, NoSpendCalendarCard, ReportCard, TargetGapCard, WeekdayCard } from './MonthlyCards';
 import { InvestmentHonestCard, LifestyleCreepCard, RealGrowthCard, SavingsRateCard } from './YearlyCards';
 import { AssetMixCard, GoalCard, NetWorthBridgeCard, RunwayCard } from './GoalCards';
@@ -21,6 +21,7 @@ import {
   avgMonthlySavings,
   bestWorstMonth,
   categoryBreakdown,
+  categoryTrio,
   flowByMonth,
   latestWithBreakdown,
   monthRows,
@@ -269,6 +270,12 @@ function MonthlyBody({
   const t = useMemo(() => sumTotals(txs), [txs]);
   const cats = useMemo(() => categoryBreakdown(txs), [txs]);
   const [selCat, setSelCat] = useState<string | null>(null);
+  // ৩ মাসের তুলনা: আগের-২ ও আগের মাস runwayTxs (আগের ৩ মাস) থেকে — নতুন query নেই
+  const trioMonths = useMemo(() => [shiftMonth(month, -2), shiftMonth(month, -1), month] as const, [month]);
+  const trio = useMemo(() => {
+    const inM = (src: readonly TxLite[] | null, m: string) => (src ? src.filter((x) => x.date.startsWith(m)) : []);
+    return categoryTrio([inM(runwayTxs, trioMonths[0]), inM(runwayTxs ?? prevTxs, trioMonths[1]), txs]);
+  }, [runwayTxs, prevTxs, trioMonths, txs]);
   const savings = t.income - t.expense;
   const savingsPct = savingsRatePct(t.income, t.expense);
 
@@ -307,7 +314,7 @@ function MonthlyBody({
           category: (
             <Section title="Expense by category" icon={PieChart}>
               <CategoryDonut items={cats} totalMinor={t.expense} />
-              <CategoryBars items={cats} onSelect={setSelCat} />
+              <CategoryTrio rows={trio} months={trioMonths} ready={runwayTxs != null} inProgress={inProgress} onSelect={setSelCat} />
             </Section>
           ),
           keynums: <KeyNumbers avgExpense={avgExpense} avgSavings={avgSavings} runway={runway} ytd={ytd} thisExpense={t.expense} />,

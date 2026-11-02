@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { categoryColorIndex, formatAmount, formatTakaWhole } from '../../../lib/format';
 import { getCategoryIcon } from '../../../lib/categoryIcons';
-import type { CategoryShare } from '../../../lib/overviewCalc';
+import { trioInsight, type CategoryShare, type CategoryTrioRow } from '../../../lib/overviewCalc';
 
 // SVG url(#id) reference-এ React-এর useId() ফেরানো কোলন (":r0:") কিছু browser-এ ভাঙতে পারে —
 // তাই gradient-id বানানোর সময় সবসময় এই helper দিয়ে sanitize করা হবে (alnum+dash-ই থাকবে)।
@@ -44,6 +44,93 @@ export function CategoryBars({ items, onSelect }: { items: readonly CategoryShar
         );
       })}
     </ul>
+  );
+}
+
+const MONTH_SHORT_TRIO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const COL = 'w-[58px] shrink-0 text-right';
+
+/** ৩ মাসের ক্যাটাগরি-তুলনা: আগের-২ | আগের | চলতি মাস। নিচে ছোট বিশ্লেষণ। নতুন query নেই। */
+export function CategoryTrio({
+  rows,
+  months,
+  ready,
+  inProgress,
+  onSelect,
+}: {
+  rows: readonly CategoryTrioRow[];
+  months: readonly [string, string, string]; // yyyymm × ৩
+  ready: boolean; // আগের মাসের ডেটা লোড হয়েছে কি
+  inProgress: boolean;
+  onSelect?: (name: string) => void;
+}) {
+  if (rows.length === 0) return <p className="text-sm text-muted">No expenses in this period.</p>;
+  const curTotal = rows.reduce((a, r) => a + r.minors[2], 0) || 1;
+  const head = months.map((m) => MONTH_SHORT_TRIO[Number(m.slice(5, 7)) - 1] ?? m);
+  const cell = (v: number) => (!ready ? '…' : v > 0 ? formatTakaWhole(v) : '—');
+  const { up, down } = ready ? trioInsight(rows) : { up: null, down: null };
+  return (
+    <div>
+      <div className="flex items-end gap-1 border-b border-muted/15 pb-1 text-[11px] text-muted" aria-hidden>
+        <span className="min-w-0 flex-1" />
+        <span className={COL}>{head[0]}</span>
+        <span className={COL}>{head[1]}</span>
+        <span className={`${COL} font-semibold text-primary`}>{head[2]}{inProgress ? '*' : ''}</span>
+      </div>
+      <ul aria-label="Expense by category, last 3 months" className="flex flex-col">
+        {rows.map((r) => {
+          const v = chartVar(r.name);
+          const d = r.deltaPct;
+          const tag = ready && d != null && Math.abs(d) >= 10 ? d : null;
+          return (
+            <li key={r.name} className="border-b border-muted/10 last:border-b-0">
+              <button
+                type="button"
+                disabled={!onSelect || r.minors[2] === 0}
+                onClick={() => onSelect?.(r.name)}
+                className="flex min-h-11 w-full items-center gap-1 py-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-sm">
+                    <span aria-hidden className="shrink-0 leading-none">{getCategoryIcon(r.name, 'expense')}</span>
+                    <span className="min-w-0 truncate text-fg">{r.name}</span>
+                  </span>
+                  <span className="mt-1 block h-1 w-full rounded bg-muted/15" aria-hidden>
+                    <span className="block h-1 rounded" style={{ width: `${Math.max(r.minors[2] > 0 ? 3 : 0, (r.minors[2] / curTotal) * 100)}%`, background: `rgb(var(${v}))` }} />
+                  </span>
+                </span>
+                <span className={`${COL} text-xs text-muted`}>{cell(r.minors[0])}</span>
+                <span className={`${COL} text-xs text-muted`}>{cell(r.minors[1])}</span>
+                <span className={`${COL} text-xs font-semibold text-fg`}>
+                  {cell(r.minors[2])}
+                  {tag != null && (
+                    <span className={`block text-[10px] font-medium ${tag > 0 ? 'text-expense' : 'text-income'}`}>
+                      {tag > 0 ? '↑' : '↓'}{Math.round(Math.abs(tag))}%
+                    </span>
+                  )}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {(up || down) && (
+        <div className="mt-2 flex flex-col gap-1.5 text-xs">
+          {down && (
+            <p className="rounded-xl bg-income/10 px-3 py-2 text-fg">
+              🌱 <span className="font-semibold">{down.name}</span> is down {formatTakaWhole(down.minors[1] - down.minors[2])} from last month.
+            </p>
+          )}
+          {up && (
+            <p className="rounded-xl bg-warning/10 px-3 py-2 text-fg">
+              💛 <span className="font-semibold">{up.name}</span> is up {formatTakaWhole(up.minors[2] - up.minors[1])} from last month
+              {up.deltaPct != null ? ` (${Math.round(up.deltaPct)}%)` : ' (new this month)'}.
+            </p>
+          )}
+        </div>
+      )}
+      {inProgress && <p className="mt-1.5 text-[11px] text-muted">* Month in progress — current figures are incomplete.</p>}
+    </div>
   );
 }
 

@@ -1032,3 +1032,38 @@ export function investmentHonest(list: readonly InvestmentLite[], today?: string
     annualRatePct: today && total > 0 && capitalYears / total >= 0.25 ? (net / capitalYears) * 100 : null,
   };
 }
+
+export interface CategoryTrioRow {
+  name: string;
+  minors: [number, number, number]; // [আগের-২ মাস, আগের মাস, চলতি মাস]
+  /** চলতি বনাম আগের মাস (%); আগের মাসে ০ হলে null */
+  deltaPct: number | null;
+}
+
+/** ক্যাটাগরি ধরে ৩ মাসের ব্যয় (Others ছাড়া)। সারি: চলতি মাস বড় → ছোট, তারপর আগের মাস। */
+export function categoryTrio(monthTxs: readonly [readonly TxLite[], readonly TxLite[], readonly TxLite[]]): CategoryTrioRow[] {
+  const map = new Map<string, [number, number, number]>();
+  monthTxs.forEach((txs, i) => {
+    for (const t of txs) {
+      if (t.type !== 'expense') continue;
+      const e = map.get(t.categoryName) ?? [0, 0, 0];
+      e[i] += t.amountMinor;
+      map.set(t.categoryName, e);
+    }
+  });
+  return [...map.entries()]
+    .map(([name, minors]) => ({ name, minors, deltaPct: minors[1] > 0 ? ((minors[2] - minors[1]) / minors[1]) * 100 : null }))
+    .sort((a, b) => b.minors[2] - a.minors[2] || b.minors[1] - a.minors[1] || b.minors[0] - a.minors[0]);
+}
+
+/** ছোট বিশ্লেষণ: চলতি বনাম আগের মাসে সবচেয়ে বেশি বাড়া/কমা ক্যাটাগরি (টাকার অঙ্কে)। ন্যূনতম ফারাক minMinor। */
+export function trioInsight(rows: readonly CategoryTrioRow[], minMinor = 50_000): { up: CategoryTrioRow | null; down: CategoryTrioRow | null } {
+  let up: CategoryTrioRow | null = null;
+  let down: CategoryTrioRow | null = null;
+  for (const r of rows) {
+    const d = r.minors[2] - r.minors[1];
+    if (d >= minMinor && (!up || d > up.minors[2] - up.minors[1])) up = r;
+    if (-d >= minMinor && (!down || -d > down.minors[1] - down.minors[2])) down = r;
+  }
+  return { up, down };
+}

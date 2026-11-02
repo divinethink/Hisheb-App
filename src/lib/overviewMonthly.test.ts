@@ -204,3 +204,27 @@ describe('bigOneOffs', () => {
     expect(bigOneOffs(even)).toBeNull();
   });
 });
+
+import { categoryTrio, trioInsight } from './overviewCalc';
+describe('categoryTrio / trioInsight', () => {
+  const a = [tx('2026-08-03', 'expense', 100_000, 'Food'), tx('2026-08-04', 'income', 900_000, 'Salary')];
+  const b = [tx('2026-09-03', 'expense', 200_000, 'Food'), tx('2026-09-04', 'expense', 80_000, 'Gift')];
+  const c = [tx('2026-10-03', 'expense', 500_000, 'Food'), tx('2026-10-05', 'expense', 10_000, 'Gift'), tx('2026-10-06', 'expense', 300_000, 'Tour')];
+  const rows = categoryTrio([a, b, c]);
+  it('তিন মাস ধরে যোগ, আয় বাদ, চলতি মাস অনুযায়ী সাজানো', () => {
+    expect(rows.map((r) => r.name)).toEqual(['Food', 'Tour', 'Gift']);
+    expect(rows[0].minors).toEqual([100_000, 200_000, 500_000]);
+    expect(rows[1].minors).toEqual([0, 0, 300_000]);
+    expect(rows[1].deltaPct).toBeNull();
+    expect(rows[0].deltaPct).toBe(150);
+  });
+  it('বেশি বাড়া/কমা', () => {
+    const i = trioInsight(rows);
+    expect(i.up?.name).toBe('Food');
+    expect(i.down?.name).toBe('Gift'); // ৳৭০০ কমেছে (≥ ৳৫০০)
+  });
+  it('খালি ইনপুটে খালি', () => {
+    expect(categoryTrio([[], [], []])).toEqual([]);
+    expect(trioInsight([])).toEqual({ up: null, down: null });
+  });
+});
