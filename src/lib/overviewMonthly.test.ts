@@ -228,3 +228,32 @@ describe('categoryTrio / trioInsight', () => {
     expect(trioInsight([])).toEqual({ up: null, down: null });
   });
 });
+
+import { splitTrio, type CategoryTrioRow } from './overviewCalc';
+describe('splitTrio', () => {
+  const r = (name: string, a: number, b: number, c: number): CategoryTrioRow => ({ name, minors: [a, b, c], deltaPct: null });
+  const rows = [
+    r('Tour & Travel', 0, 0, 3000),
+    r('বাসা', 13, 13, 10),
+    r('Groceries', 0, 4, 9),
+    r('Hira', 2, 3, 4),
+    r('Raiyan', 1, 1, 3),
+    r('Hasan Tuhin', 1, 1, 1),
+    r('উপহার/দান/রোগী', 7, 18, 13),
+    r('Transportation', 17, 25, 4),
+    r('Hangout', 28, 0, 1),
+    r('Groceries/Fruits/Sweets', 84, 38, 0),
+    r('বাবা', 15, 29, 0),
+    r('অন্যান্য ব্যয়', 0, 2, 0),
+  ];
+  it('সম্পূর্ণ মাস: নিয়মিত প্রধানে, ক্রম-পিন মানা', () => {
+    const { main, rest } = splitTrio(rows, false);
+    expect(main.map((x) => x.name)).toEqual(['বাসা', 'Groceries', 'Raiyan', 'Hasan Tuhin', 'Hira', 'Transportation', 'উপহার/দান/রোগী']);
+    expect(rest.map((x) => x.name)).toEqual(['Hangout', 'বাবা', 'Groceries/Fruits/Sweets', 'Tour & Travel', 'অন্যান্য ব্যয়']);
+  });
+  it('চলমান মাস: আগের দুই মাস দিয়ে বাছা', () => {
+    const { main } = splitTrio(rows, true);
+    expect(main.map((x) => x.name)).toContain('Groceries/Fruits/Sweets');
+    expect(main[main.length - 1].name).toBe('উপহার/দান/রোগী');
+  });
+});

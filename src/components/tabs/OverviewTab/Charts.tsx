@@ -1,7 +1,8 @@
 import { useId, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { categoryColorIndex, formatAmount, formatTakaWhole } from '../../../lib/format';
 import { getCategoryIcon } from '../../../lib/categoryIcons';
-import { trioInsight, type CategoryShare, type CategoryTrioRow } from '../../../lib/overviewCalc';
+import { splitTrio, trioInsight, type CategoryShare, type CategoryTrioRow } from '../../../lib/overviewCalc';
 
 // SVG url(#id) reference-এ React-এর useId() ফেরানো কোলন (":r0:") কিছু browser-এ ভাঙতে পারে —
 // তাই gradient-id বানানোর সময় সবসময় এই helper দিয়ে sanitize করা হবে (alnum+dash-ই থাকবে)।
@@ -50,7 +51,35 @@ export function CategoryBars({ items, onSelect }: { items: readonly CategoryShar
 const MONTH_SHORT_TRIO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const PILL = 'inline-flex h-7 w-[62px] shrink-0 items-center justify-center rounded-full px-0.5 text-[11px] font-semibold tabular-nums';
 
-/** ৩ মাসের ক্যাটাগরি-তুলনা (ডেইলি-টাস্ক চিত্রের স্টাইল): ওপরে ছোট বিশ্লেষণ, নিচে নাম + ৩টি পিল। নতুন query নেই। */
+function TrioRow({ r, ready, onSelect }: { r: CategoryTrioRow; ready: boolean; onSelect?: (name: string) => void }) {
+  const d = r.deltaPct;
+  const cur = r.minors[2];
+  const hasTag = ready && cur > 0 && d != null && Math.abs(d) >= 10;
+  const tone = !hasTag ? 'bg-primary/10 text-primary' : (d as number) > 0 ? 'bg-expense/15 text-expense' : 'bg-income/15 text-income';
+  const arrow = hasTag ? ((d as number) > 0 ? '↑' : '↓') : '';
+  const longWord = !/\s/.test(r.name.trim()) && r.name.length > 11; // এক লম্বা শব্দ: মাঝখানে না ভেঙে "…"
+  return (
+    <li className="border-b border-dashed border-muted/25 last:border-b-0">
+      <button
+        type="button"
+        disabled={!onSelect || cur === 0}
+        onClick={() => onSelect?.(r.name)}
+        className="flex min-h-12 w-full items-center gap-1 py-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+      >
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span aria-hidden className="shrink-0 text-sm leading-none">{getCategoryIcon(r.name, 'expense')}</span>
+          <span className={`min-w-0 overflow-hidden text-[13px] font-medium leading-tight text-fg ${longWord ? 'truncate' : 'line-clamp-2'}`}>{r.name}</span>
+        </span>
+        {[r.minors[0], r.minors[1]].map((v, i) => (
+          <span key={i} className={`${PILL} bg-muted/10 font-medium text-muted`}>{!ready ? '…' : v > 0 ? formatTakaWhole(v) : '—'}</span>
+        ))}
+        <span className={`${PILL} ${cur === 0 ? 'bg-muted/10 text-muted' : tone}`}>{cur > 0 ? `${arrow}${formatTakaWhole(cur)}` : '—'}</span>
+      </button>
+    </li>
+  );
+}
+
+/** ৩ মাসের ক্যাটাগরি-তুলনা (ডেইলি-টাস্ক চিত্রের স্টাইল): ওপরে ছোট বিশ্লেষণ, নিচে নাম + ৩টি পিল; অনিয়মিতগুলো কলাপসিবলে। */
 export function CategoryTrio({
   rows,
   months,
@@ -64,9 +93,11 @@ export function CategoryTrio({
   inProgress: boolean;
   onSelect?: (name: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
   if (rows.length === 0) return <p className="text-sm text-muted">No expenses in this period.</p>;
   const head = months.map((m) => MONTH_SHORT_TRIO[Number(m.slice(5, 7)) - 1] ?? m);
   const { up, down } = ready ? trioInsight(rows) : { up: null, down: null };
+  const { main, rest } = ready ? splitTrio(rows, inProgress) : { main: [...rows], rest: [] as CategoryTrioRow[] };
   const box = 'rounded-xl border px-3 py-2.5';
   return (
     <div className="flex flex-col gap-2.5">
@@ -99,32 +130,26 @@ export function CategoryTrio({
           ))}
         </div>
         <ul aria-label="Expense by category, last 3 months">
-          {rows.map((r) => {
-            const d = r.deltaPct;
-            const cur = r.minors[2];
-            const tone = !ready || cur === 0 || d == null || Math.abs(d) < 10 ? 'bg-primary/10 text-primary' : d > 0 ? 'bg-expense/15 text-expense' : 'bg-income/15 text-income';
-            const arrow = ready && cur > 0 && d != null && Math.abs(d) >= 10 ? (d > 0 ? '↑' : '↓') : '';
-            return (
-              <li key={r.name} className="border-b border-dashed border-muted/25 last:border-b-0">
-                <button
-                  type="button"
-                  disabled={!onSelect || cur === 0}
-                  onClick={() => onSelect?.(r.name)}
-                  className="flex min-h-12 w-full items-center gap-1 py-1.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                >
-                  <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <span aria-hidden className="shrink-0 text-sm leading-none">{getCategoryIcon(r.name, 'expense')}</span>
-                    <span className="line-clamp-2 min-w-0 overflow-hidden text-[13px] font-medium leading-tight text-fg">{r.name}</span>
-                  </span>
-                  {[r.minors[0], r.minors[1]].map((v, i) => (
-                    <span key={i} className={`${PILL} bg-muted/10 font-medium text-muted`}>{!ready ? '…' : v > 0 ? formatTakaWhole(v) : '—'}</span>
-                  ))}
-                  <span className={`${PILL} ${cur === 0 ? 'bg-muted/10 text-muted' : tone}`}>{cur > 0 ? `${arrow}${formatTakaWhole(cur)}` : '—'}</span>
-                </button>
-              </li>
-            );
-          })}
+          {main.map((r) => <TrioRow key={r.name} r={r} ready={ready} onSelect={onSelect} />)}
         </ul>
+        {rest.length > 0 && (
+          <>
+            <button
+              type="button"
+              aria-expanded={open}
+              onClick={() => setOpen(!open)}
+              className="mt-1 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-muted/10 text-xs font-medium text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              {open ? 'Show less' : `Other categories (${rest.length})`}
+              <ChevronDown aria-hidden size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+              <ul aria-label="Other categories, last 3 months" className="mt-1">
+                {rest.map((r) => <TrioRow key={r.name} r={r} ready={ready} onSelect={onSelect} />)}
+              </ul>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

@@ -1067,3 +1067,50 @@ export function trioInsight(rows: readonly CategoryTrioRow[], minMinor = 50_000)
   }
   return { up, down };
 }
+
+type NamePin = (name: string) => boolean;
+const nameIs = (s: string): NamePin => (n) => n.trim().toLowerCase() === s.toLowerCase();
+const nameStarts = (s: string): NamePin => (n) => n.trim().startsWith(s);
+
+/** head/tail নাম-মিলিয়ে আটকানো; after=[সরবে, যার নিচে]। মিল না পেলে ওই নিয়ম বাদ। */
+function applyPins(
+  rows: readonly CategoryTrioRow[],
+  pins: { head?: readonly NamePin[]; tail?: readonly NamePin[]; after?: readonly [NamePin, NamePin] },
+): CategoryTrioRow[] {
+  const mid = [...rows];
+  const take = (p: NamePin) => {
+    const i = mid.findIndex((r) => p(r.name));
+    return i < 0 ? null : mid.splice(i, 1)[0];
+  };
+  const head = (pins.head ?? []).map(take).filter((r): r is CategoryTrioRow => r != null);
+  const tail = (pins.tail ?? []).map(take).filter((r): r is CategoryTrioRow => r != null);
+  if (pins.after) {
+    const [mvP, anP] = pins.after;
+    if (mid.some((r) => anP(r.name)) && mid.some((r) => mvP(r.name))) {
+      const mv = take(mvP)!;
+      mid.splice(mid.findIndex((r) => anP(r.name)) + 1, 0, mv);
+    }
+  }
+  return [...head, ...mid, ...tail];
+}
+
+/**
+ * ৩ মাসের তালিকা: "নিয়মিত" (তুলনার দুই মাসেই খরচ) = প্রধান; বাকি = কলাপসিবল।
+ * সম্পূর্ণ মাসে তুলনা = চলতি+আগের; চলমান মাসে = আগের দুই মাস (+ চলতি মাসে যার খরচ হয়েছে)।
+ * ক্রম: প্রধান — চলতি মাস বড়→ছোট, Hira তুহিনের নিচে, শেষে Transportation, উপহার।
+ *       কলাপসিবল — ৩ মাসের মোট বড়→ছোট; প্রথমে Hangout, শেষে Groceries/Fruits/Sweets, Tour & Travel, অন্যান্য ব্যয়।
+ */
+export function splitTrio(rows: readonly CategoryTrioRow[], inProgress: boolean): { main: CategoryTrioRow[]; rest: CategoryTrioRow[] } {
+  const [a, b] = inProgress ? [0, 1] : [1, 2];
+  const isMain = (r: CategoryTrioRow) => (r.minors[a] > 0 && r.minors[b] > 0) || (inProgress && r.minors[2] > 0);
+  const main = applyPins(rows.filter(isMain), {
+    after: [nameIs('Hira'), nameIs('Hasan Tuhin')],
+    tail: [nameIs('Transportation'), nameStarts('উপহার')],
+  });
+  const total = (r: CategoryTrioRow) => r.minors[0] + r.minors[1] + r.minors[2];
+  const rest = applyPins(
+    rows.filter((r) => !isMain(r)).sort((x, y) => total(y) - total(x)),
+    { head: [nameIs('Hangout')], tail: [nameIs('Groceries/Fruits/Sweets'), nameIs('Tour & Travel'), nameIs('অন্যান্য ব্যয়')] },
+  );
+  return { main, rest };
+}
