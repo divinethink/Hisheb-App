@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BarChart3, ChevronLeft, ChevronRight, Hash, PieChart, TrendingUp, TrendingDown, PiggyBank, Trophy, Wallet, type LucideIcon } from 'lucide-react';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import Card from '../../common/Card';
@@ -202,6 +202,12 @@ export function MonthlyView({ uid, historical }: { uid: string; historical: read
   const settings = useSettings(uid);
   const year = Number(month.slice(0, 4));
   const partial = historical.some((h) => h.year === year); // DF7: doc-বছরের মাস app-এর আগের ডেটা ধরে না
+  // মাস বদলানোর সময় লোডিং-স্কেলেটন ছোট হয়ে পেজ ওপরে লাফিয়ে না যাক — আগের বডির উচ্চতা ধরে রাখা হয়
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const lastH = useRef(0);
+  useEffect(() => {
+    if (bodyRef.current) lastH.current = bodyRef.current.offsetHeight;
+  });
 
   return (
     <>
@@ -211,12 +217,17 @@ export function MonthlyView({ uid, historical }: { uid: string; historical: read
         onNext={() => setMonth(shiftMonth(month, 1))}
         nextDisabled={month >= now}
       />
-      {tx.state.status === 'loading' && <SkeletonLoader />}
+      {tx.state.status === 'loading' && (
+        <div style={{ minHeight: lastH.current }}>
+          <SkeletonLoader />
+        </div>
+      )}
       {tx.state.status === 'error' && <ErrorBox onRetry={tx.retry} />}
       {tx.state.status === 'ready' && (
         tx.state.data.length === 0 ? (
           <p className="px-6 py-12 text-center text-sm text-muted">No data for this month.</p>
         ) : (
+          <div ref={bodyRef}>
           <MonthlyBody
             month={month}
             txs={tx.state.data}
@@ -232,6 +243,7 @@ export function MonthlyView({ uid, historical }: { uid: string; historical: read
             essential={settings.state.status === 'ready' ? settings.state.data.essentialCategories : NO_ESSENTIAL}
             layout={settings.state.status === 'ready' ? settings.state.data.overviewLayout : DEFAULT_LAYOUT}
           />
+          </div>
         )
       )}
     </>

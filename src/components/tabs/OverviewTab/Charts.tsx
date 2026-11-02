@@ -66,7 +66,9 @@ export function CategoryTrio({
 }) {
   if (rows.length === 0) return <p className="text-sm text-muted">No expenses in this period.</p>;
   const head = months.map((m) => MONTH_SHORT_TRIO[Number(m.slice(5, 7)) - 1] ?? m);
-  const { up, down } = ready ? trioInsight(rows) : { up: null, down: null };
+  const ins = ready ? trioInsight(rows) : { up: null, down: null };
+  const up = ins.up;
+  const down = inProgress ? null : ins.down; // অসম্পূর্ণ মাসে "কমেছে" বার্তা বিভ্রান্তিকর
   const box = 'rounded-xl border px-3 py-2.5';
   return (
     <div className="flex flex-col gap-2.5">
