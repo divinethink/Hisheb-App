@@ -312,8 +312,9 @@ function MonthlyBody({
           oneoffs: <BigOneOffCard txs={txs} />,
           hundred: <HundredCard month={month} txs={txs} />,
           category: (
-            <Section title="Expense by category" icon={PieChart}>
+            <Section title="Three-Month Expense Comparison" icon={PieChart}>
               <CategoryDonut items={cats} totalMinor={t.expense} />
+              <p className="-mt-1 mb-3 text-center text-[8px] text-muted">{monthLabel(month)}</p>
               <CategoryTrio rows={trio} months={trioMonths} ready={runwayTxs != null} inProgress={inProgress} onSelect={setSelCat} />
             </Section>
           ),
