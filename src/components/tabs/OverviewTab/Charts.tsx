@@ -155,6 +155,35 @@ export function CategoryTrio({
   );
 }
 
+/** Yearly / All-Time: প্রথম ৬টি খাত দেখায়, বাকি সব আলাদা আলাদা কলাপসিবলে ("Others" বান্ডিল নয়)। items = সব খাত, বড় → ছোট। */
+export function CategoryBarsMore({ items, onSelect, visible = 6 }: { items: readonly CategoryShare[]; onSelect?: (name: string) => void; visible?: number }) {
+  const [open, setOpen] = useState(false);
+  const rest = items.slice(visible);
+  return (
+    <div>
+      <CategoryBars items={items.slice(0, visible)} onSelect={onSelect} />
+      {rest.length > 0 && (
+        <>
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+            className="mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-muted/10 text-xs font-medium text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            {open ? 'Show less' : `Other categories (${rest.length})`}
+            <ChevronDown aria-hidden size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+          </button>
+          {open && (
+            <div className="mt-2">
+              <CategoryBars items={rest} onSelect={onSelect} />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // Spendee-স্টাইল donut: রিং-এর চারপাশে খাতের আইকন-বৃত্ত + শতাংশ; স্লাইস ট্যাপ করলে মাঝখানে সেই খাতের বিবরণ।
 // ≥৩% ও পরস্পর ≥২০° দূরের স্লাইসেই লেবেল বসে (গাদাগাদি এড়াতে) — বাকি সবই নিচের তালিকায় আছে।
 const DONUT = { cx: 150, cy: 116, r: 62, sw: 24 };

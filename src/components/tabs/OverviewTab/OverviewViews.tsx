@@ -7,7 +7,7 @@ import CategoryHistorySheet from './CategoryHistorySheet';
 import { YearlyBreakdown, YearsCard } from './BreakdownLists';
 import { Block, NoteGroup, OrderedCards } from './OverviewBits';
 import { defaultLayout, type OverviewLayout } from '../../../lib/overviewLayout';
-import { CategoryBars, CategoryDonut, CategoryTrio, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
+import { CategoryBarsMore, CategoryDonut, CategoryTrio, IncomeExpenseBars, IncomeExpenseLegend } from './Charts';
 import { BigOneOffCard, HundredCard, LeakCard, NoSpendCalendarCard, ReportCard, TargetGapCard, WeekdayCard } from './MonthlyCards';
 import { InvestmentHonestCard, LifestyleCreepCard, RealGrowthCard, SavingsRateCard } from './YearlyCards';
 import { AssetMixCard, GoalCard, NetWorthBridgeCard, RunwayCard } from './GoalCards';
@@ -21,6 +21,7 @@ import {
   avgMonthlySavings,
   bestWorstMonth,
   categoryBreakdown,
+  categoryList,
   categoryTrio,
   flowByMonth,
   latestWithBreakdown,
@@ -444,6 +445,7 @@ function YearlyBody({
 }) {
   const months = useMemo(() => monthRows(txs, year, flow), [txs, year, flow]);
   const cats = useMemo(() => categoryBreakdown(txs), [txs]);
+  const allCats = useMemo(() => categoryList(txs, 'expense'), [txs]);
   const [selCat, setSelCat] = useState<string | null>(null);
   const savingsPct = savingsRatePct(row.incomeMinor, row.expenseMinor);
   const prevSavingsPct = savingsRatePct(prevRow.incomeMinor, prevRow.expenseMinor);
@@ -519,7 +521,7 @@ function YearlyBody({
             txs.length > 0 ? (
               <Section title="Expense by category" icon={PieChart}>
                 <CategoryDonut items={cats} totalMinor={row.expenseMinor} />
-                <CategoryBars items={cats} onSelect={setSelCat} />
+                <CategoryBarsMore items={allCats} onSelect={setSelCat} />
               </Section>
             ) : null,
           breakdown: <YearlyBreakdown uid={uid} historical={historical} thisYear={thisYear} snapshots={snapshots} />,
@@ -537,6 +539,7 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
   const snaps = useNetWorthSnapshots(uid);
   const allTxs = useMemo<readonly TxLite[]>(() => (tx.state.status === 'ready' ? tx.state.data : []), [tx.state]);
   const cats = useMemo(() => categoryBreakdown(allTxs), [allTxs]);
+  const allCats = useMemo(() => categoryList(allTxs, 'expense'), [allTxs]);
   const catTotal = useMemo(() => allTxs.reduce((a, t) => (t.type === 'expense' ? a + t.amountMinor : a), 0), [allTxs]);
   const [selCat, setSelCat] = useState<string | null>(null);
   const settings = useSettings(uid);
@@ -596,7 +599,7 @@ export function AllTimeView({ uid, historical }: { uid: string; historical: read
             allTxs.length > 0 ? (
               <Section title="Expense by category" icon={PieChart}>
                 <CategoryDonut items={cats} totalMinor={catTotal} />
-                <CategoryBars items={cats} onSelect={setSelCat} />
+                <CategoryBarsMore items={allCats} onSelect={setSelCat} />
                 <p className="mt-2 text-xs leading-relaxed text-muted">All years, entries recorded in the app only — pre-app years may not add up to the yearly totals.</p>
               </Section>
             ) : null,
