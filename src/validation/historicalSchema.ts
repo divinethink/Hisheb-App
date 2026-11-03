@@ -6,11 +6,19 @@ const TimestampLike = z.custom<{ toDate(): Date }>(
 );
 const nullish = <T extends z.ZodTypeAny>(s: T) => s.nullish().transform((v) => v ?? null);
 
+// খাতওয়ারি ব্যয় (additive, optional) — Excel-এর Yearly Statement থেকে; নেই = null (পুরনো doc যেমন ছিল)
+export const HistoricalCategoryItemSchema = z.object({
+  name: z.string().min(1).max(100),
+  amountMinor: z.number().int().nonnegative(),
+});
+export type HistoricalCategoryItem = z.infer<typeof HistoricalCategoryItemSchema>;
+
 export const HistoricalYearlyTotalSchema = z.object({
   year: z.number().int(),
   totalIncomeMinor: z.number().int(),
   totalExpenseMinor: z.number().int(),
   totalDepositMinor: z.number().int(),
+  categoryTotals: nullish(z.array(HistoricalCategoryItemSchema).max(100)),
   note: nullish(z.string()),
   createdAt: nullish(TimestampLike),
   updatedAt: nullish(TimestampLike),

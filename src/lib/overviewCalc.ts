@@ -2,6 +2,7 @@
 // Yearly/All-Time precedence (C17): যে বছরের historicalYearlyTotals doc আছে, সেই বছরের টোটাল শুধু ওই doc থেকে —
 // লাইভ transactions যোগ হয় না (CSV overlap-এ double-count এড়াতে)। doc না থাকা বছরে লাইভ।
 import { shiftMonth } from './date';
+import { normKey } from './categoryMatch';
 
 export interface TxLite {
   date: string; // YYYY-MM-DD
@@ -17,6 +18,8 @@ export interface HistoricalLite {
   totalIncomeMinor: number;
   totalExpenseMinor: number;
   totalDepositMinor: number;
+  /** Excel-থেকে-আনা খাতওয়ারি ব্যয় (optional, additive); থাকলে ওই বছরের খাতওয়ারি তুলনা শুধু এটা থেকে (C17: লাইভের সাথে যোগ নয়) */
+  categoryTotals?: readonly { name: string; amountMinor: number }[] | null;
 }
 
 export interface YearRow {
@@ -1042,18 +1045,47 @@ export interface CategoryTrioRow {
 
 /** ক্যাটাগরি ধরে ৩ মাসের ব্যয় (Others ছাড়া)। সারি: চলতি মাস বড় → ছোট, তারপর আগের মাস। */
 export function categoryTrio(monthTxs: readonly [readonly TxLite[], readonly TxLite[], readonly TxLite[]]): CategoryTrioRow[] {
-  const map = new Map<string, [number, number, number]>();
-  monthTxs.forEach((txs, i) => {
-    for (const t of txs) {
+  // নাম normKey-তে মিলিয়ে এক করা (স্পেস/কেস/যতিচিহ্ন ভিন্ন হলেও একই খাত এক লাইনে); দেখানো নাম = সবচেয়ে নতুন সময়ের নাম
+  const map = new Map<string, { name: string; minors: [number, number, number] }>();
+  for (let i = 2; i >= 0; i--) {
+    for (const t of monthTxs[i]) {
       if (t.type !== 'expense') continue;
-      const e = map.get(t.categoryName) ?? [0, 0, 0];
-      e[i] += t.amountMinor;
-      map.set(t.categoryName, e);
+      const k = normKey(t.categoryName);
+      const e = map.get(k) ?? { name: t.categoryName, minors: [0, 0, 0] as [number, number, number] };
+      e.minors[i] += t.amountMinor;
+      map.set(k, e);
     }
-  });
-  return [...map.entries()]
-    .map(([name, minors]) => ({ name, minors, deltaPct: minors[1] > 0 ? ((minors[2] - minors[1]) / minors[1]) * 100 : null }))
+  }
+  return [...map.values()]
+    .map(({ name, minors }) => ({ name, minors, deltaPct: minors[1] > 0 ? ((minors[2] - minors[1]) / minors[1]) * 100 : null }))
     .sort((a, b) => b.minors[2] - a.minors[2] || b.minors[1] - a.minors[1] || b.minors[0] - a.minors[0]);
+}
+
+/** খাতওয়ারি তুলনার ইনপুট: doc-বছরে categoryTotals থাকলে শুধু সেটা (synthetic expense সারি, লাইভ যোগ নয় — C17); নইলে লাইভ tx। */
+export function categoryTxsForYear(year: number, historical: readonly HistoricalLite[], liveTxs: readonly TxLite[]): readonly TxLite[] {
+  const items = historical.find((h) => h.year === year)?.categoryTotals;
+  if (!items || items.length === 0) return liveTxs;
+  return items.filter((c) => c.amountMinor > 0).map((c) => ({ date: `${year}-01-01`, type: 'expense' as const, amountMinor: c.amountMinor, categoryName: c.name }));
+}
+
+export interface TrioCoverage {
+  year: number;
+  recordedMinor: number; // অ্যাপে খাতওয়ারি যতটা আছে
+  totalMinor: number; // ওই বছরের মোট ব্যয় (doc)
+}
+
+/** [বছর-২, বছর-১, চলতি] — doc-বছরে খাতওয়ারি ডেটা মোটের চেয়ে কম (বা নেই) হলে coverage, নইলে null। categoryTotals থাকলে সম্পূর্ণ ধরা হয়। */
+export function trioCoverage(
+  years: readonly [number, number, number],
+  historical: readonly HistoricalLite[],
+  liveTxs: readonly [readonly TxLite[], readonly TxLite[], readonly TxLite[]],
+): (TrioCoverage | null)[] {
+  return years.map((year, i) => {
+    const doc = historical.find((h) => h.year === year);
+    if (!doc || (doc.categoryTotals && doc.categoryTotals.length > 0)) return null;
+    const recordedMinor = sumTxs(liveTxs[i].filter((t) => t.date.startsWith(`${year}-`))).expense;
+    return recordedMinor < doc.totalExpenseMinor ? { year, recordedMinor, totalMinor: doc.totalExpenseMinor } : null;
+  });
 }
 
 /** ছোট বিশ্লেষণ: চলতি বনাম আগের মাসে সবচেয়ে বেশি বাড়া/কমা ক্যাটাগরি (টাকার অঙ্কে)। ন্যূনতম ফারাক minMinor। */

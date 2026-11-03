@@ -2,7 +2,7 @@ import { useId, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { categoryColorIndex, formatAmount, formatTakaWhole } from '../../../lib/format';
 import { getCategoryIcon } from '../../../lib/categoryIcons';
-import { splitTrio, trioInsight, type CategoryShare, type CategoryTrioRow } from '../../../lib/overviewCalc';
+import { splitTrio, trioInsight, type CategoryShare, type CategoryTrioRow, type TrioCoverage } from '../../../lib/overviewCalc';
 
 // SVG url(#id) reference-এ React-এর useId() ফেরানো কোলন (":r0:") কিছু browser-এ ভাঙতে পারে —
 // তাই gradient-id বানানোর সময় সবসময় এই helper দিয়ে sanitize করা হবে (alnum+dash-ই থাকবে)।
@@ -89,7 +89,10 @@ export function CategoryTrio({
   inProgress,
   onSelect,
   unit = 'month',
+  coverage,
 }: {
+  /** Yearly: [বছর-২, বছর-১, চলতি] — খাতওয়ারি ডেটা অসম্পূর্ণ হলে এন্ট্রি থাকে (†নোট; আংশিক আগের বছরের সাথে insight বন্ধ) */
+  coverage?: readonly (TrioCoverage | null)[];
   rows: readonly CategoryTrioRow[];
   months: readonly [string, string, string]; // unit=month: yyyymm × ৩; unit=year: yyyy × ৩
   ready: boolean; // আগের মাস/বছরের ডেটা লোড হয়েছে কি
@@ -102,7 +105,9 @@ export function CategoryTrio({
   const [open, setOpen] = useState(false);
   if (rows.length === 0) return <p className="text-sm text-muted">No expenses in this period.</p>;
   const head = months.map((m) => (yearly ? m.slice(0, 4) : (MONTH_SHORT_TRIO[Number(m.slice(5, 7)) - 1] ?? m)));
-  const { up, down } = ready ? trioInsight(rows) : { up: null, down: null };
+  const partial = coverage ?? [];
+  // আগের/চলতি বছরের খাতওয়ারি ডেটা অসম্পূর্ণ হলে "বেড়েছে/কমেছে" মিথ্যা হবে — insight দেখানো হয় না
+  const { up, down } = ready && !partial[1] && !partial[2] ? trioInsight(rows) : { up: null, down: null };
   // Yearly: চলতি বছরের শীর্ষ ৭ খাত প্রধান (rows আগে থেকেই চলতি বছর বড়→ছোট), বাকি সব কলাপসিবলে। Monthly: আগের নিয়ম।
   const { main, rest } = yearly
     ? { main: rows.slice(0, 7), rest: rows.slice(7) }
@@ -131,11 +136,19 @@ export function CategoryTrio({
         </div>
       )}
       {inProgress && <p className="text-[11px] text-muted">* The current {unit} is still in progress, so its figures are incomplete.</p>}
+      {partial.map((c, i) =>
+        c ? (
+          <p key={c.year} className="text-[11px] text-muted">
+            † {c.year}: category split is incomplete — {formatTakaWhole(c.recordedMinor)} of {formatTakaWhole(c.totalMinor)} has a category.{' '}
+            {i < 2 ? 'Comparison insights are hidden.' : ''}
+          </p>
+        ) : null,
+      )}
       <div>
         <div className="flex items-center gap-1 border-b border-muted/20 pb-1.5 text-[11px] text-muted" aria-hidden>
           <span className="min-w-0 flex-1">Category</span>
           {head.map((h, i) => (
-            <span key={`${h}${i}`} className={`${pillW(yearly)} shrink-0 text-center ${i === 2 ? 'font-semibold text-primary' : ''}`}>{h}{i === 2 && inProgress ? '*' : ''}</span>
+            <span key={`${h}${i}`} className={`${pillW(yearly)} shrink-0 text-center ${i === 2 ? 'font-semibold text-primary' : ''}`}>{h}{i === 2 && inProgress ? '*' : ''}{partial[i] ? '†' : ''}</span>
           ))}
         </div>
         <ul aria-label={`Expense by category, last 3 ${unit}s`}>

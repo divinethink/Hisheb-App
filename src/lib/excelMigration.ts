@@ -250,6 +250,8 @@ export interface HistoricalYearRow {
   totalDepositMinor: number;
   investmentIncomeExcludedMinor: number; // preview-এর জন্য; Firestore-এ যায় না
   depositSource: 'monthly-december' | 'yearly-sheet';
+  /** Yearly Statement-এর খাতওয়ারি সারি (Excel-এর নামে, কাঁচা); কলাম ফাঁকা হলে []। নাম-মেলানো import স্ক্রিনে। */
+  categories: { name: string; amountMinor: number }[];
 }
 export interface HistoricalParseResult {
   rows: HistoricalYearRow[];
@@ -318,6 +320,10 @@ export function parseHistoricalYearly(workbook: XLSX.WorkBook, excludeYears: num
     }
   }
 
+  // খাতওয়ারি সারি: header-এর পর থেকে "Total Cost (y)" সারির আগে পর্যন্ত — Title + বছর-কলামে সংখ্যা
+  const costRowIdx = yGrid.findIndex((r, i) => i > hIdx && norm(r?.[titleCol]) === LABELS.cost);
+  const catRows = yGrid.slice(hIdx + 1, costRowIdx < 0 ? hIdx + 1 : costRowIdx);
+
   const rows: HistoricalYearRow[] = [];
   for (const [year, col] of [...yearCols.entries()].sort((a, b) => a[0] - b[0])) {
     if (excludeYears.includes(year)) continue;
@@ -343,6 +349,11 @@ export function parseHistoricalYearly(workbook: XLSX.WorkBook, excludeYears: num
       totalDepositMinor: deposit,
       investmentIncomeExcludedMinor: excluded,
       depositSource: dec != null ? 'monthly-december' : 'yearly-sheet',
+      categories: catRows.flatMap((r) => {
+        const name = String(r?.[titleCol] ?? '').normalize('NFC').trim();
+        const amt = parseTakaToMinorAllowAny(r?.[col]);
+        return name && amt != null && amt > 0 ? [{ name, amountMinor: amt }] : [];
+      }),
     });
   }
   return { rows, errors };

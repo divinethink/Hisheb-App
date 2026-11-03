@@ -186,6 +186,34 @@ describe('parseHistoricalYearly', () => {
   });
 });
 
+describe('parseHistoricalYearly — খাতওয়ারি সারি', () => {
+  it('Title সারিগুলো বছর-কলাম থেকে পড়ে, শূন্য/ফাঁকা বাদ', () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.aoa_to_sheet([
+        ['Yearly Expenditure'],
+        ['SL', 'Title', '2024', '2025'],
+        [1, 'Father', 117500, 24200],
+        [2, 'ধার শোধ', 5000, 0],
+        [3, 'Tea', 4350, null],
+        [null, 'Total Cost (y)', 126850, 24200],
+        [null, 'Total Income', 1, 1],
+        [null, 'Total Deposit', 1, 1],
+      ]),
+      'Yearly Statement',
+    );
+    const r = parseHistoricalYearly(wb);
+    expect(r.errors).toEqual([]);
+    expect(r.rows[0].categories).toEqual([
+      { name: 'Father', amountMinor: 11750000 },
+      { name: 'ধার শোধ', amountMinor: 500000 },
+      { name: 'Tea', amountMinor: 435000 },
+    ]);
+    expect(r.rows[1].categories).toEqual([{ name: 'Father', amountMinor: 2420000 }]);
+  });
+});
+
 describe('parseMonthlyNetWorthSnapshots', () => {
   const HEADER = [
     'মাস', 'Salary', 'Bonus/ Honorium', 'TA/DA/ PF', 'পাওনা/মা/ বাবা/ হীরা/', 'মোট আয়', 'মোট  ব্যয়', 'সঞ্চয়/(-)',

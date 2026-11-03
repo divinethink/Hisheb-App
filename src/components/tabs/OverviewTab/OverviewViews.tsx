@@ -23,6 +23,8 @@ import {
   categoryBreakdown,
   categoryList,
   categoryTrio,
+  categoryTxsForYear,
+  trioCoverage,
   flowByMonth,
   latestWithBreakdown,
   monthRows,
@@ -452,11 +454,22 @@ function YearlyBody({
   flow: ReadonlyMap<string, { incomeMinor: number; expenseMinor: number }>;
 }) {
   const months = useMemo(() => monthRows(txs, year, flow), [txs, year, flow]);
-  const cats = useMemo(() => categoryBreakdown(txs), [txs]);
   const [selCat, setSelCat] = useState<string | null>(null);
   // ৩ বছরের তুলনা: [বছর-২, বছর-১, চলতি] — শুধু app-এ রেকর্ড করা লেনদেন থেকে, নতুন query নেই (উপরের hook-এর ডেটা)
   const trioYears = useMemo(() => [String(year - 2), String(year - 1), String(year)] as const, [year]);
-  const trio = useMemo(() => categoryTrio([prev2Txs ?? [], prevTxs ?? [], txs]), [prev2Txs, prevTxs, txs]);
+  // doc-বছরে খাতওয়ারি (categoryTotals) থাকলে শুধু সেটা; নইলে লাইভ tx (অসম্পূর্ণ হলে coverage-নোট)
+  const trioInputs = useMemo(
+    () => [
+      categoryTxsForYear(year - 2, historical, prev2Txs ?? []),
+      categoryTxsForYear(year - 1, historical, prevTxs ?? []),
+      categoryTxsForYear(year, historical, txs),
+    ] as const,
+    [historical, prev2Txs, prevTxs, txs, year],
+  );
+  const trio = useMemo(() => categoryTrio(trioInputs), [trioInputs]);
+  const trioCov = useMemo(() => trioCoverage([year - 2, year - 1, year], historical, [prev2Txs ?? [], prevTxs ?? [], txs]), [historical, prev2Txs, prevTxs, txs, year]);
+  const catTxs = trioInputs[2];
+  const cats = useMemo(() => categoryBreakdown(catTxs), [catTxs]);
   const savingsPct = savingsRatePct(row.incomeMinor, row.expenseMinor);
   const prevSavingsPct = savingsRatePct(prevRow.incomeMinor, prevRow.expenseMinor);
   const savingsPctDeltaPt = savingsPct != null && prevSavingsPct != null ? savingsPct - prevSavingsPct : null;
@@ -528,11 +541,11 @@ function YearlyBody({
               <Section title="Income vs expense by month" icon={BarChart3} right={<IncomeExpenseLegend />}><IncomeExpenseBars rows={months} /></Section>
             ) : null,
           category:
-            txs.length > 0 ? (
+            catTxs.length > 0 ? (
               <Section title="Three-Year Expense Comparison" icon={PieChart}>
                 <CategoryDonut items={cats} totalMinor={row.expenseMinor} />
                 <p className="-mt-1 mb-3 text-center text-[8px] text-muted">{year}</p>
-                <CategoryTrio rows={trio} months={trioYears} ready={prev2Txs != null && prevTxs != null} inProgress={year === thisYear} onSelect={setSelCat} unit="year" />
+                <CategoryTrio rows={trio} months={trioYears} ready={prev2Txs != null && prevTxs != null} inProgress={year === thisYear} onSelect={setSelCat} unit="year" coverage={trioCov} />
               </Section>
             ) : null,
           breakdown: <YearlyBreakdown uid={uid} historical={historical} thisYear={thisYear} snapshots={snapshots} />,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { allTimeRows, categoryList, flowByMonth, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, avgMonthlySavings, netWorthYtd, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, netWorthBridge, recentMonths, goalProjection, netWorthPace, latestWithBreakdown, windowTotals, assetMix, emergencyFund, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
+import { allTimeRows, categoryList, flowByMonth, monthRows, txsInMonth, txsInYear, yearDetailKind, avgMonthlyExpense, avgMonthlySavings, netWorthYtd, bestWorstMonth, categoryBreakdown, liveQueryStart, monthlyTotals, netWorthGrowthAllTime, resolveYear, runwayMonths, savingsInsight, savingsRatePct, snapshotAtOrBefore, trendSeries, yearlySavingsRates, netWorthBridge, recentMonths, goalProjection, netWorthPace, latestWithBreakdown, windowTotals, assetMix, emergencyFund, categoryTrio, categoryTxsForYear, trioCoverage, type HistoricalLite, type TxLite, type YearRow } from './overviewCalc';
 
 const tx = (date: string, type: 'income' | 'expense', amountMinor: number, categoryName = 'A'): TxLite => ({ date, type, amountMinor, categoryName });
 const h2025: HistoricalLite = { year: 2025, totalIncomeMinor: 900, totalExpenseMinor: 600, totalDepositMinor: 5000 };
@@ -351,5 +351,33 @@ describe('netWorthBridge — snapshotDate', () => {
     expect(b.curDate).toBe('2026-10-29');
     const c = netWorthBridge([{ yyyymm: '2025-10', totalAssetsMinor: 100 }, { yyyymm: '2026-10', totalAssetsMinor: 200 }], [])!;
     expect(c.baseDate).toBeNull();
+  });
+});
+
+describe('খাতওয়ারি বছর-তুলনা: categoryTotals / coverage', () => {
+  const h24: HistoricalLite = { year: 2024, totalIncomeMinor: 0, totalExpenseMinor: 300, totalDepositMinor: 0, categoryTotals: [{ name: 'Hira', amountMinor: 200 }, { name: 'Rifa', amountMinor: 100 }] };
+  const h25: HistoricalLite = { year: 2025, totalIncomeMinor: 0, totalExpenseMinor: 1000, totalDepositMinor: 0 }; // খাতওয়ারি নেই
+
+  it('categoryTotals থাকলে লাইভ tx বাদ (double-count নয়)', () => {
+    const r = categoryTxsForYear(2024, [h24], [tx('2024-05-01', 'expense', 999, 'Hira')]);
+    expect(r.map((t) => [t.categoryName, t.amountMinor])).toEqual([['Hira', 200], ['Rifa', 100]]);
+  });
+  it('categoryTotals না থাকলে লাইভ tx-ই', () => {
+    const live = [tx('2025-10-01', 'expense', 50, 'Hira')];
+    expect(categoryTxsForYear(2025, [h25], live)).toBe(live);
+  });
+  it('trio: বানান/কেস ভিন্ন নাম এক লাইনে', () => {
+    const rows = categoryTrio([[tx('2024-01-01', 'expense', 10, 'hira ')], [], [tx('2026-01-01', 'expense', 30, 'Hira')]]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ name: 'Hira', minors: [10, 0, 30] });
+  });
+  it('coverage: doc আছে কিন্তু খাতওয়ারি কম → আংশিক; categoryTotals/doc-হীন বছর → null', () => {
+    const cov = trioCoverage([2024, 2025, 2026], [h24, h25], [[], [tx('2025-10-01', 'expense', 400, 'A')], []]);
+    expect(cov[0]).toBeNull();
+    expect(cov[1]).toEqual({ year: 2025, recordedMinor: 400, totalMinor: 1000 });
+    expect(cov[2]).toBeNull();
+  });
+  it('coverage: লাইভ-ই পুরো মোট হলে null', () => {
+    expect(trioCoverage([2023, 2024, 2025], [h25], [[], [], [tx('2025-02-01', 'expense', 1000, 'A')]])[2]).toBeNull();
   });
 });

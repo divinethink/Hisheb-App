@@ -1,7 +1,7 @@
 // historicalYearlyTotals repo — doc-ID = year, setDoc upsert (idempotent, Architecture Plan §২.২)।
 import { collection, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { HistoricalYearlyTotalSchema, type HistoricalYearlyTotal } from '../validation/historicalSchema';
+import { HistoricalYearlyTotalSchema, type HistoricalCategoryItem, type HistoricalYearlyTotal } from '../validation/historicalSchema';
 
 const col = (uid: string) => collection(db, 'users', uid, 'historicalYearlyTotals');
 
@@ -32,7 +32,16 @@ export function subscribeHistoricalTotals(
 
 export async function setHistoricalYearlyTotal(
   uid: string,
-  t: Pick<HistoricalYearlyTotal, 'year' | 'totalIncomeMinor' | 'totalExpenseMinor' | 'totalDepositMinor'>,
+  t: Pick<HistoricalYearlyTotal, 'year' | 'totalIncomeMinor' | 'totalExpenseMinor' | 'totalDepositMinor'> & {
+    categoryTotals?: readonly HistoricalCategoryItem[] | null;
+  },
 ): Promise<void> {
-  await setDoc(doc(col(uid), String(t.year)), { ...t, note: null, updatedAt: serverTimestamp() });
+  const { year, totalIncomeMinor, totalExpenseMinor, totalDepositMinor, categoryTotals } = t;
+  const totals = { year, totalIncomeMinor, totalExpenseMinor, totalDepositMinor }; // শুধু schema-র ফিল্ড (preview-ফিল্ড Firestore-এ নয়)
+  // merge: categoryTotals না এলে আগে-থেকে-থাকা খাতওয়ারি ডেটা মোছে না (zero-data-loss)
+  await setDoc(
+    doc(col(uid), String(t.year)),
+    { ...totals, ...(categoryTotals && categoryTotals.length ? { categoryTotals: [...categoryTotals] } : {}), note: null, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
 }
