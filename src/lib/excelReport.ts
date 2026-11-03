@@ -1,24 +1,3 @@
-  // খাতের তালিকা: লাইভ বছরের tx + doc-বছরের categoryTotals (Excel থেকে আনা); নাম normKey-তে মিলিয়ে এক লাইনে
-  const catTotal = new Map<string, { name: string; total: number }>();
-  const addCat = (name: string, v: number) => {
-    const k = normKey(name);
-    const e = catTotal.get(k) ?? { name, total: 0 };
-    e.total += v;
-    catTotal.set(k, e);
-  };
-  for (const t of i.txs) if (t.type === 'expense' && liveYears.includes(Number(t.date.slice(0, 4)))) addCat(t.categoryName, t.amountMinor);
-  for (const h of hist.values()) for (const c of h.categoryTotals ?? []) addCat(c.name, c.amountMinor);
-  const cats = [...catTotal.values()].sort((a, b) => b.total - a.total).map((e) => e.name);
-
-  const aoa: (string | number)[][] = [['Yearly Expenditure'], ['SL', 'Title', ...years.map(String)]];
-  const first = aoa.length;
-  cats.forEach((c, ci) => aoa.push([ci + 1, c, ...years.map((y) => {
-    const h = hist.get(y);
-    const v = h
-      ? (h.categoryTotals ?? []).filter((x) => normKey(x.name) === normKey(c)).reduce((s, x) => s + x.amountMinor, 0)
-      : i.txs.filter((t) => t.type === 'expense' && normKey(t.categoryName) === normKey(c) && t.date.startsWith(String(y))).reduce((s, t) => s + t.amountMinor, 0);
-    return v ? toTaka(v) : '';
-  })]));
 // Excel Report — একটাই Workbook, আসল `হিসাব-নিকাশ.xlsx`-এর কাঠামো অনুসরণ (P5, Roadmap §৪.৮, Architecture Plan §৫.১)।
 // Sheet ক্রম: Investment / Home Deposit / Debt / GPF / Net Worth / Monthly Statement / Yearly Statement (Calculation বাদ — owner-approved 2026-10-31)।
 // স্টাইল (বর্ডার/রঙ) দেখানোর জন্য `xlsx-js-style` (SheetJS-এর style-সাপোর্ট ফর্ক) — হিসাব/ফর্মুলা অপরিবর্তিত।
@@ -253,15 +232,25 @@ function buildYearlySheet(i: FullReportInput): XLSX.WorkSheet {
   const hist = new Map(i.historical.map((h) => [h.year, h]));
   const years = [...new Set([...hist.keys(), ...i.txs.map((t) => Number(t.date.slice(0, 4)))])].sort((a, b) => a - b);
   const liveYears = years.filter((y) => !hist.has(y));
-  const catTotal = new Map<string, number>();
-  for (const t of i.txs) if (t.type === 'expense' && liveYears.includes(Number(t.date.slice(0, 4)))) catTotal.set(t.categoryName, (catTotal.get(t.categoryName) ?? 0) + t.amountMinor);
-  const cats = [...catTotal.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => n);
+  // খাতের তালিকা: লাইভ বছরের tx + doc-বছরের categoryTotals (Excel থেকে আনা); নাম normKey-তে মিলিয়ে এক লাইনে
+  const catTotal = new Map<string, { name: string; total: number }>();
+  const addCat = (name: string, v: number) => {
+    const k = normKey(name);
+    const e = catTotal.get(k) ?? { name, total: 0 };
+    e.total += v;
+    catTotal.set(k, e);
+  };
+  for (const t of i.txs) if (t.type === 'expense' && liveYears.includes(Number(t.date.slice(0, 4)))) addCat(t.categoryName, t.amountMinor);
+  for (const h of hist.values()) for (const c of h.categoryTotals ?? []) addCat(c.name, c.amountMinor);
+  const cats = [...catTotal.values()].sort((a, b) => b.total - a.total).map((e) => e.name);
 
   const aoa: (string | number)[][] = [['Yearly Expenditure'], ['SL', 'Title', ...years.map(String)]];
   const first = aoa.length;
   cats.forEach((c, ci) => aoa.push([ci + 1, c, ...years.map((y) => {
-    if (hist.has(y)) return '';
-    const v = i.txs.filter((t) => t.type === 'expense' && t.categoryName === c && t.date.startsWith(String(y))).reduce((s, t) => s + t.amountMinor, 0);
+    const h = hist.get(y);
+    const v = h
+      ? (h.categoryTotals ?? []).filter((x) => normKey(x.name) === normKey(c)).reduce((s, x) => s + x.amountMinor, 0)
+      : i.txs.filter((t) => t.type === 'expense' && normKey(t.categoryName) === normKey(c) && t.date.startsWith(String(y))).reduce((s, t) => s + t.amountMinor, 0);
     return v ? toTaka(v) : '';
   })]));
   const last = aoa.length - 1;
