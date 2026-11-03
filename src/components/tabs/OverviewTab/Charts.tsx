@@ -50,7 +50,7 @@ export function CategoryBars({ items, onSelect }: { items: readonly CategoryShar
 
 const MONTH_SHORT_TRIO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const PILL_BASE = 'inline-flex h-7 shrink-0 items-center justify-center rounded-full px-0.5 text-[11px] font-semibold tabular-nums';
-const pillW = (yearly: boolean) => (yearly ? 'w-[78px]' : 'w-[62px]'); // বছরের অঙ্ক বড় (লাখ) — পিল একটু চওড়া
+const pillW = (yearly: boolean) => (yearly ? 'w-[68px] !text-[10.5px]' : 'w-[62px]'); // বছরের অঙ্ক বড় (লাখ) — পিল একটু চওড়া
 
 function TrioRow({ r, ready, onSelect, yearly }: { r: CategoryTrioRow; ready: boolean; onSelect?: (name: string) => void; yearly: boolean }) {
   const PILL = `${PILL_BASE} ${pillW(yearly)}`;
@@ -103,7 +103,10 @@ export function CategoryTrio({
   if (rows.length === 0) return <p className="text-sm text-muted">No expenses in this period.</p>;
   const head = months.map((m) => (yearly ? m.slice(0, 4) : (MONTH_SHORT_TRIO[Number(m.slice(5, 7)) - 1] ?? m)));
   const { up, down } = ready ? trioInsight(rows) : { up: null, down: null };
-  const { main, rest } = ready ? splitTrio(rows, inProgress) : { main: [...rows], rest: [] as CategoryTrioRow[] };
+  // Yearly: চলতি বছরের শীর্ষ ৭ খাত প্রধান (rows আগে থেকেই চলতি বছর বড়→ছোট), বাকি সব কলাপসিবলে। Monthly: আগের নিয়ম।
+  const { main, rest } = yearly
+    ? { main: rows.slice(0, 7), rest: rows.slice(7) }
+    : ready ? splitTrio(rows, inProgress) : { main: [...rows], rest: [] as CategoryTrioRow[] };
   const box = 'rounded-xl border px-3 py-2.5';
   return (
     <div className="flex flex-col gap-2.5">
