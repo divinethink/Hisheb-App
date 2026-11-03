@@ -359,6 +359,8 @@ export function YearlyView({ uid, historical }: { uid: string; historical: reado
   const tx = useRangeTransactions(uid, `${year}-01-01`, `${year}-12-31`);
   // Overview Enrichment ধাপ ২: vs আগের বছর তুলনার জন্য আগের বছরের tx (historical doc থাকলে resolveYear-এ ব্যবহৃত হয় না, কিন্তু hook unconditionally কল করা লাগে — MonthlyView-এর prevMonth প্যাটার্নের অনুরূপ)।
   const prevTx = useRangeTransactions(uid, `${year - 1}-01-01`, `${year - 1}-12-31`);
+  // Three-Year তুলনা: তার আগের বছরের লেনদেন (শুধু app-এ রেকর্ড করা খরচ)
+  const prev2Tx = useRangeTransactions(uid, `${year - 2}-01-01`, `${year - 2}-12-31`);
   const isHist = historical.some((h) => h.year === year);
   // pre-app মাসের আয়/ব্যয় (snapshot.flow) — শুধু historical-doc বছরে; snapshots না এলে লাইভ-ই (graceful)
   const snaps = useNetWorthSnapshots(uid);
@@ -392,6 +394,8 @@ export function YearlyView({ uid, historical }: { uid: string; historical: reado
           row={resolveYear(year, historical, tx.state.data)}
           prevRow={resolveYear(year - 1, historical, prevTx.state.status === 'ready' ? prevTx.state.data : [])}
           prevMonths={prevMonths}
+          prevTxs={prevTx.state.status === 'ready' ? prevTx.state.data : null}
+          prev2Txs={prev2Tx.state.status === 'ready' ? prev2Tx.state.data : null}
           txs={tx.state.data}
           year={year}
           isHist={isHist}
@@ -425,10 +429,14 @@ function YearlyBody({
   targetPct,
   inflationPct,
   prevMonths,
+  prevTxs,
+  prev2Txs,
   layout,
 }: {
   layout: OverviewLayout;
   prevMonths: readonly MonthRow[] | null;
+  prevTxs: readonly TxLite[] | null;
+  prev2Txs: readonly TxLite[] | null;
   uid: string;
   historical: readonly HistoricalLite[];
   thisYear: number;
@@ -445,8 +453,10 @@ function YearlyBody({
 }) {
   const months = useMemo(() => monthRows(txs, year, flow), [txs, year, flow]);
   const cats = useMemo(() => categoryBreakdown(txs), [txs]);
-  const allCats = useMemo(() => categoryList(txs, 'expense'), [txs]);
   const [selCat, setSelCat] = useState<string | null>(null);
+  // ৩ বছরের তুলনা: [বছর-২, বছর-১, চলতি] — শুধু app-এ রেকর্ড করা লেনদেন থেকে, নতুন query নেই (উপরের hook-এর ডেটা)
+  const trioYears = useMemo(() => [String(year - 2), String(year - 1), String(year)] as const, [year]);
+  const trio = useMemo(() => categoryTrio([prev2Txs ?? [], prevTxs ?? [], txs]), [prev2Txs, prevTxs, txs]);
   const savingsPct = savingsRatePct(row.incomeMinor, row.expenseMinor);
   const prevSavingsPct = savingsRatePct(prevRow.incomeMinor, prevRow.expenseMinor);
   const savingsPctDeltaPt = savingsPct != null && prevSavingsPct != null ? savingsPct - prevSavingsPct : null;
@@ -519,9 +529,10 @@ function YearlyBody({
             ) : null,
           category:
             txs.length > 0 ? (
-              <Section title="Expense by category" icon={PieChart}>
+              <Section title="Three-Year Expense Comparison" icon={PieChart}>
                 <CategoryDonut items={cats} totalMinor={row.expenseMinor} />
-                <CategoryBarsMore items={allCats} onSelect={setSelCat} />
+                <p className="-mt-1 mb-3 text-center text-[8px] text-muted">{year}</p>
+                <CategoryTrio rows={trio} months={trioYears} ready={prev2Txs != null && prevTxs != null} inProgress={year === thisYear} onSelect={setSelCat} unit="year" />
               </Section>
             ) : null,
           breakdown: <YearlyBreakdown uid={uid} historical={historical} thisYear={thisYear} snapshots={snapshots} />,

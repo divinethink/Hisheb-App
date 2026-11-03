@@ -49,9 +49,11 @@ export function CategoryBars({ items, onSelect }: { items: readonly CategoryShar
 }
 
 const MONTH_SHORT_TRIO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const PILL = 'inline-flex h-7 w-[62px] shrink-0 items-center justify-center rounded-full px-0.5 text-[11px] font-semibold tabular-nums';
+const PILL_BASE = 'inline-flex h-7 shrink-0 items-center justify-center rounded-full px-0.5 text-[11px] font-semibold tabular-nums';
+const pillW = (yearly: boolean) => (yearly ? 'w-[78px]' : 'w-[62px]'); // বছরের অঙ্ক বড় (লাখ) — পিল একটু চওড়া
 
-function TrioRow({ r, ready, onSelect }: { r: CategoryTrioRow; ready: boolean; onSelect?: (name: string) => void }) {
+function TrioRow({ r, ready, onSelect, yearly }: { r: CategoryTrioRow; ready: boolean; onSelect?: (name: string) => void; yearly: boolean }) {
+  const PILL = `${PILL_BASE} ${pillW(yearly)}`;
   const d = r.deltaPct;
   const cur = r.minors[2];
   const hasTag = ready && cur > 0 && d != null && Math.abs(d) >= 10;
@@ -86,16 +88,20 @@ export function CategoryTrio({
   ready,
   inProgress,
   onSelect,
+  unit = 'month',
 }: {
   rows: readonly CategoryTrioRow[];
-  months: readonly [string, string, string]; // yyyymm × ৩
-  ready: boolean; // আগের মাসের ডেটা লোড হয়েছে কি
+  months: readonly [string, string, string]; // unit=month: yyyymm × ৩; unit=year: yyyy × ৩
+  ready: boolean; // আগের মাস/বছরের ডেটা লোড হয়েছে কি
   inProgress: boolean;
   onSelect?: (name: string) => void;
+  /** Monthly (ডিফল্ট) বা Yearly তুলনা — শুধু হেডার ও লেখার শব্দ বদলায় */
+  unit?: 'month' | 'year';
 }) {
+  const yearly = unit === 'year';
   const [open, setOpen] = useState(false);
   if (rows.length === 0) return <p className="text-sm text-muted">No expenses in this period.</p>;
-  const head = months.map((m) => MONTH_SHORT_TRIO[Number(m.slice(5, 7)) - 1] ?? m);
+  const head = months.map((m) => (yearly ? m.slice(0, 4) : (MONTH_SHORT_TRIO[Number(m.slice(5, 7)) - 1] ?? m)));
   const { up, down } = ready ? trioInsight(rows) : { up: null, down: null };
   const { main, rest } = ready ? splitTrio(rows, inProgress) : { main: [...rows], rest: [] as CategoryTrioRow[] };
   const box = 'rounded-xl border px-3 py-2.5';
@@ -106,7 +112,7 @@ export function CategoryTrio({
           {down && (
             <div className={`${box} border-income/25 bg-income/10`}>
               <p className="text-sm font-semibold text-income">🌱 Biggest drop</p>
-              <p className="mt-0.5 text-xs text-fg">{down.name} is down {formatTakaWhole(down.minors[1] - down.minors[2])} from last month.</p>
+              <p className="mt-0.5 text-xs text-fg">{down.name} is down {formatTakaWhole(down.minors[1] - down.minors[2])} from last {unit}.</p>
             </div>
           )}
           {up && (
@@ -114,23 +120,23 @@ export function CategoryTrio({
               <p className="text-sm font-semibold text-warning">💛 Worth a look</p>
               <p className="mt-0.5 text-xs text-fg">
                 {up.deltaPct == null
-                  ? `${up.name} is new this month: ${formatTakaWhole(up.minors[2])}.`
-                  : `${up.name} is up ${formatTakaWhole(up.minors[2] - up.minors[1])} (${Math.round(up.deltaPct)}%) from last month.`}
+                  ? `${up.name} is new this ${unit}: ${formatTakaWhole(up.minors[2])}.`
+                  : `${up.name} is up ${formatTakaWhole(up.minors[2] - up.minors[1])} (${Math.round(up.deltaPct)}%) from last ${unit}.`}
               </p>
             </div>
           )}
         </div>
       )}
-      {inProgress && <p className="text-[11px] text-muted">* The current month is still in progress, so its figures are incomplete.</p>}
+      {inProgress && <p className="text-[11px] text-muted">* The current {unit} is still in progress, so its figures are incomplete.</p>}
       <div>
         <div className="flex items-center gap-1 border-b border-muted/20 pb-1.5 text-[11px] text-muted" aria-hidden>
           <span className="min-w-0 flex-1">Category</span>
           {head.map((h, i) => (
-            <span key={`${h}${i}`} className={`w-[62px] shrink-0 text-center ${i === 2 ? 'font-semibold text-primary' : ''}`}>{h}{i === 2 && inProgress ? '*' : ''}</span>
+            <span key={`${h}${i}`} className={`${pillW(yearly)} shrink-0 text-center ${i === 2 ? 'font-semibold text-primary' : ''}`}>{h}{i === 2 && inProgress ? '*' : ''}</span>
           ))}
         </div>
-        <ul aria-label="Expense by category, last 3 months">
-          {main.map((r) => <TrioRow key={r.name} r={r} ready={ready} onSelect={onSelect} />)}
+        <ul aria-label={`Expense by category, last 3 ${unit}s`}>
+          {main.map((r) => <TrioRow key={r.name} r={r} ready={ready} onSelect={onSelect} yearly={yearly} />)}
         </ul>
         {rest.length > 0 && (
           <>
@@ -144,8 +150,8 @@ export function CategoryTrio({
               <ChevronDown aria-hidden size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
-              <ul aria-label="Other categories, last 3 months" className="mt-1">
-                {rest.map((r) => <TrioRow key={r.name} r={r} ready={ready} onSelect={onSelect} />)}
+              <ul aria-label={`Other categories, last 3 ${unit}s`} className="mt-1">
+                {rest.map((r) => <TrioRow key={r.name} r={r} ready={ready} onSelect={onSelect} yearly={yearly} />)}
               </ul>
             )}
           </>
