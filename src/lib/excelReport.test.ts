@@ -68,3 +68,19 @@ it('Debt sheet: active → doubtful → fully repaid → written-off (নিচ�
   expect(nw['E7'].f).toBe('SUM(E5:E5)');
   expect(nw['E13'].f).toBe('E7+E8+E9+E10+E11');
 });
+
+it('Yearly Statement: doc-বছরে categoryTotals থাকলে খাতওয়ারি সারি বসে (নামের কেস/স্পেস ভিন্ন হলেও এক লাইন)', () => {
+  const wb = buildFullReportWorkbook({
+    today: '2026-09-27',
+    txs: [tx('1', '2026-07-10', 'expense', 100000, 'Hira')],
+    historical: [{ year: 2025, totalIncomeMinor: 0, totalExpenseMinor: 300000, totalDepositMinor: 0, categoryTotals: [{ name: 'hira ', amountMinor: 200000 }, { name: 'Rifa', amountMinor: 100000 }] } as any],
+    snapshots: [], debts: [], investments: [], funds: [], homeDeposits: [], gpf: [], accounts: [], accountBalances: [],
+  } as any);
+  const ys = XLSX.utils.sheet_to_json(wb.Sheets['Yearly Statement'], { header: 1 }) as unknown[][];
+  expect(ys[1]).toEqual(['SL', 'Title', '2025', '2026']);
+  const hira = ys.filter((r) => r[1] === 'Hira' || r[1] === 'hira ');
+  expect(hira).toHaveLength(1);
+  expect(hira[0][2]).toBe(2000);
+  expect(hira[0][3]).toBe(1000);
+  expect(ys.find((r) => r[1] === 'Rifa')?.[2]).toBe(1000);
+});

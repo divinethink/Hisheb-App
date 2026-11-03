@@ -1,3 +1,24 @@
+  // খাতের তালিকা: লাইভ বছরের tx + doc-বছরের categoryTotals (Excel থেকে আনা); নাম normKey-তে মিলিয়ে এক লাইনে
+  const catTotal = new Map<string, { name: string; total: number }>();
+  const addCat = (name: string, v: number) => {
+    const k = normKey(name);
+    const e = catTotal.get(k) ?? { name, total: 0 };
+    e.total += v;
+    catTotal.set(k, e);
+  };
+  for (const t of i.txs) if (t.type === 'expense' && liveYears.includes(Number(t.date.slice(0, 4)))) addCat(t.categoryName, t.amountMinor);
+  for (const h of hist.values()) for (const c of h.categoryTotals ?? []) addCat(c.name, c.amountMinor);
+  const cats = [...catTotal.values()].sort((a, b) => b.total - a.total).map((e) => e.name);
+
+  const aoa: (string | number)[][] = [['Yearly Expenditure'], ['SL', 'Title', ...years.map(String)]];
+  const first = aoa.length;
+  cats.forEach((c, ci) => aoa.push([ci + 1, c, ...years.map((y) => {
+    const h = hist.get(y);
+    const v = h
+      ? (h.categoryTotals ?? []).filter((x) => normKey(x.name) === normKey(c)).reduce((s, x) => s + x.amountMinor, 0)
+      : i.txs.filter((t) => t.type === 'expense' && normKey(t.categoryName) === normKey(c) && t.date.startsWith(String(y))).reduce((s, t) => s + t.amountMinor, 0);
+    return v ? toTaka(v) : '';
+  })]));
 // Excel Report — একটাই Workbook, আসল `হিসাব-নিকাশ.xlsx`-এর কাঠামো অনুসরণ (P5, Roadmap §৪.৮, Architecture Plan §৫.১)।
 // Sheet ক্রম: Investment / Home Deposit / Debt / GPF / Net Worth / Monthly Statement / Yearly Statement (Calculation বাদ — owner-approved 2026-10-31)।
 // স্টাইল (বর্ডার/রঙ) দেখানোর জন্য `xlsx-js-style` (SheetJS-এর style-সাপোর্ট ফর্ক) — হিসাব/ফর্মুলা অপরিবর্তিত।
@@ -12,6 +33,7 @@ import type { GpfEntry } from '../validation/gpfSchema';
 import type { Account } from '../validation/accountSchema';
 import type { AccountBalance, NetWorthSnapshot } from '../validation/netWorthSchema';
 import type { HistoricalYearlyTotal } from '../validation/historicalSchema';
+import { normKey } from './categoryMatch';
 import { outstandingMinor, sumRepayments as sumDebtRepayments, writtenOffOutstandingMinor, lineViews, partitionDebtsForList } from './debtCalc';
 import { sumRepayments as sumInvRepayments, investmentStatus, partitionInvestmentsForList } from './investmentCalc';
 import { netBalanceMinor } from './homeDepositCalc';
@@ -225,7 +247,7 @@ function buildMonthlySheet(year: number, currentYm: string, i: FullReportInput):
   return ws;
 }
 
-/** "Yearly Statement" — কলাম প্রতি বছর। C17 precedence: historical doc থাকলে সেই বছরের টোটাল শুধু doc থেকে (live যোগ হয় না, category-row খালি);
+/** "Yearly Statement" — কলাম প্রতি বছর। C17 precedence: historical doc থাকলে সেই বছরের টোটাল শুধু doc থেকে (live যোগ হয় না; খাতওয়ারি = doc-এর categoryTotals, না থাকলে খালি);
  *  doc না থাকলে লাইভ transactions থেকে category-ওয়াইজ + SUM formula। Total Deposit: historical doc বা ওই বছরের শেষ snapshot। */
 function buildYearlySheet(i: FullReportInput): XLSX.WorkSheet {
   const hist = new Map(i.historical.map((h) => [h.year, h]));
