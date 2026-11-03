@@ -186,6 +186,16 @@ describe('parseHistoricalYearly', () => {
   });
 });
 
+describe('parseHistoricalYearly — শীট-নাম', () => {
+  it('বড়-ছোট হাতের নাম সহ্য করে; না পেলে ফাইলের শীট-নাম জানায়', () => {
+    const rows = [['SL', 'Title', '2025'], [null, 'Total Cost (y)', 1], [null, 'Total Income', 2], [null, 'Total Deposit', 3]];
+    const ok = workbookFromRows(rows, 'YEARLY STATEMENT');
+    expect(parseHistoricalYearly(ok).errors).toEqual([]);
+    const bad = workbookFromRows(rows, 'Sheet1');
+    expect(parseHistoricalYearly(bad).errors[0]).toContain('Sheet1');
+  });
+});
+
 describe('parseHistoricalYearly — খাতওয়ারি সারি', () => {
   it('Title সারিগুলো বছর-কলাম থেকে পড়ে, শূন্য/ফাঁকা বাদ', () => {
     const wb = XLSX.utils.book_new();

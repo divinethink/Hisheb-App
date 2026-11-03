@@ -260,10 +260,19 @@ export interface HistoricalParseResult {
 
 const YEAR_RE = /(20\d{2})/;
 
+/** শীট-নাম মেলানো: বড়-ছোট হাত/বাড়তি স্পেস উপেক্ষা (আসল Excel-এ "Yearly Statement " ইত্যাদি হলেও চলে) */
+function findSheet(wb: XLSX.WorkBook, name: string): XLSX.WorkSheet | undefined {
+  const want = norm(name);
+  const hit = wb.SheetNames.find((n) => norm(n) === want);
+  return hit ? wb.Sheets[hit] : undefined;
+}
+
 export function parseHistoricalYearly(workbook: XLSX.WorkBook, excludeYears: number[] = []): HistoricalParseResult {
   const errors: string[] = [];
-  const ys = workbook.Sheets['Yearly Statement'];
-  if (!ys) return { rows: [], errors: ['"Yearly Statement" শীট পাওয়া যায়নি'] };
+  const ys = findSheet(workbook, 'Yearly Statement');
+  if (!ys) {
+    return { rows: [], errors: [`"Yearly Statement" শীট পাওয়া যায়নি। ফাইলে আছে: ${workbook.SheetNames.join(', ') || '(কোনো শীট নেই)'} — আসল .xlsx ফাইলটা বেছে নিন (টেক্সট/কপি নয়)`] };
+  }
   const yGrid: unknown[][] = XLSX.utils.sheet_to_json(ys, { header: 1, raw: true, defval: null });
 
   const hIdx = yGrid.findIndex((r) => (r ?? []).some((c) => norm(c) === 'title'));
@@ -291,7 +300,7 @@ export function parseHistoricalYearly(workbook: XLSX.WorkBook, excludeYears: num
 
   // Monthly Statement: বছর-সেকশন → December Total Deposit + সেকশনের Total-এর "বিনিয়োগ হতে"
   const monthly = new Map<number, { deposit: number | null; invest: number }>();
-  const ms = workbook.Sheets['Monthly Statement'];
+  const ms = findSheet(workbook, 'Monthly Statement');
   if (ms) {
     const g: unknown[][] = XLSX.utils.sheet_to_json(ms, { header: 1, raw: true, defval: null });
     let cur: number | null = null;
