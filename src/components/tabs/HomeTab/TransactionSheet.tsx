@@ -127,8 +127,9 @@ export default function TransactionSheet({
   const [deleting, setDeleting] = useState(false);
   const [addingCategory, setAddingCategory] = useState(false);
   const [addingLabel, setAddingLabel] = useState(false);
-  // বাস্কেট (একাধিক category একসাথে) — শুধু নতুন entry-তে; edit mode-এ নেই
-  const [multi, setMulti] = useState(false);
+  // বাস্কেট (owner-approved ২০২৬-১১-২২): নতুন entry-তে category ট্যাপ = টিক (একাধিক বাছা যায়), নিচে Next (N)।
+  // N=১ → একক ফর্ম (আগের মতো), N≥২ → BasketSheet। Edit mode-এ আগের single-select আচরণ।
+  const multi = !initial;
   const [picked, setPicked] = useState<Ref[]>([]);
   const [basketOpen, setBasketOpen] = useState(false);
   const settings = useSettings(uid);
@@ -141,7 +142,7 @@ export default function TransactionSheet({
       category?.id !== initial.categoryId ||
       note !== initial.note ||
       selLabels.map((l) => l.id).join() !== initial.labelIds.join()
-    : amountStr !== '' || note !== '' || category !== null || selLabels.length > 0;
+    : amountStr !== '' || note !== '' || category !== null || selLabels.length > 0 || picked.length > 0;
 
   // আন-সেভড ফর্ম থাকলে PWA auto-reload স্কিপ হয়
   useEffect(() => {
@@ -153,6 +154,7 @@ export default function TransactionSheet({
   const visibleCats = categories.filter((c) => !c.type || c.type === type);
   const catChips: Array<Ref & { icon: string | null }> = visibleCats.map((c) => ({ id: c.id, name: c.name, icon: c.icon }));
   if (category && !catChips.some((c) => c.id === category.id)) catChips.unshift({ ...category, icon: null });
+  for (const p of picked) if (!catChips.some((c) => c.id === p.id)) catChips.unshift({ ...p, icon: null });
   const lblChips: Ref[] = labels.map((l) => ({ id: l.id, name: l.name }));
   for (const l of selLabels) if (!lblChips.some((x) => x.id === l.id)) lblChips.push(l);
 
@@ -161,6 +163,12 @@ export default function TransactionSheet({
     setPicked([]);
     const cur = categories.find((c) => c.id === category?.id);
     if (cur?.type && cur.type !== t) setCategory(null);
+  }
+  function goNext() {
+    if (picked.length === 1) {
+      setCategory(picked[0]);
+      setStep('details');
+    } else if (picked.length > 1) setBasketOpen(true);
   }
   function requestClose() {
     if (saving || deleting) return;
@@ -260,7 +268,7 @@ export default function TransactionSheet({
         <button
           type="button"
           disabled={picked.length === 0}
-          onClick={() => setBasketOpen(true)}
+          onClick={goNext}
           className="min-h-11 flex-[2] rounded-lg bg-primary text-base font-medium text-canvas disabled:opacity-50"
         >
           Next ({picked.length}) →
@@ -312,22 +320,7 @@ export default function TransactionSheet({
 
           <div role="group" aria-labelledby="cat-h" className="flex flex-1 min-h-0 flex-col">
             <div className="mb-1 flex shrink-0 items-center justify-between">
-              <h3 id="cat-h" className="text-sm text-muted">{multi ? 'Select categories' : 'Select category'}</h3>
-              {!initial && (
-                <button
-                  type="button"
-                  aria-pressed={multi}
-                  onClick={() => {
-                    setMulti((v) => !v);
-                    setPicked([]);
-                  }}
-                  className={`min-h-9 rounded-full border px-3 text-xs font-medium ${
-                    multi ? 'border-primary bg-primary text-canvas' : 'border-primary/50 bg-primary/10 text-primary'
-                  }`}
-                >
-                  {multi ? '✓ Multiple' : 'Multiple'}
-                </button>
-              )}
+              <h3 id="cat-h" className="text-sm text-muted">{multi ? 'Select one or more categories' : 'Select category'}</h3>
             </div>
             <div className="grid flex-1 min-h-0 auto-rows-min grid-cols-4 gap-x-2 gap-y-2 overflow-y-auto">
               {catChips.map((c) => (
@@ -359,7 +352,10 @@ export default function TransactionSheet({
         <div className="flex h-full flex-col gap-2">
           <button
             type="button"
-            onClick={() => setStep('category')}
+            onClick={() => {
+              if (multi && category) setPicked([category]);
+              setStep('category');
+            }}
             className="flex items-center gap-2 self-start rounded-full border border-muted/40 bg-surface px-3 py-1.5 text-sm text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
           >
             <span aria-hidden="true" className="text-lg">
@@ -453,8 +449,12 @@ export default function TransactionSheet({
           kind="category"
           onClose={() => setAddingCategory(false)}
           onCreate={async (data) => {
-            setCategory(await addCategory(uid, { name: data.name, type, icon: data.icon, color: data.color }));
-            setStep('details');
+            const c = await addCategory(uid, { name: data.name, type, icon: data.icon, color: data.color });
+            if (multi) setPicked((cur) => (cur.some((p) => p.id === c.id) ? cur : [...cur, { id: c.id, name: c.name }]));
+            else {
+              setCategory(c);
+              setStep('details');
+            }
           }}
         />
       )}

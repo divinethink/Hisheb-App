@@ -57,6 +57,7 @@ describe('TransactionSheet', () => {
     // চেক ইচ্ছাকৃতভাবে বাদ; amount-validation এখনো প্রযোজ্য।
     const { user } = setup();
     await user.click(screen.getByRole('button', { name: 'Groceries' }));
+    await user.click(screen.getByRole('button', { name: /Next \(1\)/ }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(screen.getByText(/greater than 0/)).toBeTruthy();
     expect(repo.addTransaction).not.toHaveBeenCalled();
@@ -65,6 +66,7 @@ describe('TransactionSheet', () => {
   it('"+" button adds amounts, keeps input focused, saves the sum', async () => {
     const { user, onClose } = setup();
     await user.click(screen.getByRole('button', { name: 'Groceries' }));
+    await user.click(screen.getByRole('button', { name: /Next \(1\)/ }));
     await typeAmount(user, '500');
     await user.click(screen.getByRole('button', { name: 'Add' }));
     expect(document.activeElement).toBe(screen.getByLabelText('Amount'));
@@ -79,6 +81,7 @@ describe('TransactionSheet', () => {
   it('rejects zero amount', async () => {
     const { user } = setup();
     await user.click(screen.getByRole('button', { name: 'Groceries' }));
+    await user.click(screen.getByRole('button', { name: /Next \(1\)/ }));
     await typeAmount(user, '0');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(repo.addTransaction).not.toHaveBeenCalled();
@@ -87,6 +90,7 @@ describe('TransactionSheet', () => {
   it('saves a valid expense with minor units, stable id, importKey null', async () => {
     const { user, onClose } = setup();
     await user.click(screen.getByRole('button', { name: 'Groceries' }));
+    await user.click(screen.getByRole('button', { name: /Next \(1\)/ }));
     // owner সরাসরি "1250.5" টাইপ করবেন; ফলাফল amountMinor।
     await typeAmount(user, '1250.5');
     await user.click(screen.getByRole('button', { name: 'Fruits' }));
@@ -119,14 +123,15 @@ describe('TransactionSheet', () => {
     await waitFor(() =>
       expect(repo.addCategory).toHaveBeenCalledWith('u1', { name: 'Books', type: 'expense', icon: null, color: null }),
     );
-    // quick-add category সিলেক্ট হওয়ার সাথে সাথেই amount/details ধাপে চলে যায় (category-first flow)
-    await waitFor(() => expect(screen.getByRole('button', { name: /Books/ })).toBeTruthy());
+    // quick-add category টিক-করা অবস্থায় যোগ হয়; Next (1) চাপলে amount/details ধাপ
+    await user.click(await screen.findByRole('button', { name: /Next \(1\)/ }));
     expect(screen.getByLabelText('Amount')).toBeTruthy();
   });
 
   it('asks before discarding unsaved input', async () => {
     const { user, onClose } = setup();
     await user.click(screen.getByRole('button', { name: 'Groceries' }));
+    await user.click(screen.getByRole('button', { name: /Next \(1\)/ }));
     await typeAmount(user, '50');
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByText('Discard changes?')).toBeTruthy();
@@ -179,6 +184,7 @@ describe('TransactionSheet', () => {
     repo.addTransaction.mockRejectedValueOnce(new Error('denied'));
     const { user, onClose } = setup();
     await user.click(screen.getByRole('button', { name: 'Groceries' }));
+    await user.click(screen.getByRole('button', { name: /Next \(1\)/ }));
     await typeAmount(user, '10');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(screen.getByText(/Could not save/)).toBeTruthy());
