@@ -89,9 +89,11 @@ export async function updateMarketGroup(
   id: string,
   patch: { name?: string; icon?: string | null; archived?: boolean },
 ): Promise<void> {
-  const data: Record<string, unknown> = { ...patch, updatedAt: serverTimestamp() };
-  if (patch.name !== undefined) data.name = MarketGroupInputSchema.shape.name.parse(patch.name);
-  await updateDoc(doc(groupCol(uid), id), data);
+  await updateDoc(doc(groupCol(uid), id), {
+    ...patch,
+    ...(patch.name !== undefined ? { name: MarketGroupInputSchema.shape.name.parse(patch.name) } : {}),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export function addMarketItem(uid: string, input: MarketItemInput): Promise<void> {
@@ -104,10 +106,12 @@ export async function updateMarketItem(
   id: string,
   patch: { name?: string; unit?: string; groupId?: string; archived?: boolean },
 ): Promise<void> {
-  const data: Record<string, unknown> = { ...patch, updatedAt: serverTimestamp() };
-  if (patch.name !== undefined) data.name = MarketItemInputSchema.shape.name.parse(patch.name);
-  if (patch.unit !== undefined) data.unit = MarketItemInputSchema.shape.unit.parse(patch.unit);
-  await updateDoc(doc(itemCol(uid), id), data);
+  await updateDoc(doc(itemCol(uid), id), {
+    ...patch,
+    ...(patch.name !== undefined ? { name: MarketItemInputSchema.shape.name.parse(patch.name) } : {}),
+    ...(patch.unit !== undefined ? { unit: MarketItemInputSchema.shape.unit.parse(patch.unit) } : {}),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /** নতুন দাম বসানো — শেষ ৫টা ইতিহাস রাখে (lib/marketCalc.pushPrice)। */
