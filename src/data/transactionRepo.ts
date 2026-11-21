@@ -93,6 +93,27 @@ export async function addTransaction(uid: string, id: string, input: Transaction
   });
 }
 
+/** বাস্কেট (একাধিক category একসাথে): একটাই writeBatch — হয় সব সেভ, নয় কিছুই না।
+ *  id caller আগে বানিয়ে দেয়, তাই retry/double-tap একই doc লেখে (duplicate হয় না)। */
+export const BASKET_MAX = 30;
+export async function addTransactionsBatch(
+  uid: string,
+  items: Array<{ id: string; input: TransactionInput }>,
+): Promise<void> {
+  if (items.length === 0 || items.length > BASKET_MAX) throw new Error('Invalid basket size');
+  const batch = writeBatch(db);
+  for (const { id, input } of items) {
+    const data = TransactionInputSchema.parse(input); // write-boundary validation
+    batch.set(doc(txCol(uid), id), {
+      ...data,
+      occurredAt: Timestamp.fromDate(data.occurredAt),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+  await batch.commit();
+}
+
 export async function updateTransaction(uid: string, id: string, input: TransactionUpdate): Promise<void> {
   const data = TransactionUpdateSchema.parse(input);
   await updateDoc(doc(txCol(uid), id), { ...data, updatedAt: serverTimestamp() });
