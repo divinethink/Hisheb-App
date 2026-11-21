@@ -7,6 +7,7 @@ import { subscribeDebts } from '../data/debtRepo';
 import { subscribeInvestments } from '../data/investmentRepo';
 import { subscribeInvestmentCompanies } from '../data/investmentCompanyRepo';
 import { subscribeFunds, subscribeHomeDeposits } from '../data/homeDepositRepo';
+import { subscribeMarketGroups, subscribeMarketItems } from '../data/marketRepo';
 import { subscribeGpfEntries } from '../data/gpfRepo';
 import { subscribeCustomLedgers } from '../data/customLedgerRepo';
 import { subscribeAccountBalances, subscribeNetWorthSnapshots } from '../data/netWorthRepo';
@@ -20,6 +21,7 @@ import type { Debt } from '../validation/debtSchema';
 import type { Investment } from '../validation/investmentSchema';
 import type { InvestmentCompany } from '../validation/investmentCompanySchema';
 import type { Fund, HomeDepositEntry } from '../validation/homeDepositSchema';
+import type { MarketGroup, MarketItem } from '../validation/marketSchema';
 import type { GpfEntry } from '../validation/gpfSchema';
 import type { CustomLedger } from '../validation/customLedgerSchema';
 import type { AccountBalance, NetWorthSnapshot } from '../validation/netWorthSchema';
@@ -99,4 +101,11 @@ export function useNetWorthSnapshots(uid: string) {
 }
 export function useHistoricalTotals(uid: string) {
   return useLiveQuery<HistoricalYearlyTotal[]>(`hist:${uid}`, (d, e) => subscribeHistoricalTotals(uid, d, undefined, e));
+}
+
+export function useMarketGroups(uid: string) {
+  return useLiveQuery<MarketGroup[]>(`mkg:${uid}`, (d, e) => subscribeMarketGroups(uid, d, undefined, e));
+}
+export function useMarketItems(uid: string) {
+  return useLiveQuery<MarketItem[]>(`mki:${uid}`, (d, e) => subscribeMarketItems(uid, d, undefined, e));
 }

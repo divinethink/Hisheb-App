@@ -17,6 +17,7 @@ import {
   Target,
   TriangleAlert,
   Bell,
+  ShoppingBasket,
   type LucideIcon,
 } from 'lucide-react';
 import Logo from '../../common/Logo';
@@ -48,6 +49,7 @@ const BudgetScreen = lazy(() => import('./BudgetScreen'));
 const LargeAmountScreen = lazy(() => import('./LargeAmountScreen'));
 const OverviewLayoutScreen = lazy(() => import('./OverviewLayoutScreen'));
 const ManageCatalog = lazy(() => import('./ManageCatalog'));
+const MarketScreen = lazy(() => import('./MarketScreen'));
 
 
 // migration সারি (cutover-টুল) — আগের মতোই সরল Row
@@ -100,6 +102,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
   const [overviewLayoutOpen, setOverviewLayoutOpen] = useState(false);
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
+  const [marketOpen, setMarketOpen] = useState(false);
   const { canInstall, install } = useInstallPrompt();
   const passcodeOn = useHasPasscode();
   const settings = useSettings(user.uid);
@@ -148,6 +151,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       <MenuSection title="Organize">
         <MenuRow icon={Tags} tint="c1" label="Categories" value={cats.state.status === 'ready' ? String(cats.state.data.length) : undefined} onClick={() => setManageCategoriesOpen(true)} />
         <MenuRow icon={Tag} tint="c6" label="Labels" value={lbls.state.status === 'ready' ? String(lbls.state.data.length) : undefined} onClick={() => setManageLabelsOpen(true)} />
+        <MenuRow icon={ShoppingBasket} tint="c4" label="Market Prices" onClick={() => setMarketOpen(true)} />
         <MenuRow icon={BarChart3} tint="c3" label="Customize Overview" onClick={() => setOverviewLayoutOpen(true)} />
       </MenuSection>
 
@@ -228,6 +232,11 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       {manageLabelsOpen && (
         <Suspense fallback={<SkeletonLoader />}>
           <ManageCatalog uid={user.uid} kind="label" onClose={() => setManageLabelsOpen(false)} />
+        </Suspense>
+      )}
+      {marketOpen && (
+        <Suspense fallback={<SkeletonLoader />}>
+          <MarketScreen uid={user.uid} onClose={() => setMarketOpen(false)} />
         </Suspense>
       )}
       {importOpen && (

@@ -46,6 +46,14 @@ function docProblem(col: string, d: Doc): string | null {
       if (!nameOk(d) || strLen(d.name as string) > 60) return 'name must be 1-60 characters';
       if (!optStr(d, 'medium', 60)) return 'medium must be text up to 60 characters';
       return logoOk(d) ? null : 'logo must be a small webp/png/jpeg data URL';
+    case 'marketGroups':
+      if (!nameOk(d) || strLen(d.name as string) > 60) return 'name must be 1-60 characters';
+      return optStr(d, 'icon', 12) ? null : 'icon must be short text';
+    case 'marketItems':
+      if (!nameOk(d) || strLen(d.name as string) > 60) return 'name must be 1-60 characters';
+      if (typeof d.groupId !== 'string') return 'groupId must be text';
+      if (!optStr(d, 'unit', 20)) return 'unit must be text up to 20 characters';
+      return !('history' in d) || (Array.isArray(d.history) && d.history.length <= 5) ? null : 'history must be a list of at most 5';
     case 'homeDeposits':
       return posInt(d.amountMinor) ? null : 'amountMinor must be a positive integer';
     case 'gpfEntries':

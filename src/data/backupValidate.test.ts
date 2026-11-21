@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { assertBackupValid, findBackupProblems } from './backupValidate';
 
-const COLS = ['transactions', 'debts', 'investments', 'investmentCompanies', 'gpfEntries', 'accountBalances', 'accounts'] as const;
+const COLS = ['transactions', 'debts', 'investments', 'investmentCompanies', 'gpfEntries', 'accountBalances', 'accounts', 'marketGroups', 'marketItems'] as const;
 const okTx = { amountMinor: 500, type: 'expense', date: '2026-10-30' };
 
 describe('findBackupProblems (restore preflight)', () => {
@@ -34,6 +34,14 @@ describe('findBackupProblems (restore preflight)', () => {
     expect(findBackupProblems({ investmentCompanies: { a: { name: 'X', logo: 'data:image/svg+xml;base64,AAAA' } } }, COLS)).toHaveLength(1);
     expect(findBackupProblems({ investmentCompanies: { a: { name: 'x'.repeat(61) } } }, COLS)).toHaveLength(1);
     expect(findBackupProblems({ investmentCompanies: { a: { name: '' } } }, COLS)).toHaveLength(1);
+  });
+  it('marketGroups / marketItems', () => {
+    expect(findBackupProblems({ marketGroups: { a: { name: 'মশলা', icon: '🌶️' } } }, COLS)).toEqual([]);
+    expect(findBackupProblems({ marketGroups: { a: { name: '' } } }, COLS)).toHaveLength(1);
+    const ok = { name: 'জিরা', groupId: 'g', unit: 'কেজি', history: [] };
+    expect(findBackupProblems({ marketItems: { a: ok } }, COLS)).toEqual([]);
+    expect(findBackupProblems({ marketItems: { a: { ...ok, groupId: 3 } } }, COLS)).toHaveLength(1);
+    expect(findBackupProblems({ marketItems: { a: { ...ok, history: [1, 2, 3, 4, 5, 6] } } }, COLS)).toHaveLength(1);
   });
   it('gpfEntries / accountBalances / debts', () => {
     expect(findBackupProblems({ gpfEntries: { a: { amountMinor: 5, type: 'bonus' } } }, COLS)).toHaveLength(1);

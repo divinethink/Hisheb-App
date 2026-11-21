@@ -41,6 +41,10 @@ service cloud.firestore {
                    && optStr(d, 'platformNo', 30) && optStr(d, 'contractFileId', 100) && optStr(d, 'contractName', 120))
               : col == 'investmentCompanies'
                 ? (nameOk(d) && d.name.size() <= 60 && optStr(d, 'medium', 60) && logoOk(d))
+              : col == 'marketGroups' ? (nameOk(d) && d.name.size() <= 60 && optStr(d, 'icon', 12))
+              : col == 'marketItems'
+                ? (nameOk(d) && d.name.size() <= 60 && d.groupId is string && optStr(d, 'unit', 20)
+                   && (!('history' in d) || (d.history is list && d.history.size() <= 5)))
               : col == 'homeDeposits' ? posInt(d.amountMinor)
               : col == 'gpfEntries'
                 ? (posInt(d.amountMinor) && d.type in ['contribution', 'interest', 'withdrawal'])

@@ -149,6 +149,21 @@ describe('validWrite — other collections (P3/P8-এর clause আগে থে
     await assertFails(setDoc(p('investmentCompanies'), { name: 'A', logo: 'data:image/svg+xml;base64,PHN2Zz4=' }));
     await assertFails(setDoc(p('investmentCompanies'), { name: 'A', logo: 'data:image/webp;base64,' + 'A'.repeat(40000) }));
   });
+  it('marketGroups/marketItems need name; history is a list of at most 5', async () => {
+    await assertSucceeds(setDoc(p('marketGroups'), { name: 'মশলা', icon: '🌶️', order: 100 }));
+    await assertFails(setDoc(p('marketGroups'), { name: '' }));
+    await assertFails(setDoc(p('marketGroups'), { name: 'x'.repeat(61) }));
+    const item = { name: 'জিরা', groupId: 'g1', unit: 'কেজি', history: [] };
+    await assertSucceeds(setDoc(p('marketItems'), item));
+    await assertSucceeds(setDoc(p('marketItems'), { name: 'জিরা', groupId: 'g1' }));
+    await assertFails(setDoc(p('marketItems'), { ...item, groupId: 5 }));
+    await assertFails(setDoc(p('marketItems'), { ...item, name: '' }));
+    await assertFails(setDoc(p('marketItems'), { ...item, unit: 'u'.repeat(21) }));
+    await assertFails(setDoc(p('marketItems'), { ...item, history: 'x' }));
+    const h = { date: '2026-11-01', priceMinor: 100, note: '' };
+    await assertSucceeds(setDoc(p('marketItems'), { ...item, history: [h, h, h, h, h] }));
+    await assertFails(setDoc(p('marketItems'), { ...item, history: [h, h, h, h, h, h] }));
+  });
   it('gpfEntries require positive int amount and a known type', async () => {
     const ok = { amountMinor: 121300, type: 'contribution' };
     await assertSucceeds(setDoc(p('gpfEntries'), ok));

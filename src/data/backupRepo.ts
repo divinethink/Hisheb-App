@@ -29,6 +29,8 @@ export const BACKUP_COLLECTIONS = [
   'labels',
   'historicalYearlyTotals',
   'gpfEntries',
+  'marketGroups',
+  'marketItems',
 ] as const;
 
 export interface BackupPayload {
