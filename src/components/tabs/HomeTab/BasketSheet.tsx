@@ -197,18 +197,6 @@ export default function BasketSheet({
             <div className="w-40">
               <DateInput uid={uid} id="basket-date" value={date} onChange={setDate} invalid={submitted && !isValidDate(date)} />
             </div>
-            {/* একক ফর্মের মতোই ডানে (amount-এর "+" যেখানে থাকে) — হাতের অভ্যাস এক থাকে */}
-            <button
-              type="button"
-              aria-label="Add another amount"
-              onMouseDown={(e) => e.preventDefault()} // ফোকাস ও কীবোর্ড ধরে রাখে
-              onClick={plus}
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-2xl font-semibold leading-none ${
-                activeKey ? 'border-primary bg-primary text-canvas shadow-md shadow-primary/25' : 'border-primary/40 bg-primary/10 text-primary'
-              }`}
-            >
-              +
-            </button>
           </div>
         </div>
 
@@ -222,12 +210,27 @@ export default function BasketSheet({
               {sign}
               {formatTaka(total)}
             </p>
+            <div className="mt-1 h-1.5 w-24 overflow-hidden rounded-full bg-primary/15" aria-hidden="true">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${rows.length ? (filled / rows.length) * 100 : 0}%` }}
+              />
+            </div>
           </div>
-          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-primary/15" aria-hidden="true">
-            <div
-              className="h-full rounded-full bg-primary transition-all"
-              style={{ width: `${rows.length ? (filled / rows.length) * 100 : 0}%` }}
-            />
+          <div className="flex items-center gap-2">
+            {/* একক ফর্মের মতোই ডানে (amount-এর "+" যেখানে থাকে) — হাতের অভ্যাস এক থাকে */}
+            <button
+              type="button"
+              aria-label="Add another amount"
+              onMouseDown={(e) => e.preventDefault()} // ফোকাস ও কীবোর্ড ধরে রাখে
+              onClick={plus}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-2xl font-semibold leading-none ${
+                activeKey ? 'border-primary bg-primary text-canvas shadow-md shadow-primary/25' : 'border-primary/40 bg-primary/10 text-primary'
+              }`}
+            >
+              +
+            </button>
+            <span className="text-xs text-muted">BDT</span>
           </div>
         </div>
 
