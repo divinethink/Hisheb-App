@@ -65,10 +65,10 @@ describe('BasketSheet', () => {
     const { user } = setup();
     const input = screen.getByLabelText('Amount for Groceries') as HTMLInputElement;
     await user.type(input, '40');
-    await user.click(screen.getByRole('button', { name: 'Add another amount to Groceries' }));
+    await user.click(screen.getByRole('button', { name: 'Add another amount' }));
     await user.type(input, '110');
     expect(input.value).toBe('40+110');
-    expect(screen.getByText('= 150')).toBeTruthy();
+    expect(screen.getByText('\u2212150')).toBeTruthy(); // বড় সংখ্যা = যোগফল; ছোট ঘরে expression
   });
 
   it('keeps the draft and shows an error when the batch fails', async () => {

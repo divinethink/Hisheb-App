@@ -55,6 +55,7 @@ export default function BasketSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [activeKey, setActiveKey] = useState<string | null>(null); // যে ঘরে কীবোর্ড খোলা
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const inputs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -94,6 +95,18 @@ export default function BasketSheet({
     setRows((cur) => [...cur, row]);
     setAdding(false);
     setTimeout(() => inputs.current[row.key]?.focus(), 50);
+  }
+  /** একটাই "+": সক্রিয় ঘরে '+' বসায়; কোনো ঘর সক্রিয় না থাকলে প্রথম ফাঁকা ঘরে ফোকাস নেয়। */
+  function plus() {
+    const row = rows.find((r) => r.key === activeKey);
+    if (!row) {
+      const target = rows.find((r) => r.amount === '') ?? rows[0];
+      if (target) inputs.current[target.key]?.focus();
+      return;
+    }
+    if (row.amount === '' || row.amount.endsWith('+')) return;
+    patch(row.key, { amount: `${row.amount}+` });
+    inputs.current[row.key]?.focus();
   }
   function requestBack() {
     if (saving) return;
@@ -172,13 +185,27 @@ export default function BasketSheet({
     <BottomSheet title="Add multiple" onRequestClose={requestBack} footer={footer}>
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={requestBack}
-            className="min-h-11 rounded-full border border-muted/40 bg-surface px-3 text-sm text-fg"
-          >
-            ← Categories
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Back to categories"
+              onClick={requestBack}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-muted/40 bg-surface text-lg text-fg"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              aria-label="Add another amount"
+              onMouseDown={(e) => e.preventDefault()} // ফোকাস ও কীবোর্ড ধরে রাখে
+              onClick={plus}
+              className={`flex h-11 w-11 items-center justify-center rounded-full border text-2xl font-semibold leading-none ${
+                activeKey ? 'border-primary bg-primary text-canvas shadow-md shadow-primary/25' : 'border-primary/40 bg-primary/10 text-primary'
+              }`}
+            >
+              +
+            </button>
+          </div>
           <div className="w-40">
             <DateInput uid={uid} id="basket-date" value={date} onChange={setDate} invalid={submitted && !isValidDate(date)} />
           </div>
@@ -209,11 +236,13 @@ export default function BasketSheet({
             const icon = cat?.icon ?? getCategoryIcon(r.cat.name, type);
             const bad = submitted && parsed[i] === null;
             const expr = hasOperator(r.amount);
-            const evald = expr ? evaluateExpression(r.amount) : null;
+            // বড় সংখ্যা = মোট যোগফল, ছোট = বিভাজন (টাইপ-করা expression); শেষে '+' থাকলেও চলমান যোগফল দেখায়
+            const evald = expr ? (evaluateExpression(r.amount.replace(/\+$/, '')) ?? '0') : null;
+            const active = activeKey === r.key;
             return (
               <li
                 key={r.key}
-                className={`rounded-2xl border bg-surface p-3 shadow-sm ${bad ? 'border-expense' : 'border-muted/20'}`}
+                className={`rounded-2xl border bg-surface p-3 shadow-sm ${bad ? 'border-expense' : active ? 'border-primary' : 'border-muted/20'}`}
               >
                 <div className="flex items-center gap-3">
                   <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl">
@@ -221,10 +250,18 @@ export default function BasketSheet({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{r.cat.name}</p>
-                    <div className="flex items-baseline gap-1">
-                      <span className={`text-lg ${tone}`} aria-hidden="true">
+                    {expr && (
+                      <p className={`text-xl font-semibold tabular-nums ${tone}`}>
                         {sign}
-                      </span>
+                        {evald}
+                      </p>
+                    )}
+                    <div className="flex items-baseline gap-1">
+                      {!expr && (
+                        <span className={`text-lg ${tone}`} aria-hidden="true">
+                          {sign}
+                        </span>
+                      )}
                       <input
                         ref={(el) => {
                           inputs.current[r.key] = el;
@@ -235,6 +272,8 @@ export default function BasketSheet({
                         autoComplete="off"
                         placeholder="0"
                         value={r.amount}
+                        onFocus={() => setActiveKey(r.key)}
+                        onBlur={() => setActiveKey((k) => (k === r.key ? null : k))}
                         onChange={(e) =>
                           patch(r.key, { amount: e.target.value.replace(/,/g, '.').replace(/[^0-9.+]/g, '') })
                         }
@@ -245,24 +284,12 @@ export default function BasketSheet({
                           if (next) inputs.current[next.key]?.focus();
                           else (e.target as HTMLInputElement).blur();
                         }}
-                        className="w-full min-w-0 bg-transparent text-xl font-semibold tabular-nums outline-none placeholder:text-muted/50"
+                        className={`w-full min-w-0 bg-transparent tabular-nums outline-none placeholder:text-muted/50 ${
+                          expr ? 'text-sm text-muted' : 'text-xl font-semibold'
+                        }`}
                       />
-                      <button
-                        type="button"
-                        aria-label={`Add another amount to ${r.cat.name}`}
-                        onPointerDown={(e) => e.preventDefault()} // কীবোর্ড বন্ধ হওয়া ঠেকায়
-                        onClick={() => {
-                          if (r.amount === '' || r.amount.endsWith('+')) return;
-                          patch(r.key, { amount: `${r.amount}+` });
-                          inputs.current[r.key]?.focus();
-                        }}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-lg font-semibold text-primary active:bg-primary/20"
-                      >
-                        +
-                      </button>
                       <span className="text-xs text-muted">BDT</span>
                     </div>
-                    {expr && evald && <p className="text-xs text-muted">= {evald}</p>}
                   </div>
                   <div className="flex shrink-0 flex-col items-center">
                     <button
