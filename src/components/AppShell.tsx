@@ -69,7 +69,14 @@ export default function AppShell({ user }: { user: SessionUser }) {
       <main className="min-h-0 flex-1 overflow-hidden">
         <PullToRefresh>
         <Suspense fallback={<SkeletonLoader />}>
-          {tab === 'home' && <HomeTab uid={user.uid} autoOpenAdd={autoOpenAdd} />}
+          {tab === 'home' && <HomeTab
+              uid={user.uid}
+              autoOpenAdd={autoOpenAdd}
+              onNavigate={(t, month) => {
+                if (month) setUpdateRequest({ month });
+                setTab(t);
+              }}
+            />}
           {tab === 'ledger' && <LedgerTab uid={user.uid} />}
           {tab === 'networth' && <NetWorthTab uid={user.uid} updateRequest={updateRequest} onUpdateRequestHandled={() => setUpdateRequest(null)} />}
           {tab === 'overview' && <OverviewTab uid={user.uid} />}

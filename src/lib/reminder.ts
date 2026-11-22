@@ -96,7 +96,7 @@ export type Reminder =
   | { kind: 'missedMonth'; month: string; message: string }
   | { kind: 'dueDate'; message: string };
 
-const BUDGET_MESSAGES: Record<BudgetLevel, { tone: BudgetTone; message: string }> = {
+export const BUDGET_MESSAGES: Record<BudgetLevel, { tone: BudgetTone; message: string }> = {
   '70': { tone: 'info', message: "You've used 70% of your monthly budget." },
   '80': { tone: 'warning', message: "You've used 80% of your monthly budget." },
   '90': { tone: 'danger', message: "You've used 90% of your monthly budget." },
@@ -118,7 +118,7 @@ export function dhakaHour(now: Date): number {
   return Number(hourFmt.format(now));
 }
 
-function isLastDayOfMonth(today: string): boolean {
+export function isLastDayOfMonth(today: string): boolean {
   const d = new Date(`${today}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + 1);
   return d.getUTCDate() === 1;

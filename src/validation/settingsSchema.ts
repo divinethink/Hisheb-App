@@ -22,6 +22,7 @@ export const SettingsSchema = z.object({
   lastBudgetThresholdShownDate: dateOrNull, // C4
   lastBudgetThresholdShownLevel: z.enum(['70', '80', '90', '100']).nullish().transform((v) => v ?? null), // C4
   lastDueDateReminderShownDate: dateOrNull, // G2
+  notificationsSeenKeys: z.array(z.string().max(120)).max(50).nullish().transform((v) => v ?? []), // Home বেল: যে নোটিফিকেশন দেখা হয়েছে (না থাকলে খালি; সব ডিভাইসে একই)
   largeAmountWarningThresholdMinor: minorOrNull, // G3 (null = ফিচার off)
   zakatNisabStandard: z.enum(['gold', 'silver']).nullish().transform((v) => v ?? null),
   zakatGoldPriceMinor: minorOrNull,

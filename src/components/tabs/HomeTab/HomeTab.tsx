@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type TouchEvent } from 'react';
-import { Bell, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Logo from '../../common/Logo';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import Card from '../../common/Card';
@@ -7,6 +7,8 @@ import CategoryIcon, { categoryTint } from '../../common/CategoryIcon';
 import TransactionSheet from './TransactionSheet';
 import HomeSearch from './HomeSearch';
 import MonthSummaryCard from './MonthSummaryCard';
+import NotificationBell from './NotificationBell';
+import type { TabId } from '../../BottomNav';
 import { SearchToggle } from '../../common/ListSearch';
 import { useBackClose } from '../../../hooks/useBackClose';
 import { restoreTransaction, softDeleteTransaction } from '../../../data/transactionRepo';
@@ -22,7 +24,15 @@ import type { Category, Label } from '../../../validation/catalogSchemas';
 const NO_CATS: Category[] = [];
 const NO_LABELS: Label[] = [];
 
-export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; autoOpenAdd?: boolean }) {
+export default function HomeTab({
+  uid,
+  autoOpenAdd = false,
+  onNavigate,
+}: {
+  uid: string;
+  autoOpenAdd?: boolean;
+  onNavigate?: (tab: TabId, month?: string) => void;
+}) {
   const now = useMemo(() => currentMonth(), []);
   const [month, setMonth] = useState(now);
   const today = useMemo(() => toDhakaDate(new Date()), []);
@@ -124,10 +134,10 @@ export default function HomeTab({ uid, autoOpenAdd = false }: { uid: string; aut
           <h1 className="flex items-center gap-2 text-lg font-semibold text-fg"><Logo size={28} />হিসাব-নিকাশ</h1>
           {/* item ৬ (UI Polish): cloud sync-status icon সরানো হলো — OfflineBanner (AppShell, সব
               ট্যাবে global) ইতিমধ্যে এই একই তথ্য টেক্সটসহ দেখায়, তাই এখানে duplicate ছিল।
-              Search এখন আসল (owner-approved 2026-10-27): সব মাসে category/note/label/অঙ্ক। Bell আপাতত visual placement মাত্র। */}
+              Search এখন আসল (owner-approved 2026-10-27): সব মাসে category/note/label/অঙ্ক। Bell = নোটিফিকেশন তালিকা (NotificationBell, owner-approved 2026-11-22)। */}
           <div className="flex items-center gap-1">
             <SearchToggle open={searchOpen} onToggle={() => setSearchOpen((o) => !o)} />
-            <Bell aria-label="Reminders" size={18} className="text-muted" />
+            <NotificationBell uid={uid} onNavigate={(t, m) => onNavigate?.(t, m)} />
           </div>
         </header>
         {searchOpen && (
