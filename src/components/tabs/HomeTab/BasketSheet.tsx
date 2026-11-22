@@ -211,7 +211,6 @@ export default function BasketSheet({
             </button>
           </div>
         </div>
-        </div>
 
         {/* সারাংশ কার্ড */}
         <div className="flex items-center justify-between rounded-2xl bg-primary/10 px-4 py-3">

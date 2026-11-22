@@ -55,8 +55,8 @@ export default function MarketScreen({ uid, onClose }: { uid: string; onClose: (
     foldInit.current = true;
     setExpanded(new Set(gq.state.data.filter((g) => g.fold === 'open').map((g) => g.id)));
   }, [gq.state]);
-  const allGroups: MarketGroup[] = gq.state.status === 'ready' ? gq.state.data : [];
-  const allItems: MarketItem[] = iq.state.status === 'ready' ? iq.state.data : [];
+  const allGroups = useMemo<MarketGroup[]>(() => (gq.state.status === 'ready' ? gq.state.data : []), [gq.state]);
+  const allItems = useMemo<MarketItem[]>(() => (iq.state.status === 'ready' ? iq.state.data : []), [iq.state]);
 
   const groups = useMemo(() => sortByOrder(allGroups.filter((g) => !g.archived)), [allGroups]);
   const itemsByGroup = useMemo(() => {
