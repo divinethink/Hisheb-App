@@ -4,6 +4,7 @@ import BottomSheet from '../../common/BottomSheet';
 import AmountInput from '../../common/AmountInput';
 import DateInput from '../../common/DateInput';
 import DeleteEntryButton from '../../common/DeleteEntryButton';
+import { Chip, KIND_ICON, ROW_CLS } from './MedUi';
 import { resolveAmountMinor, minorToInput } from '../../../lib/money';
 import { toDhakaDate } from '../../../lib/date';
 import { formatTaka } from '../../../lib/format';
@@ -12,30 +13,17 @@ import { KIND_LABEL, suggestNames } from '../../../lib/medPurchaseCalc';
 import { addMedPurchase, deleteMedPurchase, newMedPurchaseId, updateMedPurchase } from '../../../data/medPurchaseRepo';
 import { MED_KINDS, MED_LIMITS, type MedKind, type MedPurchase } from '../../../validation/medPurchaseSchema';
 
-const inputCls = 'min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none focus:border-primary';
+const inputCls = 'min-h-12 w-full rounded-xl border border-muted/20 bg-surface px-3.5 text-fg outline-none transition-colors focus:border-primary focus:bg-canvas';
 const DOSE_HINTS = ['500mg', '250mg', '5ml', '10ml', '1+1+1'];
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="mb-1 block text-sm text-muted">
+      <label htmlFor={htmlFor} className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">
         {label}
       </label>
       {children}
     </div>
-  );
-}
-
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={`min-h-9 shrink-0 rounded-full border px-3.5 text-sm ${on ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-transparent bg-muted/10 text-muted'}`}
-    >
-      {children}
-    </button>
   );
 }
 
@@ -103,22 +91,35 @@ export default function MedPurchaseSheet({
       onRequestClose={onClose}
       footer={
         <>
-          <button type="button" onClick={onClose} disabled={saving} className="min-h-11 rounded-lg border border-muted/40 px-4 text-sm disabled:opacity-60">
+          <button type="button" onClick={onClose} disabled={saving} className="min-h-12 rounded-2xl border border-muted/30 px-5 text-sm disabled:opacity-60">
             Cancel
           </button>
-          <button type="button" onClick={() => void save()} disabled={saving} className="min-h-11 flex-1 rounded-lg bg-primary px-4 text-sm font-medium text-canvas disabled:opacity-60">
+          <button type="button" onClick={() => void save()} disabled={saving} className="min-h-12 flex-1 rounded-2xl bg-primary px-4 text-sm font-semibold text-canvas shadow-md disabled:opacity-60">
             {saving ? 'Saving…' : 'Save'}
           </button>
         </>
       }
     >
       <div className="flex flex-col gap-3">
-        <div role="group" aria-label="Type" className="flex gap-2 overflow-x-auto pb-1">
-          {MED_KINDS.map((k) => (
-            <Chip key={k} on={kind === k} onClick={() => setKind(k)}>
-              {KIND_LABEL[k]}
-            </Chip>
-          ))}
+        <div role="group" aria-label="Type" className="grid grid-cols-4 gap-2">
+          {MED_KINDS.map((k) => {
+            const Icon = KIND_ICON[k].icon;
+            const on = kind === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setKind(k)}
+                className={`flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-2xl border px-1 text-xs transition-colors ${
+                  on ? 'border-primary bg-primary/10 font-semibold text-primary' : 'border-muted/15 bg-surface text-muted'
+                }`}
+              >
+                <Icon aria-hidden size={20} />
+                <span className="text-center leading-tight">{KIND_LABEL[k]}</span>
+              </button>
+            );
+          })}
         </div>
 
         <Field label="নাম (ঔষধ / টেস্ট / অপারেশন)" htmlFor="mp-name">
@@ -134,7 +135,7 @@ export default function MedPurchaseSheet({
             className={inputCls}
           />
           {suggestions.length > 0 && (
-            <ul aria-label="Suggestions" className="mt-1 overflow-hidden rounded-lg border border-muted/20 bg-canvas">
+            <ul aria-label="Suggestions" className="mt-1.5 overflow-hidden rounded-xl border border-muted/15 bg-canvas shadow-md">
               {suggestions.map((s) => (
                 <li key={s}>
                   <button
@@ -144,7 +145,7 @@ export default function MedPurchaseSheet({
                       setName(s);
                       setFocusName(false);
                     }}
-                    className="min-h-11 w-full px-3 text-left text-sm text-fg active:bg-primary/10"
+                    className="min-h-11 w-full border-b border-muted/10 px-3.5 text-left text-sm text-fg last:border-b-0 active:bg-primary/10"
                   >
                     {s}
                   </button>
@@ -163,7 +164,7 @@ export default function MedPurchaseSheet({
           <input id="mp-dose" value={dose} maxLength={MED_LIMITS.dose} onChange={(e) => setDose(e.target.value)} placeholder="যেমন 500mg, 10ml" className={inputCls} />
         </Field>
         {kind === 'medicine' && (
-          <div className="-mt-1 flex gap-2 overflow-x-auto pb-1">
+          <div className={`${ROW_CLS} -mt-1`}>
             {DOSE_HINTS.map((h) => (
               <Chip key={h} on={dose === h} onClick={() => setDose(h)}>
                 {h}
@@ -182,7 +183,7 @@ export default function MedPurchaseSheet({
           <input id="mp-patient" value={patient} maxLength={MED_LIMITS.patient} onChange={(e) => setPatient(e.target.value)} placeholder="যেমন আমি, স্ত্রী, ছেলে" className={inputCls} />
         </Field>
         {knownPatients.length > 0 && (
-          <div className="-mt-1 flex gap-2 overflow-x-auto pb-1">
+          <div className={`${ROW_CLS} -mt-1`}>
             {knownPatients.map((p) => (
               <Chip key={p} on={patient === p} onClick={() => setPatient(p)}>
                 {p}

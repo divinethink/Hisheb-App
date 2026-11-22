@@ -7,6 +7,7 @@ import { formatTaka } from '../../../lib/format';
 import { formatDisplayDate } from '../../../lib/date';
 import { KIND_LABEL, buildMemoText, filterPurchases, groupByKind, patientsOf, totalMinor, yearsOf } from '../../../lib/medPurchaseCalc';
 import { MED_KINDS, type MedKind, type MedPurchase } from '../../../validation/medPurchaseSchema';
+import { Chip, KindBadge, ROW_CLS } from './MedUi';
 
 export default function MedMemoScreen({
   uid,
@@ -55,96 +56,101 @@ export default function MedMemoScreen({
     }
   }
 
-  const chip = (on: boolean) =>
-    `min-h-9 shrink-0 rounded-full border px-3.5 text-sm ${on ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-transparent bg-muted/10 text-muted'}`;
-
   return (
     <FullScreenPage
       title="ক্রয়ের ফর্দ"
       onBack={onClose}
       footer={
         <div className="flex gap-2">
-          <button type="button" onClick={() => void copy()} disabled={rows.length === 0} className="inline-flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg border border-muted/40 text-sm disabled:opacity-40">
+          <button type="button" onClick={() => void copy()} disabled={rows.length === 0} className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-2xl border border-muted/30 text-sm disabled:opacity-40">
             <Copy aria-hidden size={16} /> Copy
           </button>
-          <button type="button" onClick={() => void share()} disabled={rows.length === 0} className="inline-flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg bg-primary text-sm font-medium text-canvas disabled:opacity-40">
+          <button type="button" onClick={() => void share()} disabled={rows.length === 0} className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary text-sm font-semibold text-canvas shadow-md disabled:opacity-40">
             <Share2 aria-hidden size={16} /> Share
           </button>
         </div>
       }
     >
-      <div className="mb-3 flex flex-col gap-2">
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {years.map((y) => (
-            <button key={y} type="button" aria-pressed={from === `${y}-01-01` && to === `${y}-12-31`} onClick={() => { setFrom(`${y}-01-01`); setTo(`${y}-12-31`); }} className={chip(from === `${y}-01-01` && to === `${y}-12-31`)}>
-              {y}
-            </button>
-          ))}
+      <div className="mb-4 flex flex-col gap-2.5">
+        <div className={ROW_CLS}>
+          {years.map((y) => {
+            const on = from === `${y}-01-01` && to === `${y}-12-31`;
+            return (
+              <Chip key={y} on={on} onClick={() => { setFrom(`${y}-01-01`); setTo(`${y}-12-31`); }}>
+                {y}
+              </Chip>
+            );
+          })}
         </div>
         <div className="grid grid-cols-2 gap-2">
           <DateInput uid={uid} id="memo-from" value={from} onChange={setFrom} variant="box" />
           <DateInput uid={uid} id="memo-to" value={to} onChange={setTo} variant="box" />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          <button type="button" aria-pressed={kind === 'all'} onClick={() => setKind('all')} className={chip(kind === 'all')}>সব</button>
+        <div className={ROW_CLS}>
+          <Chip on={kind === 'all'} onClick={() => setKind('all')}>সব</Chip>
           {MED_KINDS.map((k) => (
-            <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={chip(kind === k)}>
+            <Chip key={k} on={kind === k} onClick={() => setKind(k)}>
               {KIND_LABEL[k]}
-            </button>
+            </Chip>
           ))}
         </div>
         {patients.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <button type="button" aria-pressed={patient === ''} onClick={() => setPatient('')} className={chip(patient === '')}>সব রোগী</button>
+          <div className={ROW_CLS}>
+            <Chip on={patient === ''} onClick={() => setPatient('')}>সব রোগী</Chip>
             {patients.map((p) => (
-              <button key={p} type="button" aria-pressed={patient === p} onClick={() => setPatient(p)} className={chip(patient === p)}>
+              <Chip key={p} on={patient === p} onClick={() => setPatient(p)}>
                 {p}
-              </button>
+              </Chip>
             ))}
           </div>
         )}
       </div>
 
-      <article aria-label="Memo" className="rounded-2xl border border-muted/20 bg-canvas p-4 shadow-sm">
-        <h2 className="text-center text-lg font-semibold text-fg">চিকিৎসা ক্রয়ের ফর্দ</h2>
-        <p className="text-center text-xs text-muted">{period}</p>
-        {patient && <p className="text-center text-xs text-muted">রোগী: {patient}</p>}
+      <article aria-label="Memo" className="overflow-hidden rounded-3xl border border-muted/15 bg-canvas shadow-md">
+        <header className="bg-primary px-5 py-5 text-center text-canvas">
+          <h2 className="text-lg font-semibold tracking-wide">চিকিৎসা ক্রয়ের ফর্দ</h2>
+          <p className="mt-1 text-xs text-canvas/70">{period}</p>
+          {patient && <p className="text-xs text-canvas/70">রোগী: {patient}</p>}
+        </header>
 
-        {groups.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted">এই সময়ে কোনো ক্রয় নেই।</p>
-        ) : (
-          groups.map((g) => (
-            <section key={g.kind} className="mt-4">
-              <div className="flex items-baseline justify-between border-b border-muted/30 pb-1">
-                <h3 className="font-semibold text-fg">{KIND_LABEL[g.kind]}</h3>
-                <span className="text-sm tabular-nums text-muted">{formatTaka(g.subtotalMinor)}</span>
-              </div>
-              <ol className="divide-y divide-muted/10">
-                {g.rows.map((p, i) => (
-                  <li key={p.id} className="flex items-start gap-2 py-2 text-sm">
-                    <span className="w-5 shrink-0 text-muted">{i + 1}.</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block break-words text-fg">
-                        {p.name}
-                        {p.dose && <span className="text-muted"> · {p.dose}</span>}
+        <div className="px-5 pb-2 pt-1">
+          {groups.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted">এই সময়ে কোনো ক্রয় নেই।</p>
+          ) : (
+            groups.map((g) => (
+              <section key={g.kind} className="mt-4">
+                <div className="flex items-center gap-2.5 pb-2">
+                  <KindBadge kind={g.kind} size={30} />
+                  <h3 className="flex-1 font-semibold text-fg">{KIND_LABEL[g.kind]}</h3>
+                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">{formatTaka(g.subtotalMinor)}</span>
+                </div>
+                <ol className="border-t border-dashed border-muted/30">
+                  {g.rows.map((p, i) => (
+                    <li key={p.id} className="flex items-start gap-2 border-b border-dashed border-muted/20 py-2.5 text-sm last:border-b-0">
+                      <span className="w-5 shrink-0 text-xs text-muted">{i + 1}.</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block break-words font-medium text-fg">
+                          {p.name}
+                          {p.dose && <span className="font-normal text-muted"> · {p.dose}</span>}
+                        </span>
+                        <span className="block text-xs text-muted">
+                          {fmt(p.date)}
+                          {!patient && p.patient ? ` · ${p.patient}` : ''}
+                        </span>
                       </span>
-                      <span className="block text-xs text-muted">
-                        {fmt(p.date)}
-                        {!patient && p.patient ? ` · ${p.patient}` : ''}
-                      </span>
-                    </span>
-                    <span className="shrink-0 tabular-nums text-fg">{formatTaka(p.amountMinor)}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          ))
-        )}
-
-        <div className="mt-4 flex items-baseline justify-between border-t-2 border-fg/40 pt-2">
-          <span className="font-semibold text-fg">সর্বমোট</span>
-          <span className="text-lg font-semibold tabular-nums text-fg">{formatTaka(totalMinor(rows))}</span>
+                      <span className="shrink-0 tabular-nums text-fg">{formatTaka(p.amountMinor)}</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ))
+          )}
         </div>
+
+        <footer className="mt-2 flex items-baseline justify-between border-t-2 border-dashed border-muted/40 bg-primary/5 px-5 py-4">
+          <span className="font-semibold text-fg">সর্বমোট</span>
+          <span className="text-2xl font-semibold tabular-nums text-primary">{formatTaka(totalMinor(rows))}</span>
+        </footer>
       </article>
       {msg && (
         <p role="status" className="mt-2 text-center text-sm text-muted">

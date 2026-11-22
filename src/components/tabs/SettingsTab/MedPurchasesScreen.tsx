@@ -9,6 +9,7 @@ import { formatDisplayDate } from '../../../lib/date';
 import { KIND_LABEL, filterPurchases, patientsOf, sortPurchases, totalMinor, yearsOf } from '../../../lib/medPurchaseCalc';
 import { MED_KINDS, type MedKind, type MedPurchase } from '../../../validation/medPurchaseSchema';
 import MedPurchaseSheet from './MedPurchaseSheet';
+import { Chip, KindBadge, ROW_CLS } from './MedUi';
 
 const MedMemoScreen = lazy(() => import('./MedMemoScreen'));
 
@@ -45,9 +46,6 @@ export default function MedPurchasesScreen({ uid, onClose }: { uid: string; onCl
   );
   const editItem = sheet?.kind === 'edit' ? all.find((p) => p.id === sheet.id) : undefined;
 
-  const chip = (on: boolean) =>
-    `min-h-9 shrink-0 rounded-full border px-3.5 text-sm ${on ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-transparent bg-muted/10 text-muted'}`;
-
   return (
     <FullScreenPage
       title="ক্রয় তালিকা"
@@ -72,7 +70,7 @@ export default function MedPurchasesScreen({ uid, onClose }: { uid: string; onCl
         </>
       }
       footer={
-        <button type="button" onClick={() => setSheet({ kind: 'add' })} className="inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-lg bg-primary text-sm font-medium text-canvas">
+        <button type="button" onClick={() => setSheet({ kind: 'add' })} className="inline-flex min-h-12 w-full items-center justify-center gap-1.5 rounded-2xl bg-primary text-sm font-semibold text-canvas shadow-md active:opacity-90">
           <Plus aria-hidden size={16} /> Add purchase
         </button>
       }
@@ -85,7 +83,7 @@ export default function MedPurchasesScreen({ uid, onClose }: { uid: string; onCl
           onChange={(e) => setQuery(e.target.value)}
           placeholder="নাম, ডোজ, রোগী বা নোট খুঁজুন"
           aria-label="Search purchases"
-          className="mb-3 min-h-11 w-full rounded-xl border border-muted/20 bg-surface px-3 text-sm text-fg outline-none focus:border-primary"
+          className="mb-3 min-h-12 w-full rounded-2xl border border-muted/20 bg-surface px-3 text-sm text-fg outline-none focus:border-primary"
         />
       )}
 
@@ -93,48 +91,50 @@ export default function MedPurchasesScreen({ uid, onClose }: { uid: string; onCl
         <SkeletonLoader />
       ) : (
         <>
-          <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
-            <button type="button" aria-pressed={kind === 'all'} onClick={() => setKind('all')} className={chip(kind === 'all')}>সব</button>
+          <section aria-label="Total" className="relative mb-4 overflow-hidden rounded-3xl bg-primary p-5 text-canvas shadow-md">
+            <span aria-hidden className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-canvas/10" />
+            <span aria-hidden className="pointer-events-none absolute -bottom-10 right-10 h-24 w-24 rounded-full bg-canvas/5" />
+            <p className="text-xs uppercase tracking-wide text-canvas/70">{year === 'all' ? 'সব বছর' : year} · মোট খরচ</p>
+            <p className="mt-1 text-3xl font-semibold tabular-nums">{formatTaka(totalMinor(rows))}</p>
+            <p className="mt-1 text-sm text-canvas/70">{rows.length}টি ক্রয়</p>
+          </section>
+
+          <div className={`${ROW_CLS} mb-2`}>
+            <Chip on={kind === 'all'} onClick={() => setKind('all')}>সব</Chip>
             {MED_KINDS.map((k) => (
-              <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={chip(kind === k)}>
+              <Chip key={k} on={kind === k} onClick={() => setKind(k)}>
                 {KIND_LABEL[k]}
-              </button>
+              </Chip>
             ))}
           </div>
           {years.length > 0 && (
-            <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-              <button type="button" aria-pressed={year === 'all'} onClick={() => setYear('all')} className={chip(year === 'all')}>সব বছর</button>
+            <div className={`${ROW_CLS} mb-4`}>
+              <Chip on={year === 'all'} onClick={() => setYear('all')}>সব বছর</Chip>
               {years.map((y) => (
-                <button key={y} type="button" aria-pressed={year === y} onClick={() => setYear(y)} className={chip(year === y)}>
+                <Chip key={y} on={year === y} onClick={() => setYear(y)}>
                   {y}
-                </button>
+                </Chip>
               ))}
             </div>
           )}
 
-          <div className="mb-3 flex items-center justify-between rounded-2xl bg-primary/5 px-4 py-3">
-            <span className="text-sm text-muted">{rows.length}টি ক্রয়</span>
-            <span className="text-lg font-semibold tabular-nums text-fg">{formatTaka(totalMinor(rows))}</span>
-          </div>
-
           {rows.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted">{all.length === 0 ? 'এখনো কিছু যোগ করা হয়নি। নিচের বাটনে চাপুন।' : 'কিছু মেলেনি।'}</p>
+            <p className="py-12 text-center text-sm text-muted">{all.length === 0 ? 'এখনো কিছু যোগ করা হয়নি। নিচের বাটনে চাপুন।' : 'কিছু মেলেনি।'}</p>
           ) : (
-            <ul className="divide-y divide-muted/10 overflow-hidden rounded-2xl border border-muted/10 bg-canvas">
+            <ul className="flex flex-col gap-2.5">
               {rows.map((p) => (
                 <li key={p.id}>
                   <button
                     type="button"
                     onClick={() => setSheet({ kind: 'edit', id: p.id })}
-                    className="flex min-h-16 w-full items-center gap-3 px-4 py-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                    className="flex min-h-[4.5rem] w-full items-center gap-3 rounded-2xl border border-muted/10 bg-canvas px-3.5 py-3 text-left shadow-sm transition-shadow active:shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                   >
+                    <KindBadge kind={p.kind} />
                     <span className="min-w-0 flex-1">
-                      <span className="block break-words text-[15px] font-medium text-fg">
-                        {p.name}
-                        {p.dose && <span className="font-normal text-muted"> · {p.dose}</span>}
-                      </span>
+                      <span className="block break-words text-[15px] font-semibold leading-snug text-fg">{p.name}</span>
+                      {p.dose && <span className="mt-0.5 block text-xs text-muted">{p.dose}</span>}
                       <span className="mt-0.5 block text-xs text-muted">
-                        {formatDisplayDate(p.date, dateFormat)} · {KIND_LABEL[p.kind]}
+                        {formatDisplayDate(p.date, dateFormat)}
                         {p.patient ? ` · ${p.patient}` : ''}
                       </span>
                     </span>
