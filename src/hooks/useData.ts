@@ -8,6 +8,7 @@ import { subscribeInvestments } from '../data/investmentRepo';
 import { subscribeInvestmentCompanies } from '../data/investmentCompanyRepo';
 import { subscribeFunds, subscribeHomeDeposits } from '../data/homeDepositRepo';
 import { subscribeMarketGroups, subscribeMarketItems } from '../data/marketRepo';
+import { subscribeMedPurchases } from '../data/medPurchaseRepo';
 import { subscribeGpfEntries } from '../data/gpfRepo';
 import { subscribeCustomLedgers } from '../data/customLedgerRepo';
 import { subscribeAccountBalances, subscribeNetWorthSnapshots } from '../data/netWorthRepo';
@@ -22,6 +23,7 @@ import type { Investment } from '../validation/investmentSchema';
 import type { InvestmentCompany } from '../validation/investmentCompanySchema';
 import type { Fund, HomeDepositEntry } from '../validation/homeDepositSchema';
 import type { MarketGroup, MarketItem } from '../validation/marketSchema';
+import type { MedPurchase } from '../validation/medPurchaseSchema';
 import type { GpfEntry } from '../validation/gpfSchema';
 import type { CustomLedger } from '../validation/customLedgerSchema';
 import type { AccountBalance, NetWorthSnapshot } from '../validation/netWorthSchema';
@@ -108,4 +110,8 @@ export function useMarketGroups(uid: string) {
 }
 export function useMarketItems(uid: string) {
   return useLiveQuery<MarketItem[]>(`mki:${uid}`, (d, e) => subscribeMarketItems(uid, d, undefined, e));
+}
+
+export function useMedPurchases(uid: string) {
+  return useLiveQuery<MedPurchase[]>(`medp:${uid}`, (d, e) => subscribeMedPurchases(uid, d, undefined, e));
 }

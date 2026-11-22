@@ -54,6 +54,11 @@ function docProblem(col: string, d: Doc): string | null {
       if (typeof d.groupId !== 'string') return 'groupId must be text';
       if (!optStr(d, 'unit', 20)) return 'unit must be text up to 20 characters';
       return !('history' in d) || (Array.isArray(d.history) && d.history.length <= 5) ? null : 'history must be a list of at most 5';
+    case 'medPurchases':
+      if (!nameOk(d) || strLen(d.name as string) > 80) return 'name must be 1-80 characters';
+      if (!posInt(d.amountMinor)) return 'amountMinor must be a positive integer';
+      if (typeof d.date !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d.date)) return 'date must be YYYY-MM-DD';
+      return optStr(d, 'dose', 40) && optStr(d, 'patient', 40) && optStr(d, 'note', 200) ? null : 'a text field is too long or not text';
     case 'homeDeposits':
       return posInt(d.amountMinor) ? null : 'amountMinor must be a positive integer';
     case 'gpfEntries':

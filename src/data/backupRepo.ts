@@ -31,6 +31,7 @@ export const BACKUP_COLLECTIONS = [
   'gpfEntries',
   'marketGroups',
   'marketItems',
+  'medPurchases',
 ] as const;
 
 export interface BackupPayload {

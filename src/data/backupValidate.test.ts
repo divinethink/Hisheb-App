@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { assertBackupValid, findBackupProblems } from './backupValidate';
 
-const COLS = ['transactions', 'debts', 'investments', 'investmentCompanies', 'gpfEntries', 'accountBalances', 'accounts', 'marketGroups', 'marketItems'] as const;
+const COLS = ['transactions', 'debts', 'investments', 'investmentCompanies', 'gpfEntries', 'accountBalances', 'accounts', 'marketGroups', 'marketItems', 'medPurchases'] as const;
 const okTx = { amountMinor: 500, type: 'expense', date: '2026-10-30' };
 
 describe('findBackupProblems (restore preflight)', () => {
@@ -42,6 +42,14 @@ describe('findBackupProblems (restore preflight)', () => {
     expect(findBackupProblems({ marketItems: { a: ok } }, COLS)).toEqual([]);
     expect(findBackupProblems({ marketItems: { a: { ...ok, groupId: 3 } } }, COLS)).toHaveLength(1);
     expect(findBackupProblems({ marketItems: { a: { ...ok, history: [1, 2, 3, 4, 5, 6] } } }, COLS)).toHaveLength(1);
+  });
+  it('medPurchases', () => {
+    const ok = { kind: 'lab', name: 'CBC', amountMinor: 80000, date: '2026-01-05', dose: '', patient: 'আমি', note: '' };
+    expect(findBackupProblems({ medPurchases: { a: ok } }, COLS)).toEqual([]);
+    expect(findBackupProblems({ medPurchases: { a: { ...ok, amountMinor: 0 } } }, COLS)).toHaveLength(1);
+    expect(findBackupProblems({ medPurchases: { a: { ...ok, date: '5/1/26' } } }, COLS)).toHaveLength(1);
+    expect(findBackupProblems({ medPurchases: { a: { ...ok, name: '' } } }, COLS)).toHaveLength(1);
+    expect(findBackupProblems({ medPurchases: { a: { ...ok, note: 'n'.repeat(201) } } }, COLS)).toHaveLength(1);
   });
   it('gpfEntries / accountBalances / debts', () => {
     expect(findBackupProblems({ gpfEntries: { a: { amountMinor: 5, type: 'bonus' } } }, COLS)).toHaveLength(1);

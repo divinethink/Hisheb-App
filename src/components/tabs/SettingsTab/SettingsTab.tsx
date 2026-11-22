@@ -18,6 +18,7 @@ import {
   TriangleAlert,
   Bell,
   ShoppingBasket,
+  Stethoscope,
   type LucideIcon,
 } from 'lucide-react';
 import Logo from '../../common/Logo';
@@ -50,6 +51,7 @@ const LargeAmountScreen = lazy(() => import('./LargeAmountScreen'));
 const OverviewLayoutScreen = lazy(() => import('./OverviewLayoutScreen'));
 const ManageCatalog = lazy(() => import('./ManageCatalog'));
 const MarketScreen = lazy(() => import('./MarketScreen'));
+const MedPurchasesScreen = lazy(() => import('./MedPurchasesScreen'));
 
 
 // migration সারি (cutover-টুল) — আগের মতোই সরল Row
@@ -103,6 +105,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
   const [marketOpen, setMarketOpen] = useState(false);
+  const [medOpen, setMedOpen] = useState(false);
   const { canInstall, install } = useInstallPrompt();
   const passcodeOn = useHasPasscode();
   const settings = useSettings(user.uid);
@@ -132,6 +135,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
 
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Tile icon={ShoppingBasket} tint="c4" title="Market" sub="Prices" onClick={() => setMarketOpen(true)} />
+        <Tile icon={Stethoscope} tint="c5" title="Medical" sub="Purchases" onClick={() => setMedOpen(true)} />
         <Tile icon={Lock} tint="c2" title="Passcode" sub={passcodeOn ? 'On' : 'Off'} onClick={() => setPasscodeOpen(true)} />
         <Tile icon={Cloud} tint="c1" title="Backup" sub="Drive & device" onClick={() => setBackupOpen(true)} />
       </div>
@@ -237,6 +241,11 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       {marketOpen && (
         <Suspense fallback={<SkeletonLoader />}>
           <MarketScreen uid={user.uid} onClose={() => setMarketOpen(false)} />
+        </Suspense>
+      )}
+      {medOpen && (
+        <Suspense fallback={<SkeletonLoader />}>
+          <MedPurchasesScreen uid={user.uid} onClose={() => setMedOpen(false)} />
         </Suspense>
       )}
       {importOpen && (

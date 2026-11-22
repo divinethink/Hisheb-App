@@ -149,6 +149,19 @@ describe('validWrite — other collections (P3/P8-এর clause আগে থে
     await assertFails(setDoc(p('investmentCompanies'), { name: 'A', logo: 'data:image/svg+xml;base64,PHN2Zz4=' }));
     await assertFails(setDoc(p('investmentCompanies'), { name: 'A', logo: 'data:image/webp;base64,' + 'A'.repeat(40000) }));
   });
+  it('medPurchases need name, positive integer amount, YYYY-MM-DD date; text fields capped', async () => {
+    const ok = { kind: 'medicine', name: 'Napa', dose: '500mg', amountMinor: 5000, date: '2026-11-22', patient: 'আমি', note: '' };
+    await assertSucceeds(setDoc(p('medPurchases'), ok));
+    await assertSucceeds(setDoc(p('medPurchases'), { name: 'CBC', amountMinor: 80000, date: '2026-01-05' }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, name: '' }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, name: 'x'.repeat(81) }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, amountMinor: 0 }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, amountMinor: 1.5 }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, date: '22/11/2026' }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, dose: 'd'.repeat(41) }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, patient: 'p'.repeat(41) }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, note: 'n'.repeat(201) }));
+  });
   it('marketGroups/marketItems need name; history is a list of at most 5', async () => {
     await assertSucceeds(setDoc(p('marketGroups'), { name: 'মশলা', icon: '🌶️', order: 100 }));
     await assertFails(setDoc(p('marketGroups'), { name: '' }));
