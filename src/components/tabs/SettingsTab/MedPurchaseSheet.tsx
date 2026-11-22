@@ -100,7 +100,7 @@ export default function MedPurchaseSheet({
         </>
       }
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 pt-1">
         <div role="group" aria-label="Type" className="grid grid-cols-4 gap-2">
           {MED_KINDS.map((k) => {
             const Icon = KIND_ICON[k].icon;
@@ -175,13 +175,25 @@ export default function MedPurchaseSheet({
 
         <AmountInput value={amount} onChange={setAmount} showError={submitted} card />
 
-        <Field label="তারিখ" htmlFor="mp-date">
-          <DateInput uid={uid} id="mp-date" value={date} onChange={setDate} invalid={submitted && !date} variant="tall" />
-        </Field>
-
-        <Field label="রোগী (ঐচ্ছিক)" htmlFor="mp-patient">
-          <input id="mp-patient" value={patient} maxLength={MED_LIMITS.patient} onChange={(e) => setPatient(e.target.value)} placeholder="যেমন আমি, স্ত্রী, ছেলে" className={inputCls} />
-        </Field>
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="rounded-2xl border border-muted/15 bg-surface p-3">
+            <Field label="তারিখ" htmlFor="mp-date">
+              <DateInput uid={uid} id="mp-date" value={date} onChange={setDate} invalid={submitted && !date} variant="card" />
+            </Field>
+          </div>
+          <div className="rounded-2xl border border-muted/15 bg-surface p-3">
+            <Field label="রোগী" htmlFor="mp-patient">
+              <input
+                id="mp-patient"
+                value={patient}
+                maxLength={MED_LIMITS.patient}
+                onChange={(e) => setPatient(e.target.value)}
+                placeholder="আমি, স্ত্রী…"
+                className="block min-h-8 w-full bg-transparent text-base text-fg outline-none placeholder:text-muted/60"
+              />
+            </Field>
+          </div>
+        </div>
         {knownPatients.length > 0 && (
           <div className={`${ROW_CLS} -mt-1`}>
             {knownPatients.map((p) => (

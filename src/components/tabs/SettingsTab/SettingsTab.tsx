@@ -136,7 +136,6 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       <div className="mt-3 grid grid-cols-3 gap-2">
         <Tile icon={ShoppingBasket} tint="c4" title="Market" sub="Prices" onClick={() => setMarketOpen(true)} />
         <Tile icon={Stethoscope} tint="c5" title="Medical" sub="Purchases" onClick={() => setMedOpen(true)} />
-        <Tile icon={Lock} tint="c2" title="Passcode" sub={passcodeOn ? 'On' : 'Off'} onClick={() => setPasscodeOpen(true)} />
         <Tile icon={Cloud} tint="c1" title="Backup" sub="Drive & device" onClick={() => setBackupOpen(true)} />
       </div>
 
@@ -157,6 +156,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
         <MenuRow icon={Tag} tint="c6" label="Labels" value={lbls.state.status === 'ready' ? String(lbls.state.data.length) : undefined} onClick={() => setManageLabelsOpen(true)} />
         <MenuRow icon={Palette} tint="c3" label="Appearance" value={modeLabel} onClick={() => setAppearanceOpen(true)} />
         <MenuRow icon={BarChart3} tint="c3" label="Customize Overview" onClick={() => setOverviewLayoutOpen(true)} />
+        <MenuRow icon={Lock} tint="c2" label="Passcode" value={passcodeOn ? 'On' : 'Off'} onClick={() => setPasscodeOpen(true)} />
       </MenuSection>
 
       {/* এককালীন cutover-টুল — Gate F-এর পরে অপ্রয়োজনীয় হয়ে যাবে, তাই ডিফল্ট ভাঁজ-করা (native <details>, অতিরিক্ত state ছাড়াই) */}

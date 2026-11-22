@@ -1,11 +1,11 @@
 // ক্রয় তালিকা → "View": ফর্দ/মেমোর মতো দেখা (তারিখ-সীমা, ধরন ও রোগী বেছে)। কল্যাণ বোর্ডে জমা দেওয়ার জন্য শেয়ার/কপি করা যায়।
 import { useMemo, useState } from 'react';
-import { Copy, Share2 } from 'lucide-react';
+import { Copy, FileDown, Share2 } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import DateInput from '../../common/DateInput';
 import { formatTaka } from '../../../lib/format';
 import { formatDisplayDate } from '../../../lib/date';
-import { KIND_LABEL, buildMemoText, filterPurchases, groupByKind, patientsOf, totalMinor, yearsOf } from '../../../lib/medPurchaseCalc';
+import { KIND_LABEL, buildMemoHtml, buildMemoText, filterPurchases, groupByKind, patientsOf, totalMinor, yearsOf } from '../../../lib/medPurchaseCalc';
 import { MED_KINDS, type MedKind, type MedPurchase } from '../../../validation/medPurchaseSchema';
 import { Chip, KindBadge, ROW_CLS } from './MedUi';
 
@@ -47,6 +47,25 @@ export default function MedMemoScreen({
       /* শেয়ার বাতিল করলে কিছু না */
     }
   }
+  /** PDF: ফোন/ব্রাউজারের Print → "Save as PDF" (বাংলা ফন্ট ঠিকমতো আসে, নতুন লাইব্রেরি লাগে না)। */
+  function savePdf() {
+    setMsg('');
+    const html = buildMemoHtml(rows, { title: 'চিকিৎসা ক্রয়ের ফর্দ', period, patient, fmtDate: fmt });
+    const frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+    frame.srcdoc = html;
+    frame.onload = () => {
+      try {
+        frame.contentWindow?.focus();
+        frame.contentWindow?.print();
+      } catch {
+        setMsg('PDF খোলা গেল না। Copy/Share ব্যবহার করুন।');
+      }
+      setTimeout(() => frame.remove(), 60_000);
+    };
+    document.body.appendChild(frame);
+  }
   async function copy() {
     try {
       await navigator.clipboard.writeText(text());
@@ -61,11 +80,14 @@ export default function MedMemoScreen({
       title="ক্রয়ের ফর্দ"
       onBack={onClose}
       footer={
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2">
+          <button type="button" onClick={savePdf} disabled={rows.length === 0} className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary text-sm font-semibold text-canvas shadow-md disabled:opacity-40">
+            <FileDown aria-hidden size={16} /> PDF
+          </button>
           <button type="button" onClick={() => void copy()} disabled={rows.length === 0} className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-2xl border border-muted/30 text-sm disabled:opacity-40">
             <Copy aria-hidden size={16} /> Copy
           </button>
-          <button type="button" onClick={() => void share()} disabled={rows.length === 0} className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-primary text-sm font-semibold text-canvas shadow-md disabled:opacity-40">
+          <button type="button" onClick={() => void share()} disabled={rows.length === 0} className="inline-flex min-h-12 flex-1 items-center justify-center gap-1.5 rounded-2xl border border-muted/30 text-sm disabled:opacity-40">
             <Share2 aria-hidden size={16} /> Share
           </button>
         </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMemoText, filterPurchases, groupByKind, sortPurchases, suggestNames, totalMinor, yearsOf } from './medPurchaseCalc';
+import { buildMemoHtml, buildMemoText, filterPurchases, groupByKind, sortPurchases, suggestNames, totalMinor, yearsOf } from './medPurchaseCalc';
 import type { MedPurchase } from '../validation/medPurchaseSchema';
 
 const mk = (o: Partial<MedPurchase>): MedPurchase => ({
@@ -42,5 +42,11 @@ describe('medPurchaseCalc', () => {
     expect(t).toContain('ঔষধ (');
     expect(t).toContain('1. 2025-12-30 | Seclo 500mg');
     expect(t).toContain('সর্বমোট:');
+  });
+  it('memo html escapes user text', () => {
+    const h = buildMemoHtml([mk({ name: '<script>alert(1)</script>', note: '' })], { title: 'T', period: 'P', patient: '', fmtDate: (d) => d });
+    expect(h).not.toContain('<script>');
+    expect(h).toContain('&lt;script&gt;');
+    expect(h).toContain('সর্বমোট');
   });
 });

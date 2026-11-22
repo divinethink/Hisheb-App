@@ -99,3 +99,31 @@ export function buildMemoText(
   lines.push('', `সর্বমোট: ${formatTaka(totalMinor(list))}`);
   return lines.join('\n');
 }
+
+const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+/** ছাপা/PDF-এর জন্য স্বয়ংসম্পূর্ণ HTML (সব ইউজার-টেক্সট escape করা — XSS নিরাপদ)। */
+export function buildMemoHtml(
+  list: readonly MedPurchase[],
+  opts: { title: string; period: string; patient: string; fmtDate: (d: string) => string },
+): string {
+  const groups = groupByKind(list)
+    .map((g) => {
+      const rows = g.rows
+        .map((p, i) => {
+          const who = opts.patient || !p.patient ? '' : ` · ${esc(p.patient)}`;
+          return `<tr><td class="n">${i + 1}</td><td>${esc(p.name)}${p.dose ? ` <span class="m">· ${esc(p.dose)}</span>` : ''}<div class="m">${esc(opts.fmtDate(p.date))}${who}</div></td><td class="a">${esc(formatTaka(p.amountMinor))}</td></tr>`;
+        })
+        .join('');
+      return `<h2>${esc(KIND_LABEL[g.kind])} <span>${esc(formatTaka(g.subtotalMinor))}</span></h2><table>${rows}</table>`;
+    })
+    .join('');
+  return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><title>${esc(opts.title)}</title><style>
+@page{size:A4;margin:16mm}body{font-family:"Noto Sans Bengali","Hind Siliguri",system-ui,sans-serif;color:#1d2b22;font-size:13px;margin:0}
+h1{text-align:center;font-size:20px;margin:0 0 4px}.p{text-align:center;color:#5b6b60;margin:0 0 2px}
+h2{display:flex;justify-content:space-between;font-size:15px;margin:18px 0 4px;padding-bottom:4px;border-bottom:1.5px solid #1d2b22}
+table{width:100%;border-collapse:collapse}td{padding:6px 4px;border-bottom:1px dashed #b9c2bb;vertical-align:top}
+.n{width:24px;color:#5b6b60}.a{text-align:right;white-space:nowrap}.m{color:#5b6b60;font-size:11.5px}
+.t{display:flex;justify-content:space-between;margin-top:20px;padding-top:8px;border-top:2px solid #1d2b22;font-size:17px;font-weight:700}
+</style></head><body><h1>${esc(opts.title)}</h1><p class="p">${esc(opts.period)}</p>${opts.patient ? `<p class="p">রোগী: ${esc(opts.patient)}</p>` : ''}${groups}<div class="t"><span>সর্বমোট</span><span>${esc(formatTaka(totalMinor(list)))}</span></div></body></html>`;
+}
