@@ -158,43 +158,37 @@ export default function MarketScreen({ uid, onClose }: { uid: string; onClose: (
 
                 {open && (
                   <>
-                    <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.95fr)_minmax(0,0.85fr)_minmax(0,1fr)] gap-1.5 border-y border-muted/10 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
-                      <span>Item</span>
-                      <span>Qty</span>
-                      <span className="text-right">Price</span>
-                      <span>Date</span>
-                      <span>Note</span>
-                    </div>
                     {rows.length === 0 ? (
-                      <p className="px-4 py-3 text-sm text-muted">No items yet.</p>
+                      <p className="border-t border-muted/10 px-4 py-3 text-sm text-muted">No items yet.</p>
                     ) : (
-                      <ul className="divide-y divide-muted/10">
+                      <ul className="divide-y divide-muted/10 border-t border-muted/10">
                         {rows.map((it) => {
                           const cur = it.history[0];
                           const trend = priceTrend(it.history);
+                          const qtyText = cur ? (cur.qty != null ? `${cur.qty} ${cur.unit}` : cur.unit ? `1 ${cur.unit}` : '') : '';
+                          const meta = cur ? [qtyText, shortDate(cur.date, dateFormat)].filter(Boolean).join(' · ') : '';
                           return (
                             <li key={it.id}>
                               <button
                                 type="button"
                                 onClick={() => setSheet({ kind: 'price', id: it.id })}
-                                className="grid min-h-14 w-full grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,0.95fr)_minmax(0,0.85fr)_minmax(0,1fr)] items-center gap-1.5 px-3 py-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                                className="flex min-h-16 w-full items-center gap-3 px-4 py-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                               >
-                                <span className="block min-w-0 break-words text-sm text-fg">{it.name}</span>
-                                <span className="text-xs text-fg">
-                                  {cur ? (cur.qty != null ? `${cur.qty} ${cur.unit}` : cur.unit ? `1 ${cur.unit}` : '—') : ''}
+                                <span className="min-w-0 flex-1">
+                                  <span className="block break-words text-[15px] font-medium text-fg">{it.name}</span>
+                                  {meta && <span className="mt-0.5 block text-xs text-muted">{meta}</span>}
+                                  {cur?.note && <span className="mt-0.5 line-clamp-1 block break-words text-xs italic text-muted">{cur.note}</span>}
                                 </span>
-                                <span className="flex flex-col items-end">
-                                  {cur ? (
-                                    <>
-                                      <span className="text-sm font-semibold tabular-nums text-fg">{formatTaka(cur.priceMinor)}</span>
-                                      {trend && <Delta diffMinor={trend.diffMinor} compact />}
-                                    </>
-                                  ) : (
-                                    <span className="text-xs text-primary">+ Add</span>
-                                  )}
-                                </span>
-                                <span className="text-[11px] text-muted">{cur ? shortDate(cur.date, dateFormat) : ''}</span>
-                                <span className="line-clamp-2 break-words text-xs text-muted">{cur?.note ?? ''}</span>
+                                {cur ? (
+                                  <span className="flex shrink-0 flex-col items-end">
+                                    <span className="text-base font-semibold tabular-nums text-fg">{formatTaka(cur.priceMinor)}</span>
+                                    {trend && <Delta diffMinor={trend.diffMinor} compact />}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary">
+                                    <Plus aria-hidden size={14} /> Add price
+                                  </span>
+                                )}
                               </button>
                             </li>
                           );

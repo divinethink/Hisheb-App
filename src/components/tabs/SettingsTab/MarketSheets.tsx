@@ -117,15 +117,28 @@ export function PriceSheet({
   return (
     <BottomSheet title={item.name} onRequestClose={onClose} footer={<Footer onClose={onClose} onSave={() => void save()} saving={saving} label="Save price" />}>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between text-sm text-muted">
-          <span>
-            {last ? `Current ${formatTaka(last.priceMinor)}${last.qty != null ? ` · ${last.qty} ${last.unit}` : ''}` : 'No price yet'}
-          </span>
-          <button type="button" onClick={onEdit} className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-primary">
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-primary/5 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs text-muted">Current price</p>
+            {last ? (
+              <>
+                <p className="text-xl font-semibold tabular-nums text-fg">{formatTaka(last.priceMinor)}</p>
+                <p className="text-xs text-muted">
+                  {last.qty != null ? `${last.qty} ${last.unit} · ` : ''}
+                  {formatDisplayDate(last.date, dateFormat)}
+                </p>
+              </>
+            ) : (
+              <p className="text-base text-muted">No price yet</p>
+            )}
+          </div>
+          <button type="button" onClick={onEdit} className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-primary/30 px-3 text-sm text-primary">
             <Pencil aria-hidden size={14} /> Edit item
           </button>
         </div>
-        <AmountInput value={amount} onChange={setAmount} showError={submitted} />
+        <Field label="New price">
+          <AmountInput value={amount} onChange={setAmount} showError={submitted} />
+        </Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Quantity (optional)" htmlFor="mk-qty">
             <input
@@ -145,7 +158,7 @@ export function PriceSheet({
         </div>
         <div className="-mt-2 flex flex-wrap gap-2">
           {UNITS.map((u) => (
-            <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`min-h-8 rounded-full px-3 text-xs ${unit === u ? 'bg-primary/10 font-medium text-primary' : 'bg-muted/10 text-muted'}`}>
+            <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`min-h-9 rounded-full border px-3.5 text-sm ${unit === u ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-transparent bg-muted/10 text-muted'}`}>
               {u}
             </button>
           ))}
@@ -300,7 +313,7 @@ export function ItemSheet({
           <input id="mk-unit" value={unit} maxLength={20} onChange={(e) => setUnit(e.target.value)} className={inputCls} />
           <div className="mt-2 flex flex-wrap gap-2">
             {UNITS.map((u) => (
-              <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`min-h-8 rounded-full px-3 text-xs ${unit === u ? 'bg-primary/10 font-medium text-primary' : 'bg-muted/10 text-muted'}`}>
+              <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`min-h-9 rounded-full border px-3.5 text-sm ${unit === u ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-transparent bg-muted/10 text-muted'}`}>
                 {u}
               </button>
             ))}

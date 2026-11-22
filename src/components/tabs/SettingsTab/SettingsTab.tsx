@@ -131,7 +131,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       </section>
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <Tile icon={Palette} tint="c3" title="Appearance" sub={modeLabel} onClick={() => setAppearanceOpen(true)} />
+        <Tile icon={ShoppingBasket} tint="c4" title="Market" sub="Prices" onClick={() => setMarketOpen(true)} />
         <Tile icon={Lock} tint="c2" title="Passcode" sub={passcodeOn ? 'On' : 'Off'} onClick={() => setPasscodeOpen(true)} />
         <Tile icon={Cloud} tint="c1" title="Backup" sub="Drive & device" onClick={() => setBackupOpen(true)} />
       </div>
@@ -151,7 +151,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       <MenuSection title="Organize">
         <MenuRow icon={Tags} tint="c1" label="Categories" value={cats.state.status === 'ready' ? String(cats.state.data.length) : undefined} onClick={() => setManageCategoriesOpen(true)} />
         <MenuRow icon={Tag} tint="c6" label="Labels" value={lbls.state.status === 'ready' ? String(lbls.state.data.length) : undefined} onClick={() => setManageLabelsOpen(true)} />
-        <MenuRow icon={ShoppingBasket} tint="c4" label="Market Prices" onClick={() => setMarketOpen(true)} />
+        <MenuRow icon={Palette} tint="c3" label="Appearance" value={modeLabel} onClick={() => setAppearanceOpen(true)} />
         <MenuRow icon={BarChart3} tint="c3" label="Customize Overview" onClick={() => setOverviewLayoutOpen(true)} />
       </MenuSection>
 
