@@ -2,7 +2,7 @@
 // Total/snapshotDate কখনো বদলায় না; মিলে না এমন মাস (যেমন owner-নেওয়া Aug ২০২৬ baseline) অক্ষত থাকে।
 // pick→review→done→error প্যাটার্ন (ImportExcelMonthlySnapshots-এর মতো)।
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import FullScreenPage from '../../common/FullScreenPage';
 import { parseMonthlyBreakdowns, planBreakdownBackfill, type BackfillPlan } from '../../../lib/excelMigration';
 import { getNetWorthSnapshots, setNetWorthBreakdown } from '../../../data/netWorthRepo';

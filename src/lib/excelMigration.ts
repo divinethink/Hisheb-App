@@ -9,7 +9,7 @@
 // (একাধিক বছর পাশাপাশি, merged header) নির্ভরযোগ্যভাবে auto-parse করার মতো স্পষ্ট না; ইতিমধ্যে-তৈরি Home
 // Deposit (P3-4) ও Update Balances (P3-5) স্ক্রিন দিয়ে owner ম্যানুয়ালি এই অল্প-সংখ্যক এন্ট্রি করবেন — ভুল
 // auto-parse হওয়া টাকার অঙ্কের চেয়ে এটা নিরাপদ (Zero Data Loss/Maximum Safety নীতি)।
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import type { InvestmentInput } from '../validation/investmentSchema';
 
 export interface ParsedInvestmentRow {

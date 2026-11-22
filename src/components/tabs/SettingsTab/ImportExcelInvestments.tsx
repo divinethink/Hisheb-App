@@ -2,7 +2,7 @@
 // pick→review→done→error প্যাটার্ন reuse করা হয়েছে। Home Deposit/netWorthSnapshots ইচ্ছাকৃতভাবে এখানে
 // নেই — lib/excelMigration.ts-এর হেডার-কমেন্ট দ্রষ্টব্য (existing P3-4/P3-5 স্ক্রিন দিয়ে ম্যানুয়ালি হবে)।
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import FullScreenPage from '../../common/FullScreenPage';
 import { parseInvestmentSheet, type ParsedInvestmentRow, type SkippedInvestmentRow } from '../../../lib/excelMigration';
 import { addInvestment } from '../../../data/investmentRepo';

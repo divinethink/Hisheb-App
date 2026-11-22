@@ -1,6 +1,6 @@
 // Excel → historicalYearlyTotals one-time migration (P4, Architecture Plan §২/C1/C17)। pick→review→done→error।
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import FullScreenPage from '../../common/FullScreenPage';
 import { parseHistoricalYearly, type HistoricalYearRow } from '../../../lib/excelMigration';
 import { setHistoricalYearlyTotal } from '../../../data/historicalRepo';

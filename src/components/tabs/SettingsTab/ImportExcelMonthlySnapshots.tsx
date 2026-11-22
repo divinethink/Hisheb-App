@@ -4,7 +4,7 @@
 // crossCheck.ts)। owner-এর নিজে "Update This Month's Balance" দিয়ে নেওয়া বিদ্যমান snapshot (Aug ২০২৬
 // baseline সহ) কখনো overwrite হয় না — existing yyyymm-দের মধ্যে সবচেয়ে ছোটটাই exclusive upper-bound।
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import FullScreenPage from '../../common/FullScreenPage';
 import { parseMonthlyNetWorthSnapshots, type MonthlySnapshotRow } from '../../../lib/excelMigration';
 import { getExistingNetWorthYyyymms, setNetWorthSnapshot } from '../../../data/netWorthRepo';

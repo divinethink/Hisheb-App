@@ -4,7 +4,7 @@
 // split Excel-এ নেই) ও netWorthSnapshot বিদ্যমান "Update Balances" স্ক্রিন দিয়ে (live receivable/Running
 // Investment/Home Deposit যোগ করে সঠিক Total Assets বসাতে, একই লজিক দুই জায়গায় duplicate না করতে)।
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import FullScreenPage from '../../common/FullScreenPage';
 import { parseMonthlyAccountBalances, type AccountBalanceRow } from '../../../lib/excelMigration';
 import { addAccount } from '../../../data/accountRepo';

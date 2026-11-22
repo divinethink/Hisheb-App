@@ -2,7 +2,7 @@
 // "Monthly breakdown"-এ pre-app মাসের আয়/ব্যয় দেখানোর জন্য। শুধু historical-doc বছরে; Total/breakdown কখনো বদলায় না;
 // আগে থেকে flow থাকা মাস অক্ষত। pick→review→done→error প্যাটার্ন (ImportExcelBreakdown-এর মতো)।
 import { useState } from 'react';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import FullScreenPage from '../../common/FullScreenPage';
 import { parseMonthlyFlow, planFlowBackfill, type FlowPlan } from '../../../lib/excelMigration';
 import { getNetWorthSnapshots, setNetWorthFlow } from '../../../data/netWorthRepo';
