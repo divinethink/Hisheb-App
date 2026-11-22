@@ -116,7 +116,7 @@ export function PriceSheet({
 
   return (
     <BottomSheet title={item.name} onRequestClose={onClose} footer={<Footer onClose={onClose} onSave={() => void save()} saving={saving} label="Save price" />}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3 rounded-2xl bg-primary/5 px-4 py-3">
           <div className="min-w-0">
             <p className="text-xs text-muted">Current price</p>
@@ -136,9 +136,7 @@ export function PriceSheet({
             <Pencil aria-hidden size={14} /> Edit item
           </button>
         </div>
-        <Field label="New price">
-          <AmountInput value={amount} onChange={setAmount} showError={submitted} />
-        </Field>
+        <AmountInput value={amount} onChange={setAmount} showError={submitted} card autoFocus />
         <div className="grid grid-cols-2 gap-2">
           <Field label="Quantity (optional)" htmlFor="mk-qty">
             <input
@@ -156,9 +154,9 @@ export function PriceSheet({
             <input id="mk-pu" value={unit} maxLength={20} onChange={(e) => setUnit(e.target.value)} className={inputCls} />
           </Field>
         </div>
-        <div className="-mt-2 flex flex-wrap gap-2">
+        <div className="-mx-1 -mt-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {UNITS.map((u) => (
-            <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`min-h-9 rounded-full border px-3.5 text-sm ${unit === u ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-transparent bg-muted/10 text-muted'}`}>
+            <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`min-h-9 shrink-0 rounded-full border px-3.5 text-sm ${unit === u ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-transparent bg-muted/10 text-muted'}`}>
               {u}
             </button>
           ))}
@@ -313,7 +311,7 @@ export function ItemSheet({
           <input id="mk-unit" value={unit} maxLength={20} onChange={(e) => setUnit(e.target.value)} className={inputCls} />
           <div className="mt-2 flex flex-wrap gap-2">
             {UNITS.map((u) => (
-              <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`min-h-9 rounded-full border px-3.5 text-sm ${unit === u ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-transparent bg-muted/10 text-muted'}`}>
+              <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`min-h-9 shrink-0 rounded-full border px-3.5 text-sm ${unit === u ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-transparent bg-muted/10 text-muted'}`}>
                 {u}
               </button>
             ))}

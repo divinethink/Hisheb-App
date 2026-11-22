@@ -34,7 +34,7 @@ export default function MarketScreen({ uid, onClose }: { uid: string; onClose: (
   const [sheet, setSheet] = useState<Sheet>(null);
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set()); // ডিফল্টে সব গ্রুপ বন্ধ
   const [showArchived, setShowArchived] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const seeded = useRef(false);
@@ -68,7 +68,7 @@ export default function MarketScreen({ uid, onClose }: { uid: string; onClose: (
   const groupById = (id: string) => allGroups.find((g) => g.id === id);
 
   function toggle(id: string) {
-    setCollapsed((cur) => {
+    setExpanded((cur) => {
       const next = new Set(cur);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -134,7 +134,7 @@ export default function MarketScreen({ uid, onClose }: { uid: string; onClose: (
             const all = itemsByGroup.get(g.id) ?? [];
             const rows = searchOn ? all.filter((i) => matchesQuery(i.name, i.history[0]?.note ?? '', query)) : all;
             if (searchOn && rows.length === 0) return null;
-            const open = searchOn || !collapsed.has(g.id);
+            const open = searchOn || expanded.has(g.id);
             return (
               <Card key={g.id} className="overflow-hidden">
                 <div className="flex items-center gap-1 bg-primary/5 pr-1">
