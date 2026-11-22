@@ -167,6 +167,19 @@ describe('validWrite — other collections (P3/P8-এর clause আগে থে
     await assertFails(setDoc(p('medPurchases'), { ...ok, quantity: 1.5 }));
     await assertFails(setDoc(p('medPurchases'), { ...ok, quantity: 10000 }));
   });
+  it('zakatAssets: name, category enum, optional value/weight/irrigation are checked', async () => {
+    const ok = { name: 'গহনা', category: 'goldJewelry', weightGrams: 23.3 };
+    await assertSucceeds(setDoc(p('zakatAssets'), ok));
+    await assertSucceeds(setDoc(p('zakatAssets'), { name: 'ধান', category: 'agriculturalProduce', valueMinor: 1500000, irrigationMethod: 'rainfed' }));
+    await assertSucceeds(setDoc(p('zakatAssets'), { name: 'অন্যান্য', category: 'other', valueMinor: 100, weightGrams: null, irrigationMethod: null }));
+    await assertFails(setDoc(p('zakatAssets'), { ...ok, name: '' }));
+    await assertFails(setDoc(p('zakatAssets'), { ...ok, name: 'x'.repeat(81) }));
+    await assertFails(setDoc(p('zakatAssets'), { ...ok, category: 'land' }));
+    await assertFails(setDoc(p('zakatAssets'), { ...ok, valueMinor: 0 }));
+    await assertFails(setDoc(p('zakatAssets'), { ...ok, valueMinor: 1.5 }));
+    await assertFails(setDoc(p('zakatAssets'), { ...ok, weightGrams: -1 }));
+    await assertFails(setDoc(p('zakatAssets'), { ...ok, irrigationMethod: 'rain' }));
+  });
   it('marketGroups/marketItems need name; history is a list of at most 5', async () => {
     await assertSucceeds(setDoc(p('marketGroups'), { name: 'মশলা', icon: '🌶️', order: 100 }));
     await assertFails(setDoc(p('marketGroups'), { name: '' }));

@@ -56,6 +56,12 @@ service cloud.firestore {
               : col == 'accountBalances' ? d.balanceMinor is int
               : col == 'netWorthSnapshots' ? d.totalAssetsMinor is int
               : col == 'zakatPayments' ? posInt(d.amountMinor)
+              : col == 'zakatAssets'
+                ? (nameOk(d) && d.name.size() <= 80
+                   && d.category in ['goldJewelry', 'silverJewelry', 'agriculturalProduce', 'other']
+                   && optPosInt(d, 'valueMinor')
+                   && (!('weightGrams' in d) || d.weightGrams == null || (d.weightGrams is number && d.weightGrams > 0))
+                   && (!('irrigationMethod' in d) || d.irrigationMethod == null || d.irrigationMethod in ['rainfed', 'irrigated']))
               : col == 'historicalYearlyTotals'
                 ? (d.totalIncomeMinor is int && d.totalExpenseMinor is int && d.totalDepositMinor is int)
               : col in ['accounts', 'depositFunds', 'settings']);  // অজানা collection → false (whitelist)

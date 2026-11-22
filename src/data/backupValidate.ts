@@ -69,6 +69,15 @@ function docProblem(col: string, d: Doc): string | null {
       return isInt(d.balanceMinor) ? null : 'balanceMinor must be an integer';
     case 'netWorthSnapshots':
       return isInt(d.totalAssetsMinor) ? null : 'totalAssetsMinor must be an integer';
+    case 'zakatPayments':
+      return posInt(d.amountMinor) ? null : 'amountMinor must be a positive integer';
+    case 'zakatAssets':
+      if (!nameOk(d) || strLen(d.name as string) > 80) return 'name must be 1-80 characters';
+      if (!oneOf(d.category, ['goldJewelry', 'silverJewelry', 'agriculturalProduce', 'other'])) return 'category is not valid';
+      if (!optPosInt(d, 'valueMinor')) return 'valueMinor must be a positive integer';
+      if ('weightGrams' in d && d.weightGrams != null && !(typeof d.weightGrams === 'number' && d.weightGrams > 0)) return 'weightGrams must be a positive number';
+      if ('irrigationMethod' in d && d.irrigationMethod != null && !oneOf(d.irrigationMethod, ['rainfed', 'irrigated'])) return 'irrigationMethod must be rainfed or irrigated';
+      return null;
     case 'historicalYearlyTotals':
       return isInt(d.totalIncomeMinor) && isInt(d.totalExpenseMinor) && isInt(d.totalDepositMinor)
         ? null

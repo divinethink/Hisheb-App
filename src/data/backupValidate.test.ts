@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { assertBackupValid, findBackupProblems } from './backupValidate';
 
-const COLS = ['transactions', 'debts', 'investments', 'investmentCompanies', 'gpfEntries', 'accountBalances', 'accounts', 'marketGroups', 'marketItems', 'medPurchases'] as const;
+const COLS = ['transactions', 'debts', 'investments', 'investmentCompanies', 'gpfEntries', 'accountBalances', 'accounts', 'marketGroups', 'marketItems', 'medPurchases', 'zakatAssets', 'zakatPayments'] as const;
 const okTx = { amountMinor: 500, type: 'expense', date: '2026-10-30' };
 
 describe('findBackupProblems (restore preflight)', () => {
@@ -34,6 +34,14 @@ describe('findBackupProblems (restore preflight)', () => {
     expect(findBackupProblems({ investmentCompanies: { a: { name: 'X', logo: 'data:image/svg+xml;base64,AAAA' } } }, COLS)).toHaveLength(1);
     expect(findBackupProblems({ investmentCompanies: { a: { name: 'x'.repeat(61) } } }, COLS)).toHaveLength(1);
     expect(findBackupProblems({ investmentCompanies: { a: { name: '' } } }, COLS)).toHaveLength(1);
+  });
+  it('zakatAssets / zakatPayments', () => {
+    const a = { name: 'গহনা', category: 'goldJewelry', weightGrams: 10 };
+    expect(findBackupProblems({ zakatAssets: { a } }, COLS)).toEqual([]);
+    expect(findBackupProblems({ zakatAssets: { a: { ...a, category: 'land' } } }, COLS)).toHaveLength(1);
+    expect(findBackupProblems({ zakatAssets: { a: { ...a, valueMinor: 0 } } }, COLS)).toHaveLength(1);
+    expect(findBackupProblems({ zakatPayments: { a: { amountMinor: 100 } } }, COLS)).toEqual([]);
+    expect(findBackupProblems({ zakatPayments: { a: { amountMinor: 0 } } }, COLS)).toHaveLength(1);
   });
   it('marketGroups / marketItems', () => {
     expect(findBackupProblems({ marketGroups: { a: { name: 'মশলা', icon: '🌶️' } } }, COLS)).toEqual([]);
