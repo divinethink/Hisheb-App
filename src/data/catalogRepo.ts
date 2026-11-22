@@ -152,6 +152,16 @@ export async function updateLabel(
   await updateDoc(doc(lblCol(uid), id), data);
 }
 
+/** হাতে-সাজানো ক্রম সেভ: দেওয়া id-তালিকার সিরিয়ালে order = ১,২,৩… (শুধু order বদলায়, আর কিছু নয়; ≤৪৫০ করে batch)। */
+export async function reorderCatalog(uid: string, kind: 'category' | 'label', orderedIds: string[]): Promise<void> {
+  const col = kind === 'category' ? catCol(uid) : lblCol(uid);
+  for (let i = 0; i < orderedIds.length; i += 450) {
+    const batch = writeBatch(db);
+    orderedIds.slice(i, i + 450).forEach((id, j) => batch.update(doc(col, id), { order: i + j + 1, updatedAt: serverTimestamp() }));
+    await batch.commit();
+  }
+}
+
 export async function addLabel(
   uid: string,
   rawName: string,

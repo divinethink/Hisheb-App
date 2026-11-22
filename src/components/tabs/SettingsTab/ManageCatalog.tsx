@@ -13,6 +13,7 @@ import {
   getArchivedLabels,
   mergeCategories,
   mergeLabels,
+  reorderCatalog,
   restoreCategory,
   restoreLabel,
   updateCategory,
@@ -39,6 +40,9 @@ export default function ManageCatalog({ uid, kind, onClose }: { uid: string; kin
   const [archived, setArchived] = useState<Item[] | null>(null);
   const [archiveBusyId, setArchiveBusyId] = useState<string | null>(null);
   const [archiveError, setArchiveError] = useState('');
+  const [sorting, setSorting] = useState(false);
+  const [sortBusy, setSortBusy] = useState(false);
+  const [sortError, setSortError] = useState('');
   const label = kind === 'category' ? 'Category' : 'Label';
   const title = kind === 'category' ? 'Manage Categories' : 'Manage Labels';
 
@@ -46,6 +50,21 @@ export default function ManageCatalog({ uid, kind, onClose }: { uid: string; kin
     setMerging(false);
     setSelected(new Set());
     setPickingKeep(false);
+  }
+  async function move(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (sortBusy || j < 0 || j >= items.length) return;
+    const ids = items.map((it) => it.id);
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    setSortBusy(true);
+    setSortError('');
+    try {
+      await reorderCatalog(uid, kind, ids);
+    } catch {
+      setSortError('Could not save order. Try again.');
+    } finally {
+      setSortBusy(false);
+    }
   }
   function toggleSelect(id: string) {
     setSelected((cur) => {
@@ -167,7 +186,15 @@ export default function ManageCatalog({ uid, kind, onClose }: { uid: string; kin
       ) : (
         <>
           {!merging && (
-            <div className="mb-2 flex justify-end">
+            <div className="mb-2 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setSorting((v) => !v)}
+                disabled={items.length < 2}
+                className="min-h-9 rounded-lg border border-muted/40 px-3 text-sm text-fg disabled:opacity-40"
+              >
+                {sorting ? 'Done' : '↕ Reorder'}
+              </button>
               <button
                 type="button"
                 onClick={() => void openArchived()}
@@ -183,12 +210,12 @@ export default function ManageCatalog({ uid, kind, onClose }: { uid: string; kin
             <p className="text-sm text-muted">No {kind === 'category' ? 'categories' : 'labels'} yet.</p>
           ) : (
             <ul className="divide-y divide-muted/10">
-              {items.map((it) => (
-                <li key={it.id}>
+              {items.map((it, idx) => (
+                <li key={it.id} className="flex items-center">
                   <button
                     type="button"
-                    onClick={() => (merging ? toggleSelect(it.id) : setEditing(it))}
-                    className="flex min-h-14 w-full items-center gap-3 py-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                    onClick={() => (merging ? toggleSelect(it.id) : sorting ? undefined : setEditing(it))}
+                    className="flex min-h-14 min-w-0 flex-1 items-center gap-3 py-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                   >
                     {merging && (
                       <input
@@ -206,9 +233,36 @@ export default function ManageCatalog({ uid, kind, onClose }: { uid: string; kin
                     />
                     <span className="flex-1 truncate text-fg">{it.name}</span>
                   </button>
+                  {sorting && !merging && (
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        type="button"
+                        aria-label={`Move ${it.name} up`}
+                        disabled={sortBusy || idx === 0}
+                        onClick={() => void move(idx, -1)}
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-muted/40 text-fg disabled:opacity-30"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Move ${it.name} down`}
+                        disabled={sortBusy || idx === items.length - 1}
+                        onClick={() => void move(idx, 1)}
+                        className="flex h-11 w-11 items-center justify-center rounded-full border border-muted/40 text-fg disabled:opacity-30"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
+          )}
+          {sortError && (
+            <p role="alert" className="mt-3 text-sm text-expense">
+              {sortError}
+            </p>
           )}
         </>
       )}
