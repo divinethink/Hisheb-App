@@ -247,6 +247,19 @@ export default function BasketSheet({
                         }}
                         className="w-full min-w-0 bg-transparent text-xl font-semibold tabular-nums outline-none placeholder:text-muted/50"
                       />
+                      <button
+                        type="button"
+                        aria-label={`Add another amount to ${r.cat.name}`}
+                        onPointerDown={(e) => e.preventDefault()} // কীবোর্ড বন্ধ হওয়া ঠেকায়
+                        onClick={() => {
+                          if (r.amount === '' || r.amount.endsWith('+')) return;
+                          patch(r.key, { amount: `${r.amount}+` });
+                          inputs.current[r.key]?.focus();
+                        }}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-lg font-semibold text-primary active:bg-primary/20"
+                      >
+                        +
+                      </button>
                       <span className="text-xs text-muted">BDT</span>
                     </div>
                     {expr && evald && <p className="text-xs text-muted">= {evald}</p>}

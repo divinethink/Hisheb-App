@@ -61,6 +61,16 @@ describe('BasketSheet', () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
+  it('+ button appends a plus so several amounts can be added in one row', async () => {
+    const { user } = setup();
+    const input = screen.getByLabelText('Amount for Groceries') as HTMLInputElement;
+    await user.type(input, '40');
+    await user.click(screen.getByRole('button', { name: 'Add another amount to Groceries' }));
+    await user.type(input, '110');
+    expect(input.value).toBe('40+110');
+    expect(screen.getByText('= 150')).toBeTruthy();
+  });
+
   it('keeps the draft and shows an error when the batch fails', async () => {
     repo.addTransactionsBatch.mockRejectedValueOnce(new Error('x'));
     const { user, onSaved } = setup();
