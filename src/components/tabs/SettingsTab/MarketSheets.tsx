@@ -13,6 +13,7 @@ import {
   addMarketGroup,
   addMarketItem,
   recordMarketPrice,
+  saveMarketGroupLayout,
   swapMarketOrder,
   updateMarketGroup,
   updateMarketItem,
@@ -415,6 +416,79 @@ export function GroupSheet({ uid, group, groups, onClose }: { uid: string; group
             archiveLabel="Archive this group"
           />
         )}
+      </div>
+    </BottomSheet>
+  );
+}
+
+/** Customize groups — ক্রম (↑↓) ও শুরুতে খোলা/বন্ধ; একবার Save। */
+export function GroupLayoutSheet({ uid, groups, onSaved, onClose }: { uid: string; groups: MarketGroup[]; onSaved: (openIds: string[]) => void; onClose: () => void }) {
+  const [rows, setRows] = useState(() => sortByOrder(groups).map((g) => ({ id: g.id, name: g.name, icon: g.icon, fold: g.fold })));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  function move(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= rows.length) return;
+    setRows((cur) => {
+      const next = [...cur];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  }
+
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    setError('');
+    const original = new Map(groups.map((g) => [g.id, g]));
+    const changed = rows
+      .map((r, i) => ({ id: r.id, order: (i + 1) * 100, fold: r.fold }))
+      .filter((r) => {
+        const o = original.get(r.id);
+        return !o || o.order !== r.order || o.fold !== r.fold;
+      });
+    try {
+      if (changed.length > 0) await settleOrPending(saveMarketGroupLayout(uid, changed), 3000);
+      onSaved(rows.filter((r) => r.fold === 'open').map((r) => r.id));
+      onClose();
+    } catch {
+      setError('Could not save. Check your connection and try again.');
+      setSaving(false);
+    }
+  }
+
+  return (
+    <BottomSheet title="Customize groups" onRequestClose={onClose} footer={<Footer onClose={onClose} onSave={() => void save()} saving={saving} label="Save layout" />}>
+      <div className="flex flex-col gap-3">
+        <p className="text-xs text-muted">ক্রম বদলান (↑↓) এবং ঠিক করুন কোন গ্রুপ খুলতেই খোলা থাকবে, কোনটা বন্ধ।</p>
+        <ul className="flex flex-col gap-2">
+          {rows.map((r, i) => (
+            <li key={r.id} className="flex items-center gap-2 rounded-2xl border border-muted/10 bg-surface px-2 py-2">
+              <span className="flex flex-col">
+                <button type="button" aria-label={`Move ${r.name} up`} disabled={i === 0 || saving} onClick={() => move(i, -1)} className="flex h-9 w-9 items-center justify-center text-primary disabled:text-muted/40">
+                  <ArrowUp aria-hidden size={18} />
+                </button>
+                <button type="button" aria-label={`Move ${r.name} down`} disabled={i === rows.length - 1 || saving} onClick={() => move(i, 1)} className="flex h-9 w-9 items-center justify-center text-primary disabled:text-muted/40">
+                  <ArrowDown aria-hidden size={18} />
+                </button>
+              </span>
+              <span aria-hidden className="text-xl">{r.icon || '🛒'}</span>
+              <span className="min-w-0 flex-1 truncate font-medium text-fg">{r.name}</span>
+              <select
+                aria-label={`${r.name} folding`}
+                value={r.fold}
+                disabled={saving}
+                onChange={(e) => setRows((cur) => cur.map((x) => (x.id === r.id ? { ...x, fold: e.target.value as 'open' | 'closed' } : x)))}
+                className="min-h-11 rounded-lg border border-muted/40 bg-canvas px-2 text-sm text-fg"
+              >
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+              </select>
+            </li>
+          ))}
+        </ul>
+        <ErrorLine text={error} />
       </div>
     </BottomSheet>
   );

@@ -96,6 +96,16 @@ export async function updateMarketGroup(
   });
 }
 
+/** Customize groups: ক্রম ও খোলা/বন্ধ একসাথে (এক batch)। শুধু বদলানো গ্রুপগুলো পাঠানো হয়। */
+export async function saveMarketGroupLayout(
+  uid: string,
+  rows: readonly { id: string; order: number; fold: 'open' | 'closed' }[],
+): Promise<void> {
+  const batch = writeBatch(db);
+  for (const r of rows) batch.update(doc(groupCol(uid), r.id), { order: r.order, fold: r.fold, updatedAt: serverTimestamp() });
+  await batch.commit();
+}
+
 export function addMarketItem(uid: string, input: MarketItemInput): Promise<void> {
   const data = MarketItemInputSchema.parse(input);
   return setDoc(doc(itemCol(uid)), { ...data, archived: false, history: [], createdAt: serverTimestamp(), updatedAt: serverTimestamp() });

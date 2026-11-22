@@ -28,6 +28,7 @@ export const MarketGroupSchema = z.object({
   icon: nullish(z.string().max(12)),
   order: z.number().default(0),
   archived: z.boolean().default(false),
+  fold: z.enum(['open', 'closed']).catch('closed'), // গ্রুপ খুলতেই খোলা/বন্ধ থাকবে (ঐচ্ছিক; না থাকলে বন্ধ — আগের আচরণ)
   createdAt: nullish(TimestampLike),
   updatedAt: nullish(TimestampLike),
 });

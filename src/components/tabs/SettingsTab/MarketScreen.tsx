@@ -1,6 +1,6 @@
 // বাজার দর (Menu → Organize): গ্রুপভিত্তিক রেফারেন্স তালিকা — পণ্য | মূল্য | মন্তব্য। Net Worth/বাজেটের সাথে সম্পর্ক নেই।
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, MoreHorizontal, Plus, Search, X } from 'lucide-react';
+import { ChevronDown, MoreHorizontal, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import Card from '../../common/Card';
 import SkeletonLoader from '../../common/SkeletonLoader';
@@ -9,7 +9,7 @@ import { seedMarketDefaultsIfEmpty, updateMarketGroup, updateMarketItem } from '
 import { matchesQuery, priceTrend, sortByOrder } from '../../../lib/marketCalc';
 import { formatTaka } from '../../../lib/format';
 import type { MarketGroup, MarketItem } from '../../../validation/marketSchema';
-import { Delta, GroupSheet, ItemSheet, PriceSheet } from './MarketSheets';
+import { Delta, GroupLayoutSheet, GroupSheet, ItemSheet, PriceSheet } from './MarketSheets';
 
 /** জায়গা বাঁচাতে বছর ২ অঙ্কে: 21/11/26 */
 function shortDate(date: string, format: 'dmy' | 'mdy'): string {
@@ -24,6 +24,7 @@ type Sheet =
   | { kind: 'addItem'; groupId: string }
   | { kind: 'editGroup'; id: string }
   | { kind: 'addGroup' }
+  | { kind: 'layout' }
   | null;
 
 export default function MarketScreen({ uid, onClose }: { uid: string; onClose: () => void }) {
@@ -47,6 +48,13 @@ export default function MarketScreen({ uid, onClose }: { uid: string; onClose: (
   }, [uid]);
 
   const ready = gq.state.status === 'ready' && iq.state.status === 'ready';
+  // প্রথমবার ডেটা এলে প্রতিটা গ্রুপের সেভ-করা fold (open/closed) অনুযায়ী খোলা-বন্ধ বসে
+  const foldInit = useRef(false);
+  useEffect(() => {
+    if (foldInit.current || gq.state.status !== 'ready') return;
+    foldInit.current = true;
+    setExpanded(new Set(gq.state.data.filter((g) => g.fold === 'open').map((g) => g.id)));
+  }, [gq.state]);
   const allGroups: MarketGroup[] = gq.state.status === 'ready' ? gq.state.data : [];
   const allItems: MarketItem[] = iq.state.status === 'ready' ? iq.state.data : [];
 
@@ -93,6 +101,15 @@ export default function MarketScreen({ uid, onClose }: { uid: string; onClose: (
       title="Market Prices"
       onBack={onClose}
       actions={
+        <>
+        <button
+          type="button"
+          aria-label="Customize groups"
+          onClick={() => setSheet({ kind: 'layout' })}
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-muted"
+        >
+          <SlidersHorizontal aria-hidden size={20} />
+        </button>
         <button
           type="button"
           aria-label={searching ? 'Close search' : 'Search'}
@@ -105,6 +122,7 @@ export default function MarketScreen({ uid, onClose }: { uid: string; onClose: (
         >
           {searching ? <X aria-hidden size={20} /> : <Search aria-hidden size={20} />}
         </button>
+        </>
       }
       footer={
         <button type="button" onClick={() => setSheet({ kind: 'addGroup' })} className="inline-flex min-h-11 w-full items-center justify-center gap-1 rounded-lg border border-muted/40 text-sm font-medium text-fg">
@@ -252,6 +270,7 @@ export default function MarketScreen({ uid, onClose }: { uid: string; onClose: (
       {sheet?.kind === 'addItem' && (
         <ItemSheet uid={uid} groupId={sheet.groupId} groups={groups} siblings={itemsByGroup.get(sheet.groupId) ?? []} onClose={() => setSheet(null)} />
       )}
+      {sheet?.kind === 'layout' && <GroupLayoutSheet uid={uid} groups={groups} onSaved={(ids) => setExpanded(new Set(ids))} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'addGroup' && <GroupSheet uid={uid} groups={groups} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'editGroup' && editGroup && <GroupSheet uid={uid} group={editGroup} groups={groups} onClose={() => setSheet(null)} />}
     </FullScreenPage>
