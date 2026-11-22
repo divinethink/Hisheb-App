@@ -14,7 +14,16 @@ import { addMedPurchase, deleteMedPurchase, newMedPurchaseId, updateMedPurchase 
 import { MED_KINDS, MED_LIMITS, type MedKind, type MedPurchase } from '../../../validation/medPurchaseSchema';
 
 const inputCls = 'min-h-12 w-full rounded-xl border border-muted/20 bg-surface px-3.5 text-fg outline-none transition-colors focus:border-primary focus:bg-canvas';
-const DOSE_HINTS = ['500mg', '250mg', '5ml', '10ml', '1+1+1'];
+const DOSE_UNITS = ['mg', 'ml', 'g', 'strip'] as const;
+
+/** সংখ্যার পাশে একক বসায়; আগের একক থাকলে বদলে দেয় ("500mg" + ml → "500ml")। সংখ্যা না থাকলে একক-ই বসে। */
+function applyUnit(dose: string, unit: string): string {
+  const d = dose.trim();
+  const m = d.match(/^(\d+(?:\.\d+)?)\s*[a-zA-Z]*$/);
+  const sep = unit === 'strip' ? ' ' : '';
+  if (m) return `${m[1]}${sep}${unit}`;
+  return d ? `${d} ${unit}` : unit;
+}
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
   return (
@@ -191,9 +200,9 @@ export default function MedPurchaseSheet({
         )}
         {kind === 'medicine' && (
           <div className={`${ROW_CLS} -mt-1`}>
-            {DOSE_HINTS.map((h) => (
-              <Chip key={h} on={dose === h} onClick={() => setDose(h)}>
-                {h}
+            {DOSE_UNITS.map((u) => (
+              <Chip key={u} on={dose.trim().toLowerCase().endsWith(u)} onClick={() => setDose(applyUnit(dose, u))}>
+                {u}
               </Chip>
             ))}
           </div>
