@@ -185,30 +185,32 @@ export default function BasketSheet({
     <BottomSheet title="Add multiple" onRequestClose={requestBack} footer={footer}>
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            aria-label="Back to categories"
+            onClick={requestBack}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-muted/40 bg-surface text-lg text-fg"
+          >
+            ←
+          </button>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="Back to categories"
-              onClick={requestBack}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-muted/40 bg-surface text-lg text-fg"
-            >
-              ←
-            </button>
+            <div className="w-40">
+              <DateInput uid={uid} id="basket-date" value={date} onChange={setDate} invalid={submitted && !isValidDate(date)} />
+            </div>
+            {/* একক ফর্মের মতোই ডানে (amount-এর "+" যেখানে থাকে) — হাতের অভ্যাস এক থাকে */}
             <button
               type="button"
               aria-label="Add another amount"
               onMouseDown={(e) => e.preventDefault()} // ফোকাস ও কীবোর্ড ধরে রাখে
               onClick={plus}
-              className={`flex h-11 w-11 items-center justify-center rounded-full border text-2xl font-semibold leading-none ${
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-2xl font-semibold leading-none ${
                 activeKey ? 'border-primary bg-primary text-canvas shadow-md shadow-primary/25' : 'border-primary/40 bg-primary/10 text-primary'
               }`}
             >
               +
             </button>
           </div>
-          <div className="w-40">
-            <DateInput uid={uid} id="basket-date" value={date} onChange={setDate} invalid={submitted && !isValidDate(date)} />
-          </div>
+        </div>
         </div>
 
         {/* সারাংশ কার্ড */}
