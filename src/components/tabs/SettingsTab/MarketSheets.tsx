@@ -20,7 +20,7 @@ import {
 import type { MarketGroup, MarketItem } from '../../../validation/marketSchema';
 
 const inputCls = 'min-h-12 w-full rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none focus:border-primary';
-const UNITS = ['কেজি', 'ডজন', 'লিটার', 'পিস', 'প্যাক', 'গ্রাম'];
+const UNITS = ['গ্রাম', 'কেজি', 'ডজন', 'লিটার', 'পিস', 'প্যাক'];
 const EMOJIS = ['🌶️', '🥩', '🐟', '🥦', '🧴', '👶', '🍎', '🥛', '🧼', '🛒'];
 
 function Footer({ onClose, onSave, saving, label = 'Save' }: { onClose: () => void; onSave: () => void; saving: boolean; label?: string }) {
@@ -137,7 +137,7 @@ export function PriceSheet({
           </button>
         </div>
         <AmountInput value={amount} onChange={setAmount} showError={submitted} card autoFocus />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <Field label="Quantity (optional)" htmlFor="mk-qty">
             <input
               id="mk-qty"
@@ -154,7 +154,7 @@ export function PriceSheet({
             <input id="mk-pu" value={unit} maxLength={20} onChange={(e) => setUnit(e.target.value)} className={inputCls} />
           </Field>
         </div>
-        <div className="-mx-1 -mt-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        <div className="-mx-1 -mt-1 flex gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {UNITS.map((u) => (
             <button key={u} type="button" aria-pressed={unit === u} onClick={() => setUnit(u)} className={`min-h-9 shrink-0 rounded-full border px-3.5 text-sm ${unit === u ? 'border-primary bg-primary/10 font-medium text-primary' : 'border-transparent bg-muted/10 text-muted'}`}>
               {u}
