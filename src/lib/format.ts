@@ -20,6 +20,11 @@ export function formatTaka(minor: number): string {
   return formatAmount(minor).replace(/^BDT /, '৳');
 }
 
+/** ফর্দ/মেমোর টাকা: "1,250 Taka" (প্রিফিক্স/সিম্বল নয়, শেষে Taka) */
+export function formatTakaWords(minor: number): string {
+  return `${formatAmount(minor).replace(/^BDT /, '')} Taka`;
+}
+
 /** ব্যয়ে "−", আয়ে "+" — রঙের পাশাপাশি চিহ্নও (accessibility) */
 export function formatSigned(minor: number, type: 'income' | 'expense'): string {
   return `${type === 'expense' ? '−' : '+'}${formatAmount(minor)}`;

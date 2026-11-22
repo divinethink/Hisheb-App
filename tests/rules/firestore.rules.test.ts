@@ -161,6 +161,11 @@ describe('validWrite — other collections (P3/P8-এর clause আগে থে
     await assertFails(setDoc(p('medPurchases'), { ...ok, dose: 'd'.repeat(41) }));
     await assertFails(setDoc(p('medPurchases'), { ...ok, patient: 'p'.repeat(41) }));
     await assertFails(setDoc(p('medPurchases'), { ...ok, note: 'n'.repeat(201) }));
+    await assertSucceeds(setDoc(p('medPurchases'), { ...ok, quantity: 10 }));
+    await assertSucceeds(setDoc(p('medPurchases'), { ...ok, quantity: null }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, quantity: 0 }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, quantity: 1.5 }));
+    await assertFails(setDoc(p('medPurchases'), { ...ok, quantity: 10000 }));
   });
   it('marketGroups/marketItems need name; history is a list of at most 5', async () => {
     await assertSucceeds(setDoc(p('marketGroups'), { name: 'মশলা', icon: '🌶️', order: 100 }));

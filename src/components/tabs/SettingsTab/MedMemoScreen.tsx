@@ -3,9 +3,9 @@ import { useMemo, useState } from 'react';
 import { Copy, FileDown, Share2 } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import DateInput from '../../common/DateInput';
-import { formatTaka } from '../../../lib/format';
+import { formatTakaWords } from '../../../lib/format';
 import { formatDisplayDate } from '../../../lib/date';
-import { KIND_LABEL, buildMemoHtml, buildMemoText, filterPurchases, groupByKind, patientsOf, totalMinor, yearsOf } from '../../../lib/medPurchaseCalc';
+import { KIND_LABEL, memoLine, buildMemoHtml, buildMemoText, filterPurchases, groupByKind, patientsOf, totalMinor, yearsOf } from '../../../lib/medPurchaseCalc';
 import { MED_KINDS, type MedKind, type MedPurchase } from '../../../validation/medPurchaseSchema';
 import { Chip, KindBadge, ROW_CLS } from './MedUi';
 
@@ -144,7 +144,7 @@ export default function MedMemoScreen({
                 <div className="flex items-center gap-2.5 pb-2">
                   <KindBadge kind={g.kind} size={30} />
                   <h3 className="flex-1 font-semibold text-fg">{KIND_LABEL[g.kind]}</h3>
-                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">{formatTaka(g.subtotalMinor)}</span>
+                  <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium tabular-nums text-primary">{formatTakaWords(g.subtotalMinor)}</span>
                 </div>
                 <ol className="border-t border-dashed border-muted/30">
                   {g.rows.map((p, i) => (
@@ -152,15 +152,14 @@ export default function MedMemoScreen({
                       <span className="w-5 shrink-0 text-xs text-muted">{i + 1}.</span>
                       <span className="min-w-0 flex-1">
                         <span className="block break-words font-medium text-fg">
-                          {p.name}
-                          {p.dose && <span className="font-normal text-muted"> · {p.dose}</span>}
+                          {memoLine(p)}
                         </span>
                         <span className="block text-xs text-muted">
                           {fmt(p.date)}
                           {!patient && p.patient ? ` · ${p.patient}` : ''}
                         </span>
                       </span>
-                      <span className="shrink-0 tabular-nums text-fg">{formatTaka(p.amountMinor)}</span>
+                      <span className="shrink-0 tabular-nums text-fg">{formatTakaWords(p.amountMinor)}</span>
                     </li>
                   ))}
                 </ol>
@@ -171,7 +170,7 @@ export default function MedMemoScreen({
 
         <footer className="mt-2 flex items-baseline justify-between border-t-2 border-dashed border-muted/40 bg-primary/5 px-5 py-4">
           <span className="font-semibold text-fg">সর্বমোট</span>
-          <span className="text-2xl font-semibold tabular-nums text-primary">{formatTaka(totalMinor(rows))}</span>
+          <span className="text-2xl font-semibold tabular-nums text-primary">{formatTakaWords(totalMinor(rows))}</span>
         </footer>
       </article>
       {msg && (

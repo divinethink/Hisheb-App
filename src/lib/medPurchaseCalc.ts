@@ -2,7 +2,7 @@
 import type { MedKind, MedPurchase } from '../validation/medPurchaseSchema';
 import { MED_KINDS } from '../validation/medPurchaseSchema';
 import { LAB_NAMES, MED_NAMES } from './medNames';
-import { formatTaka } from './format';
+import { formatTakaWords } from './format';
 
 export const KIND_LABEL: Record<MedKind, string> = {
   medicine: 'ঔষধ',
@@ -90,13 +90,13 @@ export function buildMemoText(
   const lines: string[] = [opts.title, opts.period];
   if (opts.patient) lines.push(`রোগী: ${opts.patient}`);
   for (const g of groupByKind(list)) {
-    lines.push('', `${KIND_LABEL[g.kind]} (${formatTaka(g.subtotalMinor)})`);
+    lines.push('', `${KIND_LABEL[g.kind]} (${formatTakaWords(g.subtotalMinor)})`);
     g.rows.forEach((p, i) => {
       const who = opts.patient || !p.patient ? '' : ` — ${p.patient}`;
-      lines.push(`${i + 1}. ${opts.fmtDate(p.date)} | ${p.name}${p.dose ? ` ${p.dose}` : ''} | ${formatTaka(p.amountMinor)}${who}`);
+      lines.push(`${i + 1}. ${memoLine(p)} - ${formatTakaWords(p.amountMinor)} | ${opts.fmtDate(p.date)}${who}`);
     });
   }
-  lines.push('', `সর্বমোট: ${formatTaka(totalMinor(list))}`);
+  lines.push('', `সর্বমোট: ${formatTakaWords(totalMinor(list))}`);
   return lines.join('\n');
 }
 
@@ -112,10 +112,10 @@ export function buildMemoHtml(
       const rows = g.rows
         .map((p, i) => {
           const who = opts.patient || !p.patient ? '' : ` · ${esc(p.patient)}`;
-          return `<tr><td class="n">${i + 1}</td><td>${esc(p.name)}${p.dose ? ` <span class="m">· ${esc(p.dose)}</span>` : ''}<div class="m">${esc(opts.fmtDate(p.date))}${who}</div></td><td class="a">${esc(formatTaka(p.amountMinor))}</td></tr>`;
+          return `<tr><td class="n">${i + 1}</td><td>${esc(memoLine(p))}<div class="m">${esc(opts.fmtDate(p.date))}${who}</div></td><td class="a">${esc(formatTakaWords(p.amountMinor))}</td></tr>`;
         })
         .join('');
-      return `<h2>${esc(KIND_LABEL[g.kind])} <span>${esc(formatTaka(g.subtotalMinor))}</span></h2><table>${rows}</table>`;
+      return `<h2>${esc(KIND_LABEL[g.kind])} <span>${esc(formatTakaWords(g.subtotalMinor))}</span></h2><table>${rows}</table>`;
     })
     .join('');
   return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><title>${esc(opts.title)}</title><style>
@@ -125,5 +125,15 @@ h2{display:flex;justify-content:space-between;font-size:15px;margin:18px 0 4px;p
 table{width:100%;border-collapse:collapse}td{padding:6px 4px;border-bottom:1px dashed #b9c2bb;vertical-align:top}
 .n{width:24px;color:#5b6b60}.a{text-align:right;white-space:nowrap}.m{color:#5b6b60;font-size:11.5px}
 .t{display:flex;justify-content:space-between;margin-top:20px;padding-top:8px;border-top:2px solid #1d2b22;font-size:17px;font-weight:700}
-</style></head><body><h1>${esc(opts.title)}</h1><p class="p">${esc(opts.period)}</p>${opts.patient ? `<p class="p">রোগী: ${esc(opts.patient)}</p>` : ''}${groups}<div class="t"><span>সর্বমোট</span><span>${esc(formatTaka(totalMinor(list)))}</span></div></body></html>`;
+</style></head><body><h1>${esc(opts.title)}</h1><p class="p">${esc(opts.period)}</p>${opts.patient ? `<p class="p">রোগী: ${esc(opts.patient)}</p>` : ''}${groups}<div class="t"><span>সর্বমোট</span><span>${esc(formatTakaWords(totalMinor(list)))}</span></div></body></html>`;
+}
+
+/** ডোজ + সংখ্যা এক লাইনে ("500mg × 10"); কোনোটা না থাকলে খালি। */
+export function doseQty(p: { dose: string; quantity?: number | null }): string {
+  return [p.dose, p.quantity ? `× ${p.quantity}` : ''].filter(Boolean).join(' ');
+}
+
+/** ফর্দের লাইন: "10 Napa 500mg" (সংখ্যা আগে, তারপর নাম, তারপর ডোজ; যা নেই তা বাদ)। দামের অংশ আলাদা (" - 10 Taka")। */
+export function memoLine(p: { name: string; dose: string; quantity?: number | null }): string {
+  return [p.quantity ? String(p.quantity) : '', p.name, p.dose].filter(Boolean).join(' ');
 }

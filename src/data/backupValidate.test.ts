@@ -50,6 +50,10 @@ describe('findBackupProblems (restore preflight)', () => {
     expect(findBackupProblems({ medPurchases: { a: { ...ok, date: '5/1/26' } } }, COLS)).toHaveLength(1);
     expect(findBackupProblems({ medPurchases: { a: { ...ok, name: '' } } }, COLS)).toHaveLength(1);
     expect(findBackupProblems({ medPurchases: { a: { ...ok, note: 'n'.repeat(201) } } }, COLS)).toHaveLength(1);
+    expect(findBackupProblems({ medPurchases: { a: { ...ok, quantity: 10 } } }, COLS)).toEqual([]);
+    expect(findBackupProblems({ medPurchases: { a: { ...ok, quantity: null } } }, COLS)).toEqual([]);
+    expect(findBackupProblems({ medPurchases: { a: { ...ok, quantity: 0 } } }, COLS)).toHaveLength(1);
+    expect(findBackupProblems({ medPurchases: { a: { ...ok, quantity: 2.5 } } }, COLS)).toHaveLength(1);
   });
   it('gpfEntries / accountBalances / debts', () => {
     expect(findBackupProblems({ gpfEntries: { a: { amountMinor: 5, type: 'bonus' } } }, COLS)).toHaveLength(1);

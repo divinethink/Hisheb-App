@@ -6,7 +6,7 @@ import SkeletonLoader from '../../common/SkeletonLoader';
 import { useMedPurchases, useSettings } from '../../../hooks/useData';
 import { formatTaka } from '../../../lib/format';
 import { formatDisplayDate } from '../../../lib/date';
-import { KIND_LABEL, filterPurchases, patientsOf, sortPurchases, totalMinor, yearsOf } from '../../../lib/medPurchaseCalc';
+import { KIND_LABEL, doseQty, filterPurchases, patientsOf, sortPurchases, totalMinor, yearsOf } from '../../../lib/medPurchaseCalc';
 import { MED_KINDS, type MedKind, type MedPurchase } from '../../../validation/medPurchaseSchema';
 import MedPurchaseSheet from './MedPurchaseSheet';
 import { Chip, KindBadge, ROW_CLS } from './MedUi';
@@ -132,7 +132,7 @@ export default function MedPurchasesScreen({ uid, onClose }: { uid: string; onCl
                     <KindBadge kind={p.kind} />
                     <span className="min-w-0 flex-1">
                       <span className="block break-words text-[15px] font-semibold leading-snug text-fg">{p.name}</span>
-                      {p.dose && <span className="mt-0.5 block text-xs text-muted">{p.dose}</span>}
+                      {doseQty(p) && <span className="mt-0.5 block text-xs text-muted">{doseQty(p)}</span>}
                       <span className="mt-0.5 block text-xs text-muted">
                         {formatDisplayDate(p.date, dateFormat)}
                         {p.patient ? ` · ${p.patient}` : ''}

@@ -48,7 +48,8 @@ service cloud.firestore {
               : col == 'medPurchases'
                 ? (nameOk(d) && d.name.size() <= 80 && posInt(d.amountMinor)
                    && d.date is string && d.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-                   && optStr(d, 'dose', 40) && optStr(d, 'patient', 40) && optStr(d, 'note', 200))
+                   && optStr(d, 'dose', 40) && optStr(d, 'patient', 40) && optStr(d, 'note', 200)
+                   && (!('quantity' in d) || d.quantity == null || (d.quantity is int && d.quantity > 0 && d.quantity <= 9999)))
               : col == 'homeDeposits' ? posInt(d.amountMinor)
               : col == 'gpfEntries'
                 ? (posInt(d.amountMinor) && d.type in ['contribution', 'interest', 'withdrawal'])

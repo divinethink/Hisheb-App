@@ -1,4 +1,4 @@
-// ক্রয় তালিকা: যোগ/এডিট ফর্ম-শিট (ধরন, নাম+সাজেশন, ডোজ, মূল্য, তারিখ, রোগী, নোট) + ডিলিট।
+// ক্রয় তালিকা: যোগ/এডিট ফর্ম-শিট (ধরন, নাম+সাজেশন, ডোজ + সংখ্যা, মূল্য, তারিখ, রোগী, নোট) + ডিলিট।
 import { useMemo, useState, type ReactNode } from 'react';
 import BottomSheet from '../../common/BottomSheet';
 import AmountInput from '../../common/AmountInput';
@@ -49,6 +49,7 @@ export default function MedPurchaseSheet({
   const [kind, setKind] = useState<MedKind>(item?.kind ?? 'medicine');
   const [name, setName] = useState(item?.name ?? '');
   const [dose, setDose] = useState(item?.dose ?? '');
+  const [quantity, setQuantity] = useState(item?.quantity ? String(item.quantity) : ''); // সংখ্যা (ঐচ্ছিক)
   const [amount, setAmount] = useState(item ? minorToInput(item.amountMinor) : '');
   const [date, setDate] = useState(item?.date ?? toDhakaDate(new Date()));
   const [patient, setPatient] = useState(item ? item.patient : defaultPatient);
@@ -60,6 +61,7 @@ export default function MedPurchaseSheet({
 
   const parsed = resolveAmountMinor(amount);
   const nameOk = name.trim().length > 0;
+  const quantityOk = quantity === '' || (Number(quantity) >= 1 && Number(quantity) <= MED_LIMITS.quantityMax);
   const suggestions = useMemo(
     () =>
       focusName
@@ -71,10 +73,11 @@ export default function MedPurchaseSheet({
   async function save() {
     if (saving) return;
     setSubmitted(true);
-    if (!nameOk || parsed === null || !date) return;
+    if (!nameOk || parsed === null || !date || !quantityOk) return;
     setSaving(true);
     setError('');
-    const input = { kind, name, dose, amountMinor: parsed, date, patient, note };
+    const qty = quantity === '' ? null : Number(quantity);
+    const input = { kind, name, dose, quantity: qty, amountMinor: parsed, date, patient, note };
     try {
       await settleOrPending(item ? updateMedPurchase(uid, id, input) : addMedPurchase(uid, id, input), 3000);
       onPatientUsed(patient.trim());
@@ -160,9 +163,32 @@ export default function MedPurchaseSheet({
           )}
         </Field>
 
-        <Field label="ডোজ / পরিমাণ (ঐচ্ছিক)" htmlFor="mp-dose">
-          <input id="mp-dose" value={dose} maxLength={MED_LIMITS.dose} onChange={(e) => setDose(e.target.value)} placeholder="যেমন 500mg, 10ml" className={inputCls} />
-        </Field>
+        <div className="flex items-end gap-2.5">
+          <div className="min-w-0 flex-1">
+            <Field label="ডোজ / পরিমাণ (ঐচ্ছিক)" htmlFor="mp-dose">
+              <input id="mp-dose" value={dose} maxLength={MED_LIMITS.dose} onChange={(e) => setDose(e.target.value)} placeholder="যেমন 500mg, 10ml" className={inputCls} />
+            </Field>
+          </div>
+          <div className="w-28 shrink-0 rounded-2xl border border-muted/15 bg-surface p-3">
+            <Field label="সংখ্যা" htmlFor="mp-qty">
+              <input
+                id="mp-qty"
+                value={quantity}
+                inputMode="numeric"
+                maxLength={4}
+                aria-invalid={submitted && !quantityOk}
+                onChange={(e) => setQuantity(e.target.value.replace(/\D/g, ''))}
+                placeholder="যেমন 10"
+                className="block min-h-8 w-full bg-transparent text-base text-fg outline-none placeholder:text-muted/60"
+              />
+            </Field>
+          </div>
+        </div>
+        {submitted && !quantityOk && (
+          <p role="alert" className="-mt-1 text-sm text-expense">
+            সংখ্যা ১ থেকে {MED_LIMITS.quantityMax} এর মধ্যে দিন।
+          </p>
+        )}
         {kind === 'medicine' && (
           <div className={`${ROW_CLS} -mt-1`}>
             {DOSE_HINTS.map((h) => (

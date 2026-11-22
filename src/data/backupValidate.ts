@@ -58,7 +58,8 @@ function docProblem(col: string, d: Doc): string | null {
       if (!nameOk(d) || strLen(d.name as string) > 80) return 'name must be 1-80 characters';
       if (!posInt(d.amountMinor)) return 'amountMinor must be a positive integer';
       if (typeof d.date !== 'string' || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(d.date)) return 'date must be YYYY-MM-DD';
-      return optStr(d, 'dose', 40) && optStr(d, 'patient', 40) && optStr(d, 'note', 200) ? null : 'a text field is too long or not text';
+      if (!optStr(d, 'dose', 40) || !optStr(d, 'patient', 40) || !optStr(d, 'note', 200)) return 'a text field is too long or not text';
+      return !('quantity' in d) || d.quantity == null || (isInt(d.quantity) && (d.quantity as number) > 0 && (d.quantity as number) <= 9999) ? null : 'quantity must be a whole number from 1 to 9999';
     case 'homeDeposits':
       return posInt(d.amountMinor) ? null : 'amountMinor must be a positive integer';
     case 'gpfEntries':

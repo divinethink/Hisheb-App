@@ -14,7 +14,7 @@ export const MED_KINDS = ['medicine', 'lab', 'operation', 'other'] as const;
 export type MedKind = (typeof MED_KINDS)[number];
 
 /** firestore.rules ও backupValidate-এর সীমার সাথে মিল রাখতে হবে। */
-export const MED_LIMITS = { name: 80, dose: 40, patient: 40, note: 200 } as const;
+export const MED_LIMITS = { name: 80, dose: 40, patient: 40, note: 200, quantityMax: 9999 } as const;
 
 const DateStr = z
   .string()
@@ -26,6 +26,7 @@ export const MedPurchaseSchema = z.object({
   kind: z.enum(MED_KINDS).catch('other'),
   name: z.string().min(1).max(MED_LIMITS.name),
   dose: z.string().max(MED_LIMITS.dose).default(''),
+  quantity: z.number().int().positive().max(MED_LIMITS.quantityMax).nullish().transform((v) => v ?? null), // সংখ্যা (ঐচ্ছিক; পুরনো doc-এ নেই = null)
   amountMinor: z.number().int().positive(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   patient: z.string().max(MED_LIMITS.patient).default(''),
@@ -39,6 +40,7 @@ export const MedPurchaseInputSchema = z.object({
   kind: z.enum(MED_KINDS),
   name: z.string().trim().min(1).max(MED_LIMITS.name),
   dose: z.string().trim().max(MED_LIMITS.dose).default(''),
+  quantity: z.number().int().positive().max(MED_LIMITS.quantityMax).nullish().transform((v) => v ?? null),
   amountMinor: z.number().int().positive(),
   date: DateStr,
   patient: z.string().trim().max(MED_LIMITS.patient).default(''),
