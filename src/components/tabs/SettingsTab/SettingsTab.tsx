@@ -19,6 +19,7 @@ import {
   Bell,
   ShoppingBasket,
   Stethoscope,
+  Scale,
   type LucideIcon,
 } from 'lucide-react';
 import Logo from '../../common/Logo';
@@ -52,6 +53,7 @@ const OverviewLayoutScreen = lazy(() => import('./OverviewLayoutScreen'));
 const ManageCatalog = lazy(() => import('./ManageCatalog'));
 const MarketScreen = lazy(() => import('./MarketScreen'));
 const MedPurchasesScreen = lazy(() => import('./MedPurchasesScreen'));
+const ZakatScreen = lazy(() => import('./ZakatScreen'));
 
 
 // migration সারি (cutover-টুল) — আগের মতোই সরল Row
@@ -106,6 +108,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
   const [manageLabelsOpen, setManageLabelsOpen] = useState(false);
   const [marketOpen, setMarketOpen] = useState(false);
   const [medOpen, setMedOpen] = useState(false);
+  const [zakatOpen, setZakatOpen] = useState(false);
   const { canInstall, install } = useInstallPrompt();
   const passcodeOn = useHasPasscode();
   const settings = useSettings(user.uid);
@@ -146,6 +149,7 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       )}
 
       <MenuSection title="Budget & alerts">
+        <MenuRow icon={Scale} tint="c3" label="Zakat Calculator" onClick={() => setZakatOpen(true)} />
         <MenuRow icon={Target} tint="c4" label="Target & More" value={budget != null ? formatTaka(budget) : 'Not set'} onClick={() => setBudgetOpen(true)} />
         <MenuRow icon={TriangleAlert} tint="c5" label="Large-amount warning" value={threshold != null ? formatTaka(threshold) : 'Off'} onClick={() => setLargeOpen(true)} />
         <ToggleRow icon={Bell} tint="c7" label="Reminders" checked={remindersOn} onChange={(v) => void updateSettings(user.uid, { reminderEnabled: v })} />
@@ -241,6 +245,11 @@ export default function SettingsTab({ user }: { user: SessionUser }) {
       {marketOpen && (
         <Suspense fallback={<SkeletonLoader />}>
           <MarketScreen uid={user.uid} onClose={() => setMarketOpen(false)} />
+        </Suspense>
+      )}
+      {zakatOpen && (
+        <Suspense fallback={<SkeletonLoader />}>
+          <ZakatScreen uid={user.uid} onClose={() => setZakatOpen(false)} />
         </Suspense>
       )}
       {medOpen && (
