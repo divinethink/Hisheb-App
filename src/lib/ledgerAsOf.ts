@@ -36,7 +36,8 @@ const paidBy = (rs: readonly Repayment[], asOf: string) =>
 /** asOf পর্যন্ত owe_me বকেয়া; asOf-এর আগেই written-off (পুরনো "forgiven" সহ) হওয়া লাইন বাদ। */
 export function receivableAsOfMinor(debts: readonly DebtAsOfLike[], asOf: string): number {
   return debts
-    .filter((d) => d.direction === 'owe_me' && d.date <= asOf)
+    // borrowings থাকলে প্রতিটা লাইনের তারিখ lineViews(asOf)-ই দেখে; না থাকলে debt.date
+    .filter((d) => d.direction === 'owe_me' && ((d.borrowings?.length ?? 0) > 0 || d.date <= asOf))
     .reduce((s, d) => s + receivableOutstandingMinor(d, asOf), 0);
 }
 
@@ -82,8 +83,11 @@ export function countLedgerChangesAfter(
 ): number {
   let n = 0;
   for (const d of l.debts) {
-    if (d.date > asOf) n++;
-    else {
+    const lines = d.borrowings ?? [];
+    // borrowings থাকলে asOf-এর পরের প্রতিটা ধার-লাইন আলাদা পরিবর্তন; না থাকলে debt.date
+    if (lines.length > 0) n += lines.filter((b) => b.date > asOf).length;
+    if (lines.length === 0 && d.date > asOf) n++;
+    if (lines.length > 0 || d.date <= asOf) {
       if (d.receivableStatusChangedAt !== null && d.receivableStatusChangedAt > asOf) n++;
       for (const b of d.borrowings ?? []) if (b.statusChangedAt && b.statusChangedAt > asOf) n++;
     }

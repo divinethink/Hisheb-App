@@ -196,6 +196,21 @@ describe('factors', () => {
     expect(f.detail).toEqual(['B', 'R']);
   });
 
+  it('(৫) i_owe একাধিক ধার: শুধু window-এর ভেতরের লাইন ধরা হয়', () => {
+    const d = debt({
+      person: 'M',
+      direction: 'i_owe',
+      totalAmountMinor: 1_000_000,
+      date: '2026-01-01',
+      borrowings: [
+        { id: 'a', date: '2026-01-01', amountMinor: 900_000 },
+        { id: 'b', date: '2026-09-10', amountMinor: 100_000 },
+      ],
+    });
+    const r = computeCrossCheck(base({ debts: [d] }));
+    expect(r.factors.find((x) => x.key === 'iOweChange')!.effectMinor).toBe(100_000);
+  });
+
   it('(৬) GPF change: window-এর নেট পরিবর্তন; window-এর বাইরের entry বাদ; withdrawal −', () => {
     const r = computeCrossCheck(
       base({

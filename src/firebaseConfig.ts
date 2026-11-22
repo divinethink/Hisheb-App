@@ -11,7 +11,8 @@ const env = getEnv();
 export const app = initializeApp(env.firebase);
 
 // Debug token: dev-এ অথবা env-এ দেওয়া থাকলে (Staging)। Production env-এ সেট করা যাবে না।
-if (import.meta.env.DEV || env.appCheckDebugToken) {
+// PROD বিল্ডে debug token কখনো না — env-এ ভুলে থাকলেও bundle-এ ঢোকে না। Staging (mode=staging) এখনো কাজ করে।
+if (import.meta.env.DEV || (env.appCheckDebugToken && import.meta.env.MODE !== 'production')) {
   self.FIREBASE_APPCHECK_DEBUG_TOKEN = env.appCheckDebugToken ?? true;
 }
 initializeAppCheck(app, {

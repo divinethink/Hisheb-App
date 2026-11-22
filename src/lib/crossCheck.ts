@@ -7,7 +7,7 @@
 //   current  = চলতি snapshot-এর totalAssets, না থাকলে লাইভ
 // ঋণাত্মক = প্রত্যাশার চেয়ে কম সম্পদ। প্রতিটা factor `effectMinor` = Total Assets-এ ওই ঘটনার প্রভাব
 // (deviation-এর একই চিহ্ন)। বাকিটা unexplained।
-import { lineViews, type BorrowingLine } from './debtCalc';
+import { linesOf, lineViews, type BorrowingLine } from './debtCalc';
 import { sumRepayments } from './investmentCalc';
 import { gpfChangeInWindowMinor } from './gpfCalc';
 
@@ -276,7 +276,8 @@ export function computeCrossCheck(inp: CrossCheckInput): CrossCheckResult {
     for (const d of inp.debts) {
       if (d.direction !== 'i_owe') continue;
       let e = 0;
-      if (inWindow(d.date, windowStart, windowEnd)) e += d.totalAmountMinor;
+      // লাইন-ভিত্তিক: window-এ পড়া প্রতিটা ধারের তারিখ আলাদা (borrowings না থাকলে একটাই synthetic লাইন)
+      for (const l of linesOf(d)) if (inWindow(l.date, windowStart, windowEnd)) e += l.amountMinor;
       for (const r of d.repayments) if (inWindow(r.date, windowStart, windowEnd)) e -= r.amountMinor;
       if (e !== 0) {
         effect += e;

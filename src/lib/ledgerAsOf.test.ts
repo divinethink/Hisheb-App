@@ -14,6 +14,23 @@ describe('ledgerAsOf', () => {
     expect(receivableAsOfMinor([d], '2026-05-31')).toBe(0);
     expect(receivableAsOfMinor([d], '2025-12-31')).toBe(0);
   });
+  it('receivable: asOf-এর পরের তারিখের ২য় ধার-লাইন ধরা হয় না', () => {
+    const d = {
+      direction: 'owe_me' as const,
+      totalAmountMinor: 1500,
+      date: '2026-01-10',
+      repayments: [],
+      receivableStatus: 'active' as const,
+      receivableStatusChangedAt: null,
+      borrowings: [
+        { id: 'a', date: '2026-01-10', amountMinor: 1000 },
+        { id: 'b', date: '2026-09-05', amountMinor: 500 },
+      ],
+    };
+    expect(receivableAsOfMinor([d], '2026-08-31')).toBe(1000);
+    expect(receivableAsOfMinor([d], '2026-09-30')).toBe(1500);
+    expect(countLedgerChangesAfter('2026-08-31', { debts: [d], investments: [], deposits: [], gpf: [] })).toBe(1);
+  });
   it('running investment & totals', () => {
     const i = { principalMinor: 5000, date: '2026-01-01', repayments: [{ date: '2026-03-01', amountMinor: 5500 }], investmentOutcome: 'running' as const, investmentOutcomeChangedAt: null };
     expect(runningInvestmentAsOfMinor([i], '2026-02-28')).toBe(5000);

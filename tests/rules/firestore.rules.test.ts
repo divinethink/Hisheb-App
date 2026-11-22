@@ -164,6 +164,13 @@ describe('validWrite — other collections (P3/P8-এর clause আগে থে
     await assertSucceeds(setDoc(p('marketItems'), { ...item, history: [h, h, h, h, h] }));
     await assertFails(setDoc(p('marketItems'), { ...item, history: [h, h, h, h, h, h] }));
   });
+  it('customLedgers need a name and kind deposit|investment', async () => {
+    await assertSucceeds(setDoc(p('customLedgers'), { name: 'Gold', kind: 'deposit' }));
+    await assertSucceeds(setDoc(p('customLedgers'), { name: 'Share', kind: 'investment' }));
+    await assertFails(setDoc(p('customLedgers'), { name: '', kind: 'deposit' }));
+    await assertFails(setDoc(p('customLedgers'), { name: 'Gold' }));
+    await assertFails(setDoc(p('customLedgers'), { name: 'Gold', kind: 'other' }));
+  });
   it('gpfEntries require positive int amount and a known type', async () => {
     const ok = { amountMinor: 121300, type: 'contribution' };
     await assertSucceeds(setDoc(p('gpfEntries'), ok));

@@ -124,15 +124,17 @@ export function lineViews(d: DebtLinesInput, asOf?: string): LineView[] {
   const reps = asOf ? d.repayments.filter((r) => r.date <= asOf) : d.repayments;
   const eff = lines.map((l) => effectiveLineStatus(d, l));
   const excluded = eff.map((e) => e.status === 'written_off' && (!asOf || e.changedAt === null || e.changedAt <= asOf));
-  const paid = allocateToLines(lines, reps, (i) => excluded[i]);
+  // asOf-এর পরের তারিখের ধার-লাইন তখনো হয়নি: হিসাবে পরিমাণ ০ (শোধও ওই লাইনে জমে না)
+  const effLines = asOf ? lines.map((l) => (l.date && l.date > asOf ? { ...l, amountMinor: 0 } : l)) : lines;
+  const paid = allocateToLines(effLines, reps, (i) => excluded[i]);
   return lines.map((line, i): LineView => {
-    const out = Math.max(0, line.amountMinor - paid[i]);
+    const out = Math.max(0, effLines[i].amountMinor - paid[i]);
     return {
       index: i,
       line,
       paidMinor: paid[i],
       outstandingMinor: out,
-      payStatus: paid[i] <= 0 ? 'outstanding' : paid[i] >= line.amountMinor ? 'paid' : 'partial',
+      payStatus: paid[i] <= 0 ? 'outstanding' : paid[i] >= effLines[i].amountMinor ? 'paid' : 'partial',
       status: eff[i].status,
       statusChangedAt: eff[i].changedAt,
       excluded: excluded[i],
