@@ -22,6 +22,8 @@ vi.mock('../../../data/transactionRepo', () => ({
   softDeleteTransaction: repo.softDeleteTransaction,
   restoreTransaction: repo.restoreTransaction,
 }));
+// বেল নিজের hooks/Firebase ব্যবহার করে — HomeTab-এর test-এ আলাদা (NotificationBell-এর লজিক notifications.test.ts-এ)
+vi.mock('./NotificationBell', () => ({ default: () => null }));
 vi.mock('../../../data/catalogRepo', () => ({ addCategory: vi.fn(), addLabel: vi.fn() }));
 
 import HomeTab from './HomeTab';

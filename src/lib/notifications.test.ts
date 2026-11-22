@@ -47,7 +47,7 @@ describe('buildNotifications', () => {
 
 describe('unseenCount', () => {
   it('শুধু নতুন আইডি গোনে', () => {
-    const l = run({ budgetMinor: 10000, monthExpenseMinor: 9200 });
+    const l = run({ budgetMinor: 10000, monthExpenseMinor: 9200 }).filter((n) => n.kind === 'budget'); // forecast আলাদা, এখানে শুধু budget
     expect(unseenCount(l, [])).toBe(1);
     expect(unseenCount(l, ['budget:2026-11:90'])).toBe(0);
     expect(unseenCount(l, ['budget:2026-11:80'])).toBe(1);
