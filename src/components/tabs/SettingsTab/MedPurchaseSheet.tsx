@@ -16,7 +16,13 @@ import { MED_KINDS, MED_LIMITS, type MedKind, type MedPurchase } from '../../../
 const inputCls = 'min-h-12 w-full rounded-xl border border-muted/20 bg-surface px-3.5 text-fg outline-none transition-colors focus:border-primary focus:bg-canvas';
 const DOSE_UNITS = ['mg', 'ml', 'g', 'strip'] as const;
 
-/** সংখ্যার পাশে একক বসায়; আগের একক থাকলে বদলে দেয় ("500mg" + ml → "500ml")। সংখ্যা না থাকলে একক-ই বসে। */
+/** ডোজের শেষের একক ("50mg" → "mg"); না থাকলে খালি। শুধু পুরো শব্দ মেলে, তাই "mg" থাকলে "g" জ্বলে না। */
+function currentUnit(dose: string): string {
+  const m = dose.trim().match(/[a-zA-Z]+$/);
+  return m ? m[0].toLowerCase() : '';
+}
+
+/** সংখ্যার পাশে একক বসায; আগের একক থাকলে বদলে দেয় ("500mg" + ml → "500ml")। সংখ্যা না থাকলে একক-ই বসে। */
 function applyUnit(dose: string, unit: string): string {
   const d = dose.trim();
   const m = d.match(/^(\d+(?:\.\d+)?)\s*[a-zA-Z]*$/);
@@ -201,7 +207,7 @@ export default function MedPurchaseSheet({
         {kind === 'medicine' && (
           <div className={`${ROW_CLS} -mt-1`}>
             {DOSE_UNITS.map((u) => (
-              <Chip key={u} on={dose.trim().toLowerCase().endsWith(u)} onClick={() => setDose(applyUnit(dose, u))}>
+              <Chip key={u} on={currentUnit(dose) === u} onClick={() => setDose(applyUnit(dose, u))}>
                 {u}
               </Chip>
             ))}
