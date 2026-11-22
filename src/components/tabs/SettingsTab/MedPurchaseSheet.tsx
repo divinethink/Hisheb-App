@@ -164,12 +164,7 @@ export default function MedPurchaseSheet({
         </Field>
 
         <div className="flex items-end gap-2.5">
-          <div className="min-w-0 flex-1">
-            <Field label="ডোজ / পরিমাণ (ঐচ্ছিক)" htmlFor="mp-dose">
-              <input id="mp-dose" value={dose} maxLength={MED_LIMITS.dose} onChange={(e) => setDose(e.target.value)} placeholder="যেমন 500mg, 10ml" className={inputCls} />
-            </Field>
-          </div>
-          <div className="w-28 shrink-0 rounded-2xl border border-muted/15 bg-surface p-3">
+          <div className="w-28 shrink-0">
             <Field label="সংখ্যা" htmlFor="mp-qty">
               <input
                 id="mp-qty"
@@ -179,8 +174,13 @@ export default function MedPurchaseSheet({
                 aria-invalid={submitted && !quantityOk}
                 onChange={(e) => setQuantity(e.target.value.replace(/\D/g, ''))}
                 placeholder="যেমন 10"
-                className="block min-h-8 w-full bg-transparent text-base text-fg outline-none placeholder:text-muted/60"
+                className={inputCls}
               />
+            </Field>
+          </div>
+          <div className="min-w-0 flex-1">
+            <Field label="ডোজ / পরিমাণ (ঐচ্ছিক)" htmlFor="mp-dose">
+              <input id="mp-dose" value={dose} maxLength={MED_LIMITS.dose} onChange={(e) => setDose(e.target.value)} placeholder="যেমন 500mg, 10ml" className={inputCls} />
             </Field>
           </div>
         </div>
