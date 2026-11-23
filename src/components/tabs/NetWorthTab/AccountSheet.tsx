@@ -3,25 +3,29 @@ import BottomSheet from '../../common/BottomSheet';
 import { addAccount, updateAccount } from '../../../data/accountRepo';
 import { markClean, markDirty } from '../../../pwa/dirtyForms';
 import { settleOrPending } from '../../../lib/async';
+import { formatAmount } from '../../../lib/format';
 import type { Account } from '../../../validation/accountSchema';
 
 export default function AccountSheet({
   uid,
   initial,
+  latestBalanceMinor = 0,
   onClose,
 }: {
   uid: string;
   initial: Account | null;
+  /** এই account-এর সর্বশেষ সেভ-করা ব্যালেন্স — ≠ ০ হলে archive-এর আগে সতর্কতা */
+  latestBalanceMinor?: number;
   onClose: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [holder, setHolder] = useState(initial?.holder ?? '');
-  const [currency, setCurrency] = useState(initial?.currency ?? 'BDT');
   const [zakatable, setZakatable] = useState(initial?.zakatable ?? true);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
   const dirty = initial
     ? name.trim() !== initial.name || holder.trim() !== (initial.holder ?? '') || zakatable !== initial.zakatable
@@ -49,7 +53,7 @@ export default function AccountSheet({
     try {
       const write: Promise<string | void> = initial
         ? updateAccount(uid, initial.id, { name: trimmed, holder: holder.trim() || null, zakatable })
-        : addAccount(uid, { name: trimmed, holder: holder.trim() || null, currency, zakatable, archived: false });
+        : addAccount(uid, { name: trimmed, holder: holder.trim() || null, currency: 'BDT', zakatable, archived: false });
       await settleOrPending(write, 3000);
       onClose();
     } catch {
@@ -60,6 +64,11 @@ export default function AccountSheet({
 
   async function archive() {
     if (!initial || saving) return;
+    // ব্যালেন্স ≠ ০ হলে archive করা account সাথে সাথে Total Assets থেকে বাদ — দ্বিতীয় tap-এ confirm
+    if (latestBalanceMinor !== 0 && !confirmArchive) {
+      setConfirmArchive(true);
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -136,11 +145,14 @@ export default function AccountSheet({
             </label>
             <input
               id="acc-currency"
-              value={currency}
-              maxLength={3}
-              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-              className="min-h-12 w-24 rounded-lg border border-muted/40 bg-surface px-3 text-fg outline-none"
+              value="BDT"
+              readOnly
+              aria-describedby="acc-currency-note"
+              className="min-h-12 w-24 rounded-lg border border-muted/40 bg-surface px-3 text-muted outline-none"
             />
+            <p id="acc-currency-note" className="mt-1 text-xs text-muted">
+              Only BDT is supported for now.
+            </p>
           </div>
         )}
 
@@ -151,8 +163,14 @@ export default function AccountSheet({
 
         {initial && (
           <button type="button" onClick={() => void archive()} disabled={saving} className="min-h-11 self-start text-sm text-expense disabled:opacity-60">
-            Archive this account
+            {confirmArchive ? 'Archive anyway' : 'Archive this account'}
           </button>
+        )}
+
+        {confirmArchive && (
+          <p role="alert" className="text-sm text-warning">
+            This account still shows {formatAmount(latestBalanceMinor)}. Archiving removes it from Total Assets. Set its balance to 0 in Update Balances first, or tap Archive anyway.
+          </p>
         )}
 
         {error && (

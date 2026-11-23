@@ -1,6 +1,6 @@
 // accountBalances + netWorthSnapshots repo — Architecture Plan §২.২ প্যাটার্ন।
-// Composite doc-ID + setDoc(merge না, পুরো replace) — একই account+মাস / মাসে সবসময় ঠিক একটা doc (C11/C12)।
-import { collection, doc, getDocs, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+// Composite doc-ID — একই account+মাস / মাসে সবসময় ঠিক একটা doc (C11/C12)। accountBalances পুরো replace; netWorthSnapshots merge (Excel-আনা `flow` মুছে না যায়)।
+import { collection, deleteField, doc, getDocs, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import {
   AccountBalanceSchema,
@@ -82,8 +82,9 @@ export async function setAccountBalance(
   });
 }
 
-/** doc-ID = `yyyymm` — same month চাপলে overwrite, নতুন doc কখনো না (C12)। unverified (ঐচ্ছিক, DF11) —
- *  শুধু true হলে ফিল্ড বসে, নাহলে বাদ (পুরনো caller-দের আচরণ অপরিবর্তিত)। */
+/** doc-ID = `yyyymm` — same month চাপলে একই doc update, নতুন doc কখনো না (C12)। **merge** — বিদ্যমান `flow` অক্ষত।
+ *  total/snapshotDate/breakdown নতুন মানে বদলায়; unverified true না হলে পুরনো ফ্ল্যাগ মোছা হয় (deleteField),
+ *  যাতে নতুন verified সেভে stale `unverified: true` না থাকে। */
 export async function setNetWorthSnapshot(
   uid: string,
   yyyymm: string,
@@ -96,10 +97,10 @@ export async function setNetWorthSnapshot(
     yyyymm,
     totalAssetsMinor,
     snapshotDate,
-    ...(unverified ? { unverified: true } : {}),
+    unverified: unverified ? true : deleteField(),
     ...(breakdown ? { breakdown } : {}),
     updatedAt: serverTimestamp(),
-  });
+  }, { merge: true });
 }
 
 /** এক-বারের read — শুধু existing yyyymm-দের তালিকা (P4 monthly-backfill importer-এর overwrite-protection

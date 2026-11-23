@@ -4,7 +4,8 @@
 export type SnapshotDateVerdict =
   | { kind: 'ok' }
   | { kind: 'differs'; expected: string; daysOff: number } // daysOff > 0 = expected-এর পরে, < 0 = আগে
-  | { kind: 'invalid'; previousDate: string };
+  | { kind: 'invalid'; previousDate: string }
+  | { kind: 'future'; today: string }; // তারিখ আজকের পরে — Save বন্ধ (লাইভ হিসাব আজ পর্যন্ত, snapshot-এর সাথে অমিল এড়াতে)
 
 const DAY = 86_400_000;
 const utc = (d: string) => {
@@ -38,6 +39,7 @@ export function checkSnapshotDate(
 ): SnapshotDateVerdict {
   const prev = previousSnapshotDate(balances, month);
   if (prev !== null && snapshotDate <= prev) return { kind: 'invalid', previousDate: prev };
+  if (snapshotDate > today) return { kind: 'future', today };
   const expected = expectedSnapshotDate(month, today);
   if (snapshotDate !== expected) return { kind: 'differs', expected, daysOff: Math.round((utc(snapshotDate) - utc(expected)) / DAY) };
   return { kind: 'ok' };

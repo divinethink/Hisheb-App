@@ -360,7 +360,7 @@ export default function NetWorthTab({
         </>
       )}
 
-      {sheet && <AccountSheet uid={uid} initial={sheet.initial} onClose={() => setSheet(null)} />}
+      {sheet && <AccountSheet uid={uid} initial={sheet.initial} latestBalanceMinor={sheet.initial ? (latestByAccount.get(sheet.initial.id) ?? 0) : 0} onClose={() => setSheet(null)} />}
     </div>
   );
 }

@@ -469,13 +469,13 @@ function buildNetWorthSheet(accounts: readonly Account[], balances: readonly Acc
   const accTotalMinor = accountsTotalMinor(accounts.map((a) => ({ balanceMinor: latest.get(a.id) ?? 0 })));
   aoa.push([1, 'Accounts Total', '', '', toTaka(accTotalMinor)]);
   const recvRow = aoa.length;
-  aoa.push([2, '+ Total Receivable (Ledger)', '', '', toTaka(t.receivableMinor)]);
+  aoa.push([2, '+ Total Receivable (Ledger, live to today)', '', '', toTaka(t.receivableMinor)]);
   const invRow = aoa.length;
-  aoa.push([3, '+ Running Investment', '', '', toTaka(t.runningTotalMinor)]);
+  aoa.push([3, '+ Running Investment (live to today)', '', '', toTaka(t.runningTotalMinor)]);
   const hdRow = aoa.length;
-  aoa.push([4, '+ Home Deposit (Net)', '', '', toTaka(t.netTotalMinor)]);
+  aoa.push([4, '+ Home Deposit (Net, live to today)', '', '', toTaka(t.netTotalMinor)]);
   const gpfRow = aoa.length;
-  aoa.push([5, '+ GPF Balance', '', '', toTaka(t.balanceMinor)]);
+  aoa.push([5, '+ GPF Balance (live to today)', '', '', toTaka(t.balanceMinor)]);
   aoa.push([]);
   const totalAssetsRow = aoa.length;
   const grossTaka = toTaka(accTotalMinor) + toTaka(t.receivableMinor) + toTaka(t.runningTotalMinor) + toTaka(t.netTotalMinor) + toTaka(t.balanceMinor);

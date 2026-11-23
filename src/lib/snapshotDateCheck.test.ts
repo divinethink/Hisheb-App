@@ -26,6 +26,10 @@ describe('snapshotDateCheck', () => {
     expect(checkSnapshotDate('2026-09-30', '2026-10', '2026-10-31', bal)).toEqual({ kind: 'invalid', previousDate: '2026-09-30' });
     expect(checkSnapshotDate('2026-09-15', '2026-10', '2026-10-31', bal)).toEqual({ kind: 'invalid', previousDate: '2026-09-30' });
   });
+  it('আজকের পরের তারিখ → future (Save বন্ধ)', () => {
+    expect(checkSnapshotDate('2026-11-05', '2026-10', '2026-10-31', bal)).toEqual({ kind: 'future', today: '2026-10-31' });
+    expect(checkSnapshotDate('2026-12-31', '2026-12', '2026-10-31', bal)).toEqual({ kind: 'future', today: '2026-10-31' });
+  });
   it('অতীত মাস মাসের শেষ দিনে → ok; আগের কোনো snapshot না থাকলে invalid নয়', () => {
     expect(checkSnapshotDate('2026-09-30', '2026-09', '2026-10-31', bal)).toEqual({ kind: 'ok' });
     expect(checkSnapshotDate('2026-01-05', '2026-08', '2026-10-31', [])).toMatchObject({ kind: 'differs' });

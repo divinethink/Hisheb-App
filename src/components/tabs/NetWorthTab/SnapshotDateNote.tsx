@@ -5,7 +5,7 @@ import { formatDisplayDate } from '../../../lib/date';
 import type { SnapshotDateVerdict } from '../../../lib/snapshotDateCheck';
 
 // Snapshot date-এর নিচে inline যাচাই-বার্তা (owner-approved ২০২৬-১০-৩১; পপআপ নয়)।
-// differs = সতর্কতা (Save চলে), invalid = ভুল (Save বন্ধ)। ঠিক তারিখে কিছু দেখায় না।
+// differs = সতর্কতা (Save চলে), invalid/future = ভুল (Save বন্ধ)। ঠিক তারিখে কিছু দেখায় না।
 export default function SnapshotDateNote({
   uid,
   snapshotDate,
@@ -20,7 +20,7 @@ export default function SnapshotDateNote({
   if (verdict.kind === 'ok') return null;
   const d = (s: string) => formatDisplayDate(s, fmt);
 
-  const invalid = verdict.kind === 'invalid';
+  const invalid = verdict.kind === 'invalid' || verdict.kind === 'future';
   const days = verdict.kind === 'differs' ? Math.abs(verdict.daysOff) : 0;
 
   return (
@@ -30,7 +30,12 @@ export default function SnapshotDateNote({
     >
       <IconBadge icon={invalid ? TriangleAlert : CalendarCheck} tone={invalid ? 'expense' : 'warning'} size={32} />
       <div className="min-w-0 text-sm">
-        {verdict.kind === 'invalid' ? (
+        {verdict.kind === 'future' ? (
+          <>
+            <p className="font-semibold text-fg">Snapshot date is in the future</p>
+            <p className="mt-0.5 text-muted">Pick {d(verdict.today)} or an earlier date. A snapshot can’t be dated after today.</p>
+          </>
+        ) : verdict.kind === 'invalid' ? (
           <>
             <p className="font-semibold text-fg">Snapshot date is too early</p>
             <p className="mt-0.5 text-muted">

@@ -129,7 +129,7 @@ export default function UpdateBalancesScreen({
 
   const allFilled = parsed.every((p) => p.minor !== null);
 
-  // তারিখ-যাচাই inline বার্তায় (পপআপ নয়): প্রত্যাশিত না হলে সতর্কতা, আগের snapshot-এর আগে/সমান হলে Save বন্ধ
+  // তারিখ-যাচাই inline বার্তায় (পপআপ নয়): প্রত্যাশিত না হলে সতর্কতা, আগের snapshot-এর আগে/সমান বা ভবিষ্যৎ হলে Save বন্ধ
   const dateVerdict = checkSnapshotDate(snapshotDate, month, toDhakaDate(new Date()), balances);
 
   function handleSave() {
@@ -137,7 +137,7 @@ export default function UpdateBalancesScreen({
       setError('Enter a valid amount for every account.');
       return;
     }
-    if (dateVerdict.kind === 'invalid') return;
+    if (dateVerdict.kind === 'invalid' || dateVerdict.kind === 'future') return;
     void doSave();
   }
 
@@ -176,7 +176,7 @@ export default function UpdateBalancesScreen({
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || !allFilled || dateVerdict.kind === 'invalid'}
+            disabled={saving || !allFilled || dateVerdict.kind === 'invalid' || dateVerdict.kind === 'future'}
             className="min-h-11 flex-1 rounded-lg bg-primary text-sm font-medium text-canvas disabled:opacity-50"
           >
             {saving ? 'Saving…' : 'Save & Snapshot'}
