@@ -295,7 +295,7 @@ function PriceCard({ uid, settings, today }: { uid: string; settings: Settings; 
 function NisabSection({ uid, settings, today }: { uid: string; settings: Settings; today: string }) {
   const std: NisabStandard = settings.zakatNisabStandard ?? 'silver';
   const nisab = nisabMinorFor(std, { nisabStandard: std, goldPriceMinor: settings.zakatGoldPriceMinor, silverPriceMinor: settings.zakatSilverPriceMinor });
-  const [open, setOpen] = useState(nisab == null);
+  const [open, setOpen] = useState(false); // সবসময় বন্ধ অবস্থায় শুরু; দাম না থাকলে বন্ধ অবস্থার সারাংশে "Price not set" দেখায়
   const summary = [
     std === 'silver' ? 'Silver' : 'Gold',
     nisab != null ? `Nisab ${formatTakaWhole(nisab)}` : 'Price not set',
@@ -316,10 +316,11 @@ function NisabSection({ uid, settings, today }: { uid: string; settings: Setting
         </span>
         <ChevronDown aria-hidden size={18} className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {/* hidden দিয়ে লুকানো, unmount নয় — অসম্পূর্ণ লেখা হারায় না */}
-      <div id="zk-nisab-panel" hidden={!open}>
-        <PriceCard uid={uid} settings={settings} today={today} />
-      </div>
+      {open && (
+        <div id="zk-nisab-panel">
+          <PriceCard uid={uid} settings={settings} today={today} />
+        </div>
+      )}
     </>
   );
 }

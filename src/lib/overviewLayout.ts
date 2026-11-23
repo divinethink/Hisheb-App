@@ -46,7 +46,6 @@ export const CARD_DEFS: Record<OverviewTabKey, readonly CardDef[]> = {
     f('savingsrate', 'Monthly Savings Rate'),
     f('creep', 'জীবনযাত্রার খরচ বৃদ্ধি'),
     f('realgrowth', 'আসল বৃদ্ধি'),
-    f('invcheck', 'Investment Reality Check'),
     f('monthbars', 'Income vs expense by month', 'closed'),
     f('category', 'Expense by category'),
     f('breakdown', 'Yearly breakdown'),

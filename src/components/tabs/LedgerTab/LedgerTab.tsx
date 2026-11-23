@@ -18,6 +18,7 @@ import HomeDepositScreen from './HomeDepositScreen';
 import GpfScreen from './GpfScreen';
 import CustomDepositLedgerScreen from './CustomDepositLedgerScreen';
 import CustomLedgerSheet from './CustomLedgerSheet';
+import { InvestmentHonestCard } from '../OverviewTab/YearlyCards';
 import { useCustomLedgers, useDebts, useGpfEntries, useHomeDeposits, useInvestments } from '../../../hooks/useData';
 import { repaymentStatus } from '../../../lib/debtCalc';
 import { investmentStatus, sumRepayments as sumInvestmentRepayments } from '../../../lib/investmentCalc';
@@ -182,6 +183,9 @@ export default function LedgerTab({ uid }: { uid: string }) {
           <p className="text-xl font-semibold text-fg">{formatAmount(ledgerTotal)}</p>
         </div>
       </Card>
+
+      {/* Investment Reality Check — Ledger-এর একদম নিচে (Overview থেকে সরানো, owner-সিদ্ধান্ত) */}
+      <InvestmentHonestCard investments={invList} today={toDhakaDate(new Date())} />
 
       {addLedgerOpen && <CustomLedgerSheet uid={uid} onClose={() => setAddLedgerOpen(false)} />}
     </div>
