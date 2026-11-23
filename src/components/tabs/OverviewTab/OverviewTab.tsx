@@ -10,6 +10,7 @@ import { subscribeGpfEntries } from '../../../data/gpfRepo';
 import { subscribeAccounts } from '../../../data/accountRepo';
 import { subscribeAccountBalances, subscribeNetWorthSnapshots } from '../../../data/netWorthRepo';
 import { subscribeHistoricalTotals } from '../../../data/historicalRepo';
+import { subscribeZakatCycles, subscribeZakatPayments } from '../../../data/zakatRepo';
 import { currentMonth, toDhakaDate } from '../../../lib/date';
 import type { Debt } from '../../../validation/debtSchema';
 import type { Investment } from '../../../validation/investmentSchema';
@@ -18,6 +19,7 @@ import type { GpfEntry } from '../../../validation/gpfSchema';
 import type { Account } from '../../../validation/accountSchema';
 import type { AccountBalance, NetWorthSnapshot } from '../../../validation/netWorthSchema';
 import type { HistoricalYearlyTotal } from '../../../validation/historicalSchema';
+import type { ZakatCycle, ZakatPayment } from '../../../validation/zakatSchema';
 
 const OverviewLayoutScreen = lazy(() => import('../SettingsTab/OverviewLayoutScreen'));
 
@@ -57,7 +59,7 @@ export default function OverviewTab({ uid }: { uid: string }) {
     setExportBusy(true);
     try {
       const month = currentMonth();
-      const [allTxs, historicalRows, snapshots, debts, investments, funds, homeDeposits, gpf, accounts, accountBalances] = await Promise.all([
+      const [allTxs, historicalRows, snapshots, debts, investments, funds, homeDeposits, gpf, accounts, accountBalances, zakatPayments, zakatCycles] = await Promise.all([
         getAllTransactions(uid),
         fetchOnce<HistoricalYearlyTotal[]>((d, e) => subscribeHistoricalTotals(uid, d, undefined, e)),
         fetchOnce<NetWorthSnapshot[]>((d, e) => subscribeNetWorthSnapshots(uid, d, undefined, e)),
@@ -68,6 +70,8 @@ export default function OverviewTab({ uid }: { uid: string }) {
         fetchOnce<GpfEntry[]>((d, e) => subscribeGpfEntries(uid, d, undefined, e)),
         fetchOnce<Account[]>((d, e) => subscribeAccounts(uid, d, undefined, e)),
         fetchOnce<AccountBalance[]>((d, e) => subscribeAccountBalances(uid, d, undefined, e)),
+        fetchOnce<ZakatPayment[]>((d, e) => subscribeZakatPayments(uid, d, undefined, e)),
+        fetchOnce<ZakatCycle[]>((d, e) => subscribeZakatCycles(uid, d, undefined, e)),
       ]);
       const { buildFullReportWorkbook, downloadWorkbook } = await import('../../../lib/excelReport');
       const wb = buildFullReportWorkbook({
@@ -82,6 +86,9 @@ export default function OverviewTab({ uid }: { uid: string }) {
         gpf,
         accounts,
         accountBalances,
+        zakatPayments,
+        zakatCycles,
+        zakatAnniversary: settings.state.status === 'ready' ? settings.state.data.zakatCalculationDate : null,
       });
       downloadWorkbook(wb, `hisheb_report_${month}.xlsx`);
     } finally {

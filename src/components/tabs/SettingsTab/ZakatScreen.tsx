@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Coins, Gem, HandCoins, Pencil, PiggyBank, Plus, Scale, Trash2, TrendingUp, Wallet, Wheat, type LucideIcon } from 'lucide-react';
+import { ChevronDown, Coins, Gem, HandCoins, Pencil, PiggyBank, Plus, Scale, Trash2, TrendingUp, Wallet, Wheat, type LucideIcon } from 'lucide-react';
 import FullScreenPage from '../../common/FullScreenPage';
 import SkeletonLoader from '../../common/SkeletonLoader';
 import Card from '../../common/Card';
@@ -16,14 +16,16 @@ import {
   useInvestments,
   useSettings,
   useZakatAssets,
+  useZakatCycles,
   useZakatPayments,
 } from '../../../hooks/useData';
 import type { LiveState } from '../../../hooks/useLiveQuery';
 import { updateSettings } from '../../../data/settingsRepo';
-import { deleteZakatAsset, deleteZakatPayment } from '../../../data/zakatRepo';
+import { deleteZakatAsset, deleteZakatCycle, deleteZakatPayment, setZakatCycleDue } from '../../../data/zakatRepo';
 import { settleOrPending } from '../../../lib/async';
 import { calcZakat, nisabMinorFor, valueFromWeightMinor, NISAB_GOLD_GRAMS, NISAB_SILVER_GRAMS, type NisabStandard, type ZakatResult } from '../../../lib/zakatCalc';
 import { daysToAnniversary } from '../../../lib/zakatDate';
+import { paymentCycleStart, summarizeCycles, type CycleSummary } from '../../../lib/zakatCycle';
 import { latestBalanceByAccount, liveBasisDate } from '../../../lib/netWorthCalc';
 import { toDhakaDate, formatDisplayDate } from '../../../lib/date';
 import { formatTakaWhole } from '../../../lib/format';
@@ -34,7 +36,7 @@ import type { AccountBalance } from '../../../validation/netWorthSchema';
 import type { Debt } from '../../../validation/debtSchema';
 import type { Investment } from '../../../validation/investmentSchema';
 import type { Fund, HomeDepositEntry } from '../../../validation/homeDepositSchema';
-import type { ZakatAsset, ZakatPayment } from '../../../validation/zakatSchema';
+import type { ZakatAsset, ZakatCycle, ZakatPayment } from '../../../validation/zakatSchema';
 
 const dataOf = <T,>(q: { state: LiveState<T> }): T | null => (q.state.status === 'ready' ? q.state.data : null);
 
@@ -57,20 +59,45 @@ function assetValueMinor(a: ZakatAsset, s: Settings): number | null {
   return a.valueMinor;
 }
 
-// ───────── Hero: যাকাতের অবস্থা + Nisab gauge ─────────
-function Hero({ r, asOfLabel }: { r: ZakatResult; asOfLabel: string }) {
+// ───────── Hero: যাকাতের অবস্থা + Nisab gauge / পরিশোধের অগ্রগতি ─────────
+interface LiveNote {
+  liveMinor: number;
+  onUpdate: () => void;
+  busy: boolean;
+}
+function Hero({ r, asOfLabel, cur, liveNote }: { r: ZakatResult; asOfLabel: string; cur: CycleSummary<ZakatPayment>; liveNote: LiveNote | null }) {
   const std = r.nisabStandard === 'gold' ? 'Gold' : 'Silver';
+  const due = cur.dueMinor;
+  const tracking = due != null && cur.paidMinor > 0; // এই বছরে পেমেন্ট আছে → অগ্রগতি দেখাই
+  const paidFull = tracking && cur.paidMinor >= (due ?? 0);
+
+  let pill: string;
+  let label = 'Zakat al-Mal';
+  let amount: string;
+  let sub: string;
+  if (tracking) {
+    pill = paidFull ? 'Paid in full' : 'Partly paid';
+    label = 'Remaining';
+    amount = formatTakaWhole(cur.remainingMinor ?? 0);
+    sub = `Paid ${formatTakaWhole(cur.paidMinor)} of ${formatTakaWhole(due ?? 0)}${cur.overMinor > 0 ? ` · ${formatTakaWhole(cur.overMinor)} extra` : ''}`;
+  } else {
+    pill = r.status === 'due' ? 'Zakat due' : r.status === 'below_nisab' ? 'Below Nisab' : 'Price needed';
+    amount = r.status === 'needs_price' ? '—' : formatTakaWhole(r.zakatMinor);
+    sub =
+      r.status === 'due'
+        ? `2.5% of ${formatTakaWhole(r.netMinor)} net zakatable wealth`
+        : r.status === 'below_nisab'
+          ? 'Your net wealth is under the Nisab, so Zakat is not due now.'
+          : `Set the ${std.toLowerCase()} price per gram below to see your Nisab.`;
+    if (cur.paidMinor > 0) sub += ` Paid this Zakat year: ${formatTakaWhole(cur.paidMinor)}.`;
+  }
+
+  // ত্রুটি-ঠিক: দাম না থাকলে Nisab বার অর্থহীন (আগে প্রায় ভরা দেখাত) — তাই লুকানো
+  const showNisabBar = !tracking && r.nisabMinor != null;
   const scaleMax = Math.max(r.netMinor, r.nisabMinor ?? 0, 1) * 1.15;
   const fill = Math.min(100, Math.max(0, (r.netMinor / scaleMax) * 100));
   const mark = r.nisabMinor != null ? Math.min(100, (r.nisabMinor / scaleMax) * 100) : null;
-  const pill = r.status === 'due' ? 'Zakat due' : r.status === 'below_nisab' ? 'Below Nisab' : 'Price needed';
-  const amount = r.status === 'needs_price' ? '—' : formatTakaWhole(r.zakatMinor);
-  const sub =
-    r.status === 'due'
-      ? `2.5% of ${formatTakaWhole(r.netMinor)} net zakatable wealth`
-      : r.status === 'below_nisab'
-        ? 'Your net wealth is under the Nisab, so Zakat is not due now.'
-        : `Set the ${std.toLowerCase()} price per gram below to see your Nisab.`;
+  const paidFill = tracking && due ? Math.min(100, (cur.paidMinor / due) * 100) : 0;
 
   return (
     <section aria-label="Zakat summary" className="rounded-3xl bg-primary p-5 text-canvas shadow-sm">
@@ -80,20 +107,41 @@ function Hero({ r, asOfLabel }: { r: ZakatResult; asOfLabel: string }) {
         </span>
         <span className="rounded-full bg-canvas/20 px-3 py-1 text-sm font-medium">{pill}</span>
       </div>
-      <p className="mt-5 text-sm text-canvas/80">Zakat al-Mal</p>
+      <p className="mt-5 text-sm text-canvas/80">{label}</p>
       <p className="mt-0.5 text-4xl font-semibold tabular-nums leading-tight">{amount}</p>
       <p className="mt-1 text-sm text-canvas/80">{sub}</p>
 
-      <div className="mt-6">
-        <div className="relative h-2.5 rounded-full bg-canvas/25" role="img" aria-label={r.nisabMinor != null ? `Net wealth ${formatTakaWhole(r.netMinor)} against Nisab ${formatTakaWhole(r.nisabMinor)}` : 'Nisab not set'}>
-          <div className="h-full rounded-full bg-canvas/90" style={{ width: `${fill}%` }} />
-          {mark !== null && <span className="absolute -top-1 h-[18px] w-1.5 rounded-full bg-primary ring-2 ring-canvas" style={{ left: `calc(${mark}% - 3px)` }} />}
+      {tracking && (
+        <div className="mt-6">
+          <div className="h-2.5 rounded-full bg-canvas/25" role="img" aria-label={`Paid ${formatTakaWhole(cur.paidMinor)} of ${formatTakaWhole(due ?? 0)}`}>
+            <div className="h-full rounded-full bg-canvas/90" style={{ width: `${paidFill}%` }} />
+          </div>
+          <div className="mt-2 flex justify-between gap-3 text-xs tabular-nums text-canvas/80">
+            <span>Paid {formatTakaWhole(cur.paidMinor)}</span>
+            <span>Due {formatTakaWhole(due ?? 0)}</span>
+          </div>
         </div>
-        <div className="mt-2 flex justify-between gap-3 text-xs tabular-nums text-canvas/80">
-          <span>Net wealth {formatTakaWhole(Math.max(0, r.netMinor))}</span>
-          <span>{r.nisabMinor != null ? `Nisab (${std}) ${formatTakaWhole(r.nisabMinor)}` : `Nisab (${std})`}</span>
+      )}
+      {showNisabBar && (
+        <div className="mt-6">
+          <div className="relative h-2.5 rounded-full bg-canvas/25" role="img" aria-label={`Net wealth ${formatTakaWhole(r.netMinor)} against Nisab ${formatTakaWhole(r.nisabMinor ?? 0)}`}>
+            <div className="h-full rounded-full bg-canvas/90" style={{ width: `${fill}%` }} />
+            {mark !== null && <span className="absolute -top-1 h-[18px] w-1.5 rounded-full bg-primary ring-2 ring-canvas" style={{ left: `calc(${mark}% - 3px)` }} />}
+          </div>
+          <div className="mt-2 flex justify-between gap-3 text-xs tabular-nums text-canvas/80">
+            <span>Net wealth {formatTakaWhole(Math.max(0, r.netMinor))}</span>
+            <span>Nisab ({std}) {formatTakaWhole(r.nisabMinor ?? 0)}</span>
+          </div>
         </div>
-      </div>
+      )}
+      {liveNote && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-canvas/15 px-3 py-2 text-xs">
+          <span>By today’s wealth: {formatTakaWhole(liveNote.liveMinor)}</span>
+          <button type="button" onClick={liveNote.onUpdate} disabled={liveNote.busy} className="min-h-11 shrink-0 px-2 font-medium underline disabled:opacity-60">
+            {liveNote.busy ? 'Updating…' : 'Update due'}
+          </button>
+        </div>
+      )}
       <p className="mt-4 text-xs text-canvas/70">{asOfLabel}</p>
     </section>
   );
@@ -121,7 +169,7 @@ function Breakdown({ r }: { r: ZakatResult }) {
   return (
     <Card className="overflow-hidden">
       <div className="divide-y divide-muted/10">
-        <Line icon={Wallet} tint="c1" label="Accounts" sub="Zakatable accounts, last balance update" value={r.accountsMinor} />
+        <Line icon={Wallet} tint="c1" label="Accounts" sub="Zakatable accounts" value={r.accountsMinor} />
         <Line icon={HandCoins} tint="c4" label="Receivable" sub="Active loans, unpaid part" value={r.receivableMinor} />
         <Line icon={TrendingUp} tint="c2" label="Investments" sub="Principal not yet returned" value={r.investmentMinor} />
         <Line icon={PiggyBank} tint="c3" label="Home deposit" sub="Zakatable funds, net" value={r.homeDepositMinor} />
@@ -218,7 +266,7 @@ function PriceCard({ uid, settings, today }: { uid: string; settings: Settings; 
 
       <div className="mt-4 border-t border-muted/10 pt-4">
         <label htmlFor="zk-date" className="mb-1 block text-sm text-muted">
-          Zakat anniversary (reminder only)
+          Zakat anniversary
         </label>
         <DateInput
           uid={uid}
@@ -231,7 +279,7 @@ function PriceCard({ uid, settings, today }: { uid: string; settings: Settings; 
         />
         <p className="mt-1 text-xs text-muted">
           {anniversary === null ? 'Pick the date your Zakat year completes.' : anniversary === 0 ? 'Your Zakat anniversary is today.' : `Next anniversary in ${anniversary} day${anniversary === 1 ? '' : 's'}.`}{' '}
-          The app does not track Hawl — confirm your wealth stayed above Nisab for the full year.
+          Your Zakat year starts on this date, and payments are grouped by it. The app does not track Hawl — confirm your wealth stayed above Nisab for the full year.
         </p>
         {settings.zakatCalculationDate != null && (
           <button type="button" onClick={() => void updateSettings(uid, { zakatCalculationDate: null })} className="mt-1 min-h-11 text-sm text-muted underline">
@@ -239,6 +287,140 @@ function PriceCard({ uid, settings, today }: { uid: string; settings: Settings; 
           </button>
         )}
       </div>
+    </Card>
+  );
+}
+
+// ───────── Nisab ও দাম: ভাঁজযোগ্য (দাম না থাকলে প্রথমে খোলা) ─────────
+function NisabSection({ uid, settings, today }: { uid: string; settings: Settings; today: string }) {
+  const std: NisabStandard = settings.zakatNisabStandard ?? 'silver';
+  const nisab = nisabMinorFor(std, { nisabStandard: std, goldPriceMinor: settings.zakatGoldPriceMinor, silverPriceMinor: settings.zakatSilverPriceMinor });
+  const [open, setOpen] = useState(nisab == null);
+  const summary = [
+    std === 'silver' ? 'Silver' : 'Gold',
+    nisab != null ? `Nisab ${formatTakaWhole(nisab)}` : 'Price not set',
+    settings.zakatCalculationDate != null ? `Anniversary ${formatDisplayDate(settings.zakatCalculationDate, settings.dateFormat)}` : 'No anniversary',
+  ].join(' · ');
+  return (
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="zk-nisab-panel"
+        onClick={() => setOpen((o) => !o)}
+        className="mb-2 mt-6 flex min-h-11 w-full items-center justify-between gap-3 px-1 text-left"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-fg">Nisab &amp; prices</span>
+          {!open && <span className="block truncate text-xs text-muted">{summary}</span>}
+        </span>
+        <ChevronDown aria-hidden size={18} className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {/* hidden দিয়ে লুকানো, unmount নয় — অসম্পূর্ণ লেখা হারায় না */}
+      <div id="zk-nisab-panel" hidden={!open}>
+        <PriceCard uid={uid} settings={settings} today={today} />
+      </div>
+    </>
+  );
+}
+
+// ───────── Payments ও ইতিহাস: যাকাত-বছর অনুযায়ী ─────────
+function PaymentsCard({
+  cycles,
+  anniversary,
+  dateFormat,
+  confirmId,
+  confirmRow,
+  onEdit,
+  onAskDelete,
+}: {
+  cycles: CycleSummary<ZakatPayment>[];
+  anniversary: string | null;
+  dateFormat: Settings['dateFormat'];
+  confirmId: string | null;
+  confirmRow: (kind: 'asset' | 'payment', id: string) => ReactNode;
+  onEdit: (p: ZakatPayment) => void;
+  onAskDelete: (id: string) => void;
+}) {
+  const [openPast, setOpenPast] = useState<Record<string, boolean>>({});
+  const shown = cycles.filter((c) => c.isCurrent || c.payments.length > 0);
+  const anyPayment = shown.some((c) => c.payments.length > 0);
+  const totalPaid = shown.reduce((s, c) => s + c.paidMinor, 0);
+
+  if (!anyPayment) {
+    return (
+      <Card className="overflow-hidden">
+        <p className="px-4 py-5 text-sm text-muted">Record each Zakat payment here. You can pay in parts — the remaining amount for this Zakat year updates after every payment.</p>
+      </Card>
+    );
+  }
+  return (
+    <Card className="overflow-hidden">
+      <div className="divide-y divide-muted/10">
+        {shown.map((c) => {
+          const open = c.isCurrent || openPast[c.start] === true;
+          const state =
+            c.dueMinor == null
+              ? 'Due not recorded'
+              : (c.remainingMinor ?? 0) === 0
+                ? `Paid in full${c.overMinor > 0 ? ` · ${formatTakaWhole(c.overMinor)} extra` : ''}`
+                : `Remaining ${formatTakaWhole(c.remainingMinor ?? 0)} of ${formatTakaWhole(c.dueMinor)}`;
+          const head = (
+            <>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block truncate text-sm font-medium text-fg">
+                  Zakat year from {formatDisplayDate(c.start, dateFormat)}
+                  {c.isCurrent && <span className="ml-2 rounded-full bg-surface px-2 py-0.5 text-xs font-normal text-muted">Current</span>}
+                </span>
+                <span className="block truncate text-xs text-muted">{state}</span>
+              </span>
+              <span className="shrink-0 text-sm font-medium tabular-nums text-fg">{formatTakaWhole(c.paidMinor)}</span>
+              {!c.isCurrent && <ChevronDown aria-hidden size={16} className={`shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />}
+            </>
+          );
+          return (
+            <section key={c.start} aria-label={`Zakat year from ${c.start}`}>
+              {c.isCurrent ? (
+                <div className="flex min-h-14 items-center gap-3 bg-surface px-4 py-2.5">{head}</div>
+              ) : (
+                <button type="button" aria-expanded={open} onClick={() => setOpenPast((o) => ({ ...o, [c.start]: !o[c.start] }))} className="flex min-h-14 w-full items-center gap-3 bg-surface px-4 py-2.5">
+                  {head}
+                </button>
+              )}
+              {open &&
+                (c.payments.length === 0 ? (
+                  <p className="px-4 py-3 text-sm text-muted">No payment in this Zakat year yet.</p>
+                ) : (
+                  <ul className="divide-y divide-muted/10">
+                    {c.payments.map((p) => (
+                      <li key={p.id}>
+                        <div className="flex min-h-14 items-center gap-3 px-4 py-2.5">
+                          <div className="min-w-0 flex-1">
+                            <p className="tabular-nums text-fg">{formatDisplayDate(p.date, dateFormat)}</p>
+                            {p.note && <p className="truncate text-xs text-muted">{p.note}</p>}
+                          </div>
+                          <p className="shrink-0 font-medium tabular-nums text-fg">{formatTakaWhole(p.amountMinor)}</p>
+                          <button type="button" aria-label="Edit payment" onClick={() => onEdit(p)} className="flex h-11 w-9 shrink-0 items-center justify-center text-muted">
+                            <Pencil aria-hidden size={17} />
+                          </button>
+                          <button type="button" aria-label="Delete payment" onClick={() => onAskDelete(p.id)} className="flex h-11 w-9 shrink-0 items-center justify-center text-muted">
+                            <Trash2 aria-hidden size={17} />
+                          </button>
+                        </div>
+                        {confirmId === `p:${p.id}` && confirmRow('payment', p.id)}
+                      </li>
+                    ))}
+                  </ul>
+                ))}
+            </section>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between border-t border-muted/10 px-4 py-3 text-sm">
+        <span className="text-muted">Total paid, all years</span>
+        <span className="font-semibold tabular-nums text-fg">{formatTakaWhole(totalPaid)}</span>
+      </div>
+      {anniversary == null && <p className="border-t border-muted/10 px-4 py-3 text-xs text-muted">Years follow the calendar until you set a Zakat anniversary under Nisab &amp; prices.</p>}
     </Card>
   );
 }
@@ -273,14 +455,16 @@ interface BodyProps {
   deposits: HomeDepositEntry[];
   assets: ZakatAsset[];
   payments: ZakatPayment[];
+  cycles: ZakatCycle[];
 }
 
-function ZakatBody({ uid, settings, accounts, balances, debts, investments, funds, deposits, assets, payments }: BodyProps) {
+function ZakatBody({ uid, settings, accounts, balances, debts, investments, funds, deposits, assets, payments, cycles }: BodyProps) {
   const today = toDhakaDate(new Date());
   const asOf = liveBasisDate(balances, today);
   const [assetSheet, setAssetSheet] = useState<{ editing?: ZakatAsset } | null>(null);
   const [paySheet, setPaySheet] = useState<{ editing?: ZakatPayment } | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [relockBusy, setRelockBusy] = useState(false);
 
   const result = useMemo(() => {
     const latest = latestBalanceByAccount(balances);
@@ -296,12 +480,38 @@ function ZakatBody({ uid, settings, accounts, balances, debts, investments, fund
     });
   }, [asOf, settings, accounts, balances, debts, investments, funds, deposits, assets]);
 
-  const paidTotal = payments.reduce((s, p) => s + p.amountMinor, 0);
+  const anniversary = settings.zakatCalculationDate;
+  const cycleList = useMemo(() => summarizeCycles(payments, cycles, anniversary, today, result.zakatMinor), [payments, cycles, anniversary, today, result.zakatMinor]);
+  const cur = cycleList.find((c) => c.isCurrent) ?? cycleList[0];
+  // বছরের "দেয়" লক করা থাকলে এবং আজকের হিসাব আলাদা হলে — হাতে নতুন করে লক করার সুযোগ
+  const locked = cycles.find((c) => c.id === cur.start);
+  const liveNote: LiveNote | null =
+    locked && result.status === 'due' && result.zakatMinor > 0 && result.zakatMinor !== locked.dueMinor
+      ? {
+          liveMinor: result.zakatMinor,
+          busy: relockBusy,
+          onUpdate: () => {
+            setRelockBusy(true);
+            void settleOrPending(setZakatCycleDue(uid, cur.start, result.zakatMinor), 3000)
+              .catch(() => {})
+              .finally(() => setRelockBusy(false));
+          },
+        }
+      : null;
   const crops = assets.filter((a) => a.category === 'agriculturalProduce' && a.zakatable);
 
   async function remove(kind: 'asset' | 'payment', id: string) {
     const p = kind === 'asset' ? deleteZakatAsset(uid, id) : deleteZakatPayment(uid, id);
-    await settleOrPending(p, 3000).catch(() => {});
+    const ok = await settleOrPending(p, 3000).then(() => true, () => false);
+    // বছরের শেষ পেমেন্ট মুছলে লক-করা "দেয়"-ও সরে যায়, নইলে পুরনো অঙ্ক আটকে থাকত
+    if (ok && kind === 'payment') {
+      const gone = payments.find((x) => x.id === id);
+      if (gone) {
+        const start = paymentCycleStart(gone, anniversary);
+        const left = payments.some((x) => x.id !== id && paymentCycleStart(x, anniversary) === start);
+        if (!left && cycles.some((c) => c.id === start)) await settleOrPending(deleteZakatCycle(uid, start), 3000).catch(() => {});
+      }
+    }
     setConfirmId(null);
   }
 
@@ -319,13 +529,12 @@ function ZakatBody({ uid, settings, accounts, balances, debts, investments, fund
 
   return (
     <>
-      <Hero r={result} asOfLabel={`Counted as of ${formatDisplayDate(asOf, settings.dateFormat)} — the date of your last balance update.`} />
+      <Hero r={result} cur={cur} liveNote={liveNote} asOfLabel={`Counted as of ${formatDisplayDate(asOf, settings.dateFormat)} — the date of your last balance update.`} />
 
       <SectionHead title="What is counted" />
       <Breakdown r={result} />
 
-      <SectionHead title="Nisab & prices" />
-      <PriceCard uid={uid} settings={settings} today={today} />
+      <NisabSection uid={uid} settings={settings} today={today} />
 
       <SectionHead title="Other assets" action={<AddButton label="Add" onClick={() => setAssetSheet({})} />} />
       <Card className="overflow-hidden">
@@ -390,42 +599,21 @@ function ZakatBody({ uid, settings, accounts, balances, debts, investments, fund
         </>
       )}
 
-      <SectionHead title="Payments" action={<AddButton label="Record" onClick={() => setPaySheet({})} />} />
-      <Card className="overflow-hidden">
-        {payments.length === 0 ? (
-          <p className="px-4 py-5 text-sm text-muted">Keep a record of the Zakat you have paid. It does not change the amount above.</p>
-        ) : (
-          <>
-            <ul className="divide-y divide-muted/10">
-              {payments.map((p) => (
-                <li key={p.id}>
-                  <div className="flex min-h-14 items-center gap-3 px-4 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <p className="tabular-nums text-fg">{formatDisplayDate(p.date, settings.dateFormat)}</p>
-                      {p.note && <p className="truncate text-xs text-muted">{p.note}</p>}
-                    </div>
-                    <p className="shrink-0 font-medium tabular-nums text-fg">{formatTakaWhole(p.amountMinor)}</p>
-                    <button type="button" aria-label="Edit payment" onClick={() => setPaySheet({ editing: p })} className="flex h-11 w-9 shrink-0 items-center justify-center text-muted">
-                      <Pencil aria-hidden size={17} />
-                    </button>
-                    <button type="button" aria-label="Delete payment" onClick={() => setConfirmId(`p:${p.id}`)} className="flex h-11 w-9 shrink-0 items-center justify-center text-muted">
-                      <Trash2 aria-hidden size={17} />
-                    </button>
-                  </div>
-                  {confirmId === `p:${p.id}` && confirmRow('payment', p.id)}
-                </li>
-              ))}
-            </ul>
-            <div className="flex items-center justify-between border-t border-muted/10 bg-surface px-4 py-3 text-sm">
-              <span className="text-muted">Total paid</span>
-              <span className="font-semibold tabular-nums text-fg">{formatTakaWhole(paidTotal)}</span>
-            </div>
-          </>
-        )}
-      </Card>
+      <SectionHead title="Payments & history" action={<AddButton label="Record" onClick={() => setPaySheet({})} />} />
+      <PaymentsCard
+        cycles={cycleList}
+        anniversary={anniversary}
+        dateFormat={settings.dateFormat}
+        confirmId={confirmId}
+        confirmRow={confirmRow}
+        onEdit={(p) => setPaySheet({ editing: p })}
+        onAskDelete={(id) => setConfirmId(`p:${id}`)}
+      />
 
       {assetSheet && <ZakatAssetSheet uid={uid} editing={assetSheet.editing} onClose={() => setAssetSheet(null)} />}
-      {paySheet && <ZakatPaymentSheet uid={uid} editing={paySheet.editing} onClose={() => setPaySheet(null)} />}
+      {paySheet && (
+        <ZakatPaymentSheet uid={uid} editing={paySheet.editing} onClose={() => setPaySheet(null)} payments={payments} cycles={cycles} anniversary={anniversary} liveDueMinor={result.zakatMinor} />
+      )}
     </>
   );
 }
@@ -440,7 +628,8 @@ export default function ZakatScreen({ uid, onClose }: { uid: string; onClose: ()
   const deposits = useHomeDeposits(uid);
   const assets = useZakatAssets(uid);
   const payments = useZakatPayments(uid);
-  const all = [settings, accounts, balances, debts, investments, funds, deposits, assets, payments];
+  const cycles = useZakatCycles(uid);
+  const all = [settings, accounts, balances, debts, investments, funds, deposits, assets, payments, cycles];
 
   const s = dataOf(settings);
   const acc = dataOf(accounts);
@@ -451,6 +640,7 @@ export default function ZakatScreen({ uid, onClose }: { uid: string; onClose: ()
   const dep = dataOf(deposits);
   const ast = dataOf(assets);
   const pay = dataOf(payments);
+  const cyc = dataOf(cycles);
   const errored = all.some((q) => q.state.status === 'error');
 
   return (
@@ -462,8 +652,8 @@ export default function ZakatScreen({ uid, onClose }: { uid: string; onClose: ()
             Retry
           </button>
         </div>
-      ) : s && acc && bal && dbt && inv && fnd && dep && ast && pay ? (
-        <ZakatBody uid={uid} settings={s} accounts={acc} balances={bal} debts={dbt} investments={inv} funds={fnd} deposits={dep} assets={ast} payments={pay} />
+      ) : s && acc && bal && dbt && inv && fnd && dep && ast && pay && cyc ? (
+        <ZakatBody uid={uid} settings={s} accounts={acc} balances={bal} debts={dbt} investments={inv} funds={fnd} deposits={dep} assets={ast} payments={pay} cycles={cyc} />
       ) : (
         <SkeletonLoader />
       )}

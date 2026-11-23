@@ -43,9 +43,20 @@ export const ZakatPaymentSchema = z.object({
   date: DateStr,
   amountMinor: z.number().int().positive(), // R1, rules posInt()-এর সাথে মিল
   note: z.string().max(200).default(''),
+  cycleStart: nullish(DateStr), // কোন যাকাত-বছরের পেমেন্ট (বছরের শুরুর তারিখ); পুরনো ডকে না-ও থাকতে পারে → তারিখ থেকে হিসাব
   createdAt: nullish(TimestampLike),
   updatedAt: nullish(TimestampLike),
 });
 export type ZakatPayment = z.infer<typeof ZakatPaymentSchema>;
 export const ZakatPaymentInputSchema = ZakatPaymentSchema.omit({ id: true, createdAt: true, updatedAt: true });
 export type ZakatPaymentInput = z.input<typeof ZakatPaymentInputSchema>;
+
+// zakatCycles/{cycleStart}: যাকাত-বছরের "দেয়" অঙ্কের স্থির কপি (বছরের প্রথম পেমেন্টের সময় লক হয়)। doc id = বছরের শুরুর তারিখ।
+// ⚠️ শুধু "দেয়" অঙ্ক এখানে; কত দেওয়া হলো তা zakatPayments থেকেই হিসাব (single source)।
+export const ZakatCycleSchema = z.object({
+  id: DateStr,
+  dueMinor: z.number().int().positive(),
+  createdAt: nullish(TimestampLike),
+  updatedAt: nullish(TimestampLike),
+});
+export type ZakatCycle = z.infer<typeof ZakatCycleSchema>;

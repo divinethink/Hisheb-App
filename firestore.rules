@@ -55,7 +55,8 @@ service cloud.firestore {
                 ? (posInt(d.amountMinor) && d.type in ['contribution', 'interest', 'withdrawal'])
               : col == 'accountBalances' ? d.balanceMinor is int
               : col == 'netWorthSnapshots' ? d.totalAssetsMinor is int
-              : col == 'zakatPayments' ? posInt(d.amountMinor)
+              : col == 'zakatPayments' ? (posInt(d.amountMinor) && optStr(d, 'cycleStart', 10))
+              : col == 'zakatCycles' ? posInt(d.dueMinor)
               : col == 'zakatAssets'
                 ? (nameOk(d) && d.name.size() <= 80
                    && d.category in ['goldJewelry', 'silverJewelry', 'agriculturalProduce', 'other']

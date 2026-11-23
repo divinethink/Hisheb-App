@@ -115,6 +115,11 @@ describe('validWrite — other collections (P3/P8-এর clause আগে থে
     await assertSucceeds(setDoc(p('homeDeposits'), { amountMinor: 100 }));
     await assertFails(setDoc(p('zakatPayments'), { amountMinor: 0 }));
     await assertSucceeds(setDoc(p('zakatPayments'), { amountMinor: 100 }));
+    await assertSucceeds(setDoc(p('zakatPayments'), { amountMinor: 100, cycleStart: '2026-03-15' }));
+    await assertFails(setDoc(p('zakatPayments'), { amountMinor: 100, cycleStart: 20260315 }));
+    await assertFails(setDoc(p('zakatCycles'), { dueMinor: 0 }));
+    await assertFails(setDoc(p('zakatCycles'), { dueMinor: 1.5 }));
+    await assertSucceeds(setDoc(p('zakatCycles'), { dueMinor: 1450000 }));
   });
   it('investments: optional company/round/platformNo fields are type-checked, old docs still pass', async () => {
     await assertSucceeds(setDoc(p('investments'), { principalMinor: 100 })); // পুরনো doc

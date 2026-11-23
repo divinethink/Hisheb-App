@@ -12,6 +12,8 @@ import type { GpfEntry } from '../validation/gpfSchema';
 import type { Account } from '../validation/accountSchema';
 import type { AccountBalance, NetWorthSnapshot } from '../validation/netWorthSchema';
 import type { HistoricalYearlyTotal } from '../validation/historicalSchema';
+import type { ZakatCycle, ZakatPayment } from '../validation/zakatSchema';
+import { paymentCycleStart, summarizeCycles } from './zakatCycle';
 import { normKey } from './categoryMatch';
 import { outstandingMinor, sumRepayments as sumDebtRepayments, writtenOffOutstandingMinor, lineViews, partitionDebtsForList } from './debtCalc';
 import { sumRepayments as sumInvRepayments, investmentStatus, partitionInvestmentsForList } from './investmentCalc';
@@ -510,6 +512,54 @@ function buildNetWorthSheet(accounts: readonly Account[], balances: readonly Acc
   return ws;
 }
 
+/**
+ * Zakat Summary — শুধু যে যাকাত-বছরে অন্তত একটা পেমেন্ট আছে সেই বছর। পেমেন্ট না থাকলে caller শীটই যোগ করে না।
+ * Paid/Remaining ফর্মুলা + cached value দুটোই (§৫.১)। "দেয়" অঙ্ক লক-করা মান; জানা না থাকলে ঘর ফাঁকা।
+ */
+function buildZakatSheet(payments: readonly ZakatPayment[], cycles: readonly ZakatCycle[], anniversary: string | null, today: string): XLSX.WorkSheet | null {
+  const years = summarizeCycles(payments, cycles, anniversary, today, 0).filter((c) => c.payments.length > 0);
+  if (years.length === 0) return null;
+  const aoa: (string | number)[][] = [['Zakat Summary'], []];
+  aoa.push(['Zakat Year Start', 'Zakat Due (BDT)', 'Paid (BDT)', 'Remaining (BDT)', 'Status']);
+  const yearStart = aoa.length;
+  // পেমেন্ট-টেবিল কোন সারি থেকে শুরু তা আগে জানা দরকার (Paid ফর্মুলা সেদিকে তাকায়)
+  const payHeaderRow = yearStart + years.length + 2; // ১ ফাঁকা সারি + ১ হেডার
+  const payStart = payHeaderRow + 1;
+  const allPays = years.flatMap((c) => c.payments.map((p) => ({ p, start: paymentCycleStart(p, anniversary) })));
+  const payEnd = payStart + allPays.length - 1;
+  years.forEach((c) => {
+    const status = c.dueMinor == null ? 'Due not recorded' : (c.remainingMinor ?? 0) === 0 ? 'Paid in full' : 'Partly paid';
+    aoa.push([c.start, c.dueMinor == null ? '' : toTaka(c.dueMinor), toTaka(c.paidMinor), c.remainingMinor == null ? '' : toTaka(c.remainingMinor), status]);
+  });
+  const yearEnd = aoa.length - 1;
+  aoa.push([]);
+  aoa.push(['Date', 'Zakat Year Start', 'Amount (BDT)', 'Note']);
+  for (const { p, start } of allPays) aoa.push([p.date, start, toTaka(p.amountMinor), p.note]);
+  aoa.push([]);
+  const totalRow = aoa.length;
+  aoa.push(['Total Paid', '', toTaka(years.reduce((s2, c) => s2 + c.paidMinor, 0))]);
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  years.forEach((c, i) => {
+    const r = yearStart + i;
+    // টেক্সট-তারিখ SUMIFS-এ তারিখ ধরে ভুল মেলে, তাই সরাসরি সমতা-তুলনার SUMPRODUCT
+    ws[cellRef(r, 2)].f = `SUMPRODUCT(($B$${payStart + 1}:$B$${payEnd + 1}=A${r + 1})*$C$${payStart + 1}:$C$${payEnd + 1})`;
+    if (c.dueMinor != null) ws[cellRef(r, 3)].f = `MAX(0,B${r + 1}-C${r + 1})`;
+  });
+  ws[cellRef(totalRow, 2)].f = `SUM(C${payStart + 1}:C${payEnd + 1})`;
+
+  title(ws, 0, 4);
+  header(ws, 2, 0, 4);
+  box(ws, 2, yearEnd, 0, 4);
+  header(ws, payHeaderRow, 0, 3);
+  box(ws, payHeaderRow, payEnd, 0, 3);
+  box(ws, totalRow, totalRow, 0, 2);
+  bold(ws, totalRow, 0, 2, TOTAL_BG);
+  applyMoneyFormat(ws, [1, 2, 3]);
+  ws['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }];
+  return ws;
+}
+
 export interface FullReportInput {
   /** আজকের তারিখ "YYYY-MM-DD" (Dhaka) — Monthly Statement কোন বছর/মাস পর্যন্ত ভরবে তা নির্ধারণ; Date.now()-এর ওপর নির্ভর না করে deterministic। */
   today: string;
@@ -523,9 +573,13 @@ export interface FullReportInput {
   gpf: readonly GpfEntry[];
   accounts: readonly Account[];
   accountBalances: readonly AccountBalance[];
+  /** ঐচ্ছিক: যাকাত পেমেন্ট ও বছরের লক-করা "দেয়"। পেমেন্ট না থাকলে Zakat শীট যায়ই না। */
+  zakatPayments?: readonly ZakatPayment[];
+  zakatCycles?: readonly ZakatCycle[];
+  zakatAnniversary?: string | null;
 }
 
-/** একটাই Workbook — ৭ sheet, ক্রম: Investment, Home Deposit, Debt, GPF, Net Worth, Monthly Statement, Yearly Statement। */
+/** একটাই Workbook — ৭ sheet, ক্রম: Investment, Home Deposit, Debt, GPF, Net Worth, Monthly Statement, Yearly Statement। যাকাত পেমেন্ট থাকলে শেষে আরও একটা 'Zakat'। */
 export function buildFullReportWorkbook(input: FullReportInput): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   const invSheet = buildInvestmentSheet(input.investments);
@@ -554,6 +608,8 @@ export function buildFullReportWorkbook(input: FullReportInput): XLSX.WorkBook {
   );
   XLSX.utils.book_append_sheet(wb, buildMonthlySheet(Number(input.today.slice(0, 4)), input.today.slice(0, 7), input), 'Monthly Statement');
   XLSX.utils.book_append_sheet(wb, buildYearlySheet(input), 'Yearly Statement');
+  const zakat = buildZakatSheet(input.zakatPayments ?? [], input.zakatCycles ?? [], input.zakatAnniversary ?? null, input.today);
+  if (zakat) XLSX.utils.book_append_sheet(wb, zakat, 'Zakat');
   return wb;
 }
 

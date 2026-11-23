@@ -84,3 +84,22 @@ it('Yearly Statement: doc-বছরে categoryTotals থাকলে খাত�
   expect(hira[0][3]).toBe(1000);
   expect(ys.find((r) => r[1] === 'Rifa')?.[2]).toBe(1000);
 });
+
+it('Zakat sheet: শুধু পেমেন্ট থাকলে; বছরভিত্তিক Paid/Remaining', () => {
+  const base = { today: '2026-11-23', txs: [], historical: [], snapshots: [], debts: [], investments: [], funds: [], homeDeposits: [], gpf: [], accounts: [], accountBalances: [] } as any;
+  expect(buildFullReportWorkbook(base).SheetNames).not.toContain('Zakat');
+  const wb = buildFullReportWorkbook({
+    ...base,
+    zakatAnniversary: '2025-03-15',
+    zakatPayments: [
+      { id: 'a', date: '2026-04-01', amountMinor: 30000, note: 'প্রথম কিস্তি', cycleStart: '2026-03-15' },
+      { id: 'b', date: '2026-06-01', amountMinor: 20000, note: '', cycleStart: '2026-03-15' },
+    ] as any,
+    zakatCycles: [{ id: '2026-03-15', dueMinor: 100000 }] as any,
+  });
+  expect(wb.SheetNames[wb.SheetNames.length - 1]).toBe('Zakat');
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets['Zakat'], { header: 1 }) as unknown[][];
+  expect(rows[3]).toEqual(['2026-03-15', 1000, 500, 500, 'Partly paid']);
+  expect(wb.Sheets['Zakat']['C4'].f).toContain('SUMPRODUCT');
+  expect(wb.Sheets['Zakat']['D4'].f).toBe('MAX(0,B4-C4)');
+});

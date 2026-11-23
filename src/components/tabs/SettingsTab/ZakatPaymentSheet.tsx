@@ -4,11 +4,25 @@ import AmountInput from '../../common/AmountInput';
 import DateInput from '../../common/DateInput';
 import { minorToInput, resolveAmountMinor } from '../../../lib/money';
 import { toDhakaDate } from '../../../lib/date';
-import { addZakatPayment, updateZakatPayment } from '../../../data/zakatRepo';
+import { addZakatPayment, setZakatCycleDue, updateZakatPayment } from '../../../data/zakatRepo';
+import { formatTakaWhole } from '../../../lib/format';
+import { cycleStartOf, summarizeCycles } from '../../../lib/zakatCycle';
 import { settleOrPending } from '../../../lib/async';
-import type { ZakatPayment } from '../../../validation/zakatSchema';
+import type { ZakatCycle, ZakatPayment } from '../../../validation/zakatSchema';
 
-export default function ZakatPaymentSheet({ uid, editing, onClose }: { uid: string; editing?: ZakatPayment; onClose: () => void }) {
+interface Props {
+  uid: string;
+  editing?: ZakatPayment;
+  onClose: () => void;
+  payments: ZakatPayment[];
+  cycles: ZakatCycle[];
+  /** বার্ষিক তারিখ (settings.zakatCalculationDate) — যাকাত-বছর ঠিক করতে */
+  anniversary: string | null;
+  /** আজকের হিসাবে যাকাত (ফরজ না হলে 0) */
+  liveDueMinor: number;
+}
+
+export default function ZakatPaymentSheet({ uid, editing, onClose, payments, cycles, anniversary, liveDueMinor }: Props) {
   const [date, setDate] = useState(editing?.date ?? toDhakaDate(new Date()));
   const [amount, setAmount] = useState(editing ? minorToInput(editing.amountMinor) : '');
   const [note, setNote] = useState(editing?.note ?? '');
@@ -18,16 +32,33 @@ export default function ZakatPaymentSheet({ uid, editing, onClose }: { uid: stri
 
   const parsed = resolveAmountMinor(amount);
 
+  // এই তারিখের যাকাত-বছর ও বাকি (সম্পাদনায় নিজের পুরনো অঙ্ক বাদ দিয়ে)
+  const today = toDhakaDate(new Date());
+  const cycleStart = editing && editing.date === date && editing.cycleStart ? editing.cycleStart : cycleStartOf(date, anniversary);
+  const others = payments.filter((x) => x.id !== editing?.id);
+  const cyc = summarizeCycles(others, cycles, anniversary, today, liveDueMinor).find((c) => c.start === cycleStart);
+  const hint =
+    cyc?.dueMinor != null
+      ? parsed !== null
+        ? `After this: ${formatTakaWhole(Math.max(0, cyc.dueMinor - cyc.paidMinor - parsed))} remaining of ${formatTakaWhole(cyc.dueMinor)}.`
+        : `Remaining now: ${formatTakaWhole(cyc.remainingMinor ?? 0)} of ${formatTakaWhole(cyc.dueMinor)}.`
+      : null;
+
   async function save() {
     if (saving) return;
     setSubmitted(true);
     if (!date || parsed === null) return;
     setSaving(true);
     setError('');
-    const input = { date, amountMinor: parsed, note: note.trim() };
+    const input = { date, amountMinor: parsed, note: note.trim(), cycleStart };
     try {
       if (editing) await settleOrPending(updateZakatPayment(uid, editing.id, input), 3000);
       else await settleOrPending(addZakatPayment(uid, input), 3000);
+      // বছরের প্রথম পেমেন্টে "দেয়" অঙ্ক লক (পরে সম্পদ বদলালেও বাকি নড়বে না)। শুধু চলতি বছরে, ফরজ থাকলে।
+      const locked = cycles.some((c) => c.id === cycleStart);
+      if (!locked && cycleStart === cycleStartOf(today, anniversary) && liveDueMinor > 0) {
+        await settleOrPending(setZakatCycleDue(uid, cycleStart, liveDueMinor), 3000).catch(() => {}); // ব্যর্থ হলে পেমেন্ট সেভ থাকে; পরের পেমেন্টে আবার লক হবে
+      }
       onClose();
     } catch {
       setError('Could not save. Check your connection and try again.');
@@ -50,6 +81,11 @@ export default function ZakatPaymentSheet({ uid, editing, onClose }: { uid: stri
     <BottomSheet title={editing ? 'Edit payment' : 'Record Zakat payment'} onRequestClose={onClose} footer={footer}>
       <div className="flex flex-col gap-4">
         <AmountInput value={amount} onChange={setAmount} showError={submitted} />
+        {hint && (
+          <p role="status" className="-mt-2 text-xs text-muted">
+            {hint}
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label htmlFor="zp-date" className="mb-1 block text-sm text-muted">

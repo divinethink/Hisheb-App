@@ -34,6 +34,7 @@ export const BACKUP_COLLECTIONS = [
   'medPurchases',
   'zakatAssets',
   'zakatPayments',
+  'zakatCycles',
 ] as const;
 
 export interface BackupPayload {

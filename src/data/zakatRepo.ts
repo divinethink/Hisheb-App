@@ -1,19 +1,22 @@
 // zakatAssets + zakatPayments repo — §২.২ প্যাটার্ন (gpfRepo-এর মতো: প্রতিটা এন্ট্রি আলাদা doc, hard delete)।
-import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import {
   ZakatAssetInputSchema,
   ZakatAssetSchema,
+  ZakatCycleSchema,
   ZakatPaymentInputSchema,
   ZakatPaymentSchema,
   type ZakatAsset,
   type ZakatAssetInput,
+  type ZakatCycle,
   type ZakatPayment,
   type ZakatPaymentInput,
 } from '../validation/zakatSchema';
 
 const assetsCol = (uid: string) => collection(db, 'users', uid, 'zakatAssets');
 const paymentsCol = (uid: string) => collection(db, 'users', uid, 'zakatPayments');
+const cyclesCol = (uid: string) => collection(db, 'users', uid, 'zakatCycles');
 
 export function subscribeZakatAssets(
   uid: string,
@@ -93,4 +96,39 @@ export async function updateZakatPayment(uid: string, id: string, input: ZakatPa
 
 export async function deleteZakatPayment(uid: string, id: string): Promise<void> {
   await deleteDoc(doc(paymentsCol(uid), id));
+}
+
+export function subscribeZakatCycles(
+  uid: string,
+  onChange: (c: ZakatCycle[]) => void,
+  onInvalid?: (id: string) => void,
+  onError?: (e: Error) => void,
+) {
+  return onSnapshot(
+    cyclesCol(uid),
+    (snap) => {
+      const out: ZakatCycle[] = [];
+      for (const d of snap.docs) {
+        const r = ZakatCycleSchema.safeParse({ ...d.data(), id: d.id });
+        if (!r.success) {
+          onInvalid?.(d.id);
+          continue;
+        }
+        out.push(r.data);
+      }
+      out.sort((a, b) => b.id.localeCompare(a.id));
+      onChange(out);
+    },
+    onError,
+  );
+}
+
+/** বছরের "দেয়" অঙ্ক লক/নতুন করে লক। doc id নির্দিষ্ট (cycleStart) বলে retry/double-tap-এ duplicate হয় না। */
+export async function setZakatCycleDue(uid: string, cycleStart: string, dueMinor: number): Promise<void> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(cycleStart) || !Number.isInteger(dueMinor) || dueMinor <= 0) throw new Error('invalid zakat cycle');
+  await setDoc(doc(cyclesCol(uid), cycleStart), { dueMinor, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+export async function deleteZakatCycle(uid: string, cycleStart: string): Promise<void> {
+  await deleteDoc(doc(cyclesCol(uid), cycleStart));
 }

@@ -71,6 +71,8 @@ function docProblem(col: string, d: Doc): string | null {
       return isInt(d.totalAssetsMinor) ? null : 'totalAssetsMinor must be an integer';
     case 'zakatPayments':
       return posInt(d.amountMinor) ? null : 'amountMinor must be a positive integer';
+    case 'zakatCycles':
+      return posInt(d.dueMinor) ? null : 'dueMinor must be a positive integer';
     case 'zakatAssets':
       if (!nameOk(d) || strLen(d.name as string) > 80) return 'name must be 1-80 characters';
       if (!oneOf(d.category, ['goldJewelry', 'silverJewelry', 'agriculturalProduce', 'other'])) return 'category is not valid';

@@ -10,7 +10,7 @@ import { subscribeFunds, subscribeHomeDeposits } from '../data/homeDepositRepo';
 import { subscribeMarketGroups, subscribeMarketItems } from '../data/marketRepo';
 import { subscribeMedPurchases } from '../data/medPurchaseRepo';
 import { subscribeGpfEntries } from '../data/gpfRepo';
-import { subscribeZakatAssets, subscribeZakatPayments } from '../data/zakatRepo';
+import { subscribeZakatAssets, subscribeZakatCycles, subscribeZakatPayments } from '../data/zakatRepo';
 import { subscribeCustomLedgers } from '../data/customLedgerRepo';
 import { subscribeAccountBalances, subscribeNetWorthSnapshots } from '../data/netWorthRepo';
 import { subscribeHistoricalTotals } from '../data/historicalRepo';
@@ -26,7 +26,7 @@ import type { Fund, HomeDepositEntry } from '../validation/homeDepositSchema';
 import type { MarketGroup, MarketItem } from '../validation/marketSchema';
 import type { MedPurchase } from '../validation/medPurchaseSchema';
 import type { GpfEntry } from '../validation/gpfSchema';
-import type { ZakatAsset, ZakatPayment } from '../validation/zakatSchema';
+import type { ZakatAsset, ZakatCycle, ZakatPayment } from '../validation/zakatSchema';
 import type { CustomLedger } from '../validation/customLedgerSchema';
 import type { AccountBalance, NetWorthSnapshot } from '../validation/netWorthSchema';
 import type { HistoricalYearlyTotal } from '../validation/historicalSchema';
@@ -120,6 +120,9 @@ export function useMedPurchases(uid: string) {
 
 export function useZakatAssets(uid: string) {
   return useLiveQuery<ZakatAsset[]>(`zkasset:${uid}`, (d, e) => subscribeZakatAssets(uid, d, undefined, e));
+}
+export function useZakatCycles(uid: string) {
+  return useLiveQuery<ZakatCycle[]>(`zkcycle:${uid}`, (d, e) => subscribeZakatCycles(uid, d, undefined, e));
 }
 export function useZakatPayments(uid: string) {
   return useLiveQuery<ZakatPayment[]>(`zkpay:${uid}`, (d, e) => subscribeZakatPayments(uid, d, undefined, e));
