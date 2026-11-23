@@ -44,6 +44,9 @@ export default function CompanyPickerScreen({
         initial={form.initial}
         companies={all}
         onClose={() => setForm(null)}
+        entryCount={form.initial ? (counts.get(form.initial.id) ?? 0) : 0}
+        inUse={form.initial?.id === selectedId}
+        onDeleted={() => setForm(null)}
         onSaved={(c) => {
           setForm(null);
           // নতুন কোম্পানি বানালে সরাসরি বাছাই হয়ে যায়; এডিটে তালিকাতেই ফেরে (বাছা থাকলে নতুন নাম/লোগো নিতে বাছাই-ই করে)

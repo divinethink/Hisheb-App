@@ -72,6 +72,8 @@ export default function CompanyDetailScreen({
         companies={companies.state.data}
         onClose={() => setEditOpen(false)}
         onSaved={() => setEditOpen(false)}
+        entryCount={entriesOfCompany(investments.state.status === 'ready' ? investments.state.data : [], company.id).length}
+        onDeleted={onBack}
       />
     );
   }

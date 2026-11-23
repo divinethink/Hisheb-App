@@ -1,5 +1,5 @@
 // investmentCompanies repo — §২.২ প্যাটার্ন (customLedgerRepo-র মতো)।
-import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import {
   InvestmentCompanyInputSchema,
@@ -45,4 +45,9 @@ export function addInvestmentCompany(uid: string, input: InvestmentCompanyInput)
 export async function updateInvestmentCompany(uid: string, id: string, input: InvestmentCompanyInput): Promise<void> {
   const data = InvestmentCompanyInputSchema.parse(input);
   await updateDoc(doc(companyCol(uid), id), { ...data, updatedAt: serverTimestamp() });
+}
+
+/** শুধু কোম্পানি-ডক মোছে (নাম/লোগো/Medium) — এন্ট্রি অক্ষত। caller-এর দায়িত্ব: এন্ট্রি-সংখ্যা ০ নিশ্চিত করা (UI-তে বাধ্যতামূলক)। */
+export async function deleteInvestmentCompany(uid: string, id: string): Promise<void> {
+  await deleteDoc(doc(companyCol(uid), id));
 }

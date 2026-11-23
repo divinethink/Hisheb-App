@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import FullScreenPage from '../../common/FullScreenPage';
 import CompanyLogo from '../../common/CompanyLogo';
-import { addInvestmentCompany, updateInvestmentCompany } from '../../../data/investmentCompanyRepo';
+import { addInvestmentCompany, deleteInvestmentCompany, updateInvestmentCompany } from '../../../data/investmentCompanyRepo';
 import { companyNameTaken } from '../../../lib/investmentName';
 import { settleOrPending } from '../../../lib/async';
 import { markClean, markDirty } from '../../../pwa/dirtyForms';
@@ -15,12 +15,21 @@ export default function CompanyFormScreen({
   companies,
   onClose,
   onSaved,
+  entryCount = 0,
+  inUse = false,
+  onDeleted,
 }: {
   uid: string;
   initial: InvestmentCompany | null;
   companies: readonly InvestmentCompany[];
   onClose: () => void;
   onSaved: (company: InvestmentCompany) => void;
+  /** এই কোম্পানির এন্ট্রি-সংখ্যা — > ০ হলে মোছা বন্ধ (zero data loss) */
+  entryCount?: number;
+  /** চলতি এন্ট্রিতে এখন এই কোম্পানিই বাছা — আগে অন্যটা বাছতে হবে */
+  inUse?: boolean;
+  /** দিলে এডিটে "Delete company" দেখায় */
+  onDeleted?: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [medium, setMedium] = useState(initial?.medium ?? '');
@@ -30,6 +39,7 @@ export default function CompanyFormScreen({
   const [busyLogo, setBusyLogo] = useState(false);
   const [error, setError] = useState('');
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const dirty = initial
@@ -85,6 +95,44 @@ export default function CompanyFormScreen({
       setError('Could not save. Check your connection and try again.');
       setSaving(false);
     }
+  }
+
+  async function remove() {
+    if (!initial || saving || entryCount > 0 || inUse) return;
+    setSaving(true);
+    setError('');
+    try {
+      await settleOrPending(deleteInvestmentCompany(uid, initial.id), 3000);
+      onDeleted?.();
+    } catch {
+      setError('Could not delete. Check your connection and try again.');
+      setSaving(false);
+    }
+  }
+
+  if (confirmDelete && initial) {
+    return (
+      <FullScreenPage title="Delete company" onBack={() => setConfirmDelete(false)}>
+        <div className="flex flex-col items-center gap-4 py-10 text-center">
+          <CompanyLogo name={initial.name} logo={safeLogo(initial.logo)} size="lg" />
+          <p className="text-fg">Delete “{initial.name}”?</p>
+          <p className="text-sm text-muted">Only the saved name and logo are removed. This company has no entries.</p>
+          {error && (
+            <p role="alert" className="text-sm text-expense">
+              {error}
+            </p>
+          )}
+          <div className="flex gap-3">
+            <button type="button" disabled={saving} onClick={() => setConfirmDelete(false)} className="min-h-11 rounded-lg border border-muted/40 px-4 text-sm">
+              Cancel
+            </button>
+            <button type="button" disabled={saving} onClick={() => void remove()} className="min-h-11 rounded-lg bg-expense px-4 text-sm font-medium text-canvas disabled:opacity-60">
+              {saving ? 'Deleting…' : 'Delete'}
+            </button>
+          </div>
+        </div>
+      </FullScreenPage>
+    );
   }
 
   if (confirmDiscard) {
@@ -178,6 +226,25 @@ export default function CompanyFormScreen({
           <p role="alert" className="text-sm text-expense">
             {error}
           </p>
+        )}
+
+        {initial && onDeleted && (
+          <div className="border-t border-muted/15 pt-3">
+            <button
+              type="button"
+              disabled={saving || entryCount > 0 || inUse}
+              onClick={() => setConfirmDelete(true)}
+              className="min-h-11 text-sm text-expense disabled:opacity-40"
+            >
+              Delete company
+            </button>
+            {entryCount > 0 && (
+              <p className="text-xs text-muted">
+                Can’t delete — it has {entryCount} {entryCount === 1 ? 'entry' : 'entries'}.
+              </p>
+            )}
+            {entryCount === 0 && inUse && <p className="text-xs text-muted">Selected in the current entry — pick another company first.</p>}
+          </div>
         )}
       </div>
     </FullScreenPage>

@@ -36,10 +36,15 @@ function today(): string {
 const INPUT = 'block min-h-8 w-full bg-transparent text-base text-fg outline-none placeholder:text-muted/60';
 
 // সেকশন-লেবেল: ফর্মকে গুছিয়ে ৪ ভাগে (Company / Platform / Amount & date / Terms & contract) — শুধু presentation
+// প্রতি সেকশন হালকা টিন্টেড কার্ডে — ভেতরের ফিল্ড-কার্ডগুলো উঁচু হয়ে ফোটে (শুধু presentation)
+const SECTION = 'rounded-2xl border border-muted/15 bg-muted/5 p-3';
+
 function SectionLabel({ icon: Icon, text }: { icon: typeof Check; text: string }) {
   return (
-    <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
-      <Icon aria-hidden size={13} />
+    <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+      <span aria-hidden className="flex size-5 items-center justify-center rounded-md bg-primary/10">
+        <Icon aria-hidden size={12} />
+      </span>
       {text}
     </p>
   );
@@ -62,7 +67,7 @@ function FieldCard({
   return (
     <label
       htmlFor={htmlFor}
-      className={`block rounded-xl border bg-surface px-3.5 pb-2.5 pt-2.5 shadow-sm focus-within:border-primary focus-within:bg-canvas ${invalid ? 'border-expense' : 'border-muted/25'} ${className}`}
+      className={`block rounded-xl border bg-surface px-3.5 pb-2.5 pt-2.5 shadow-sm transition-shadow focus-within:border-primary focus-within:bg-canvas focus-within:ring-2 focus-within:ring-primary/15 ${invalid ? 'border-expense' : 'border-muted/25'} ${className}`}
     >
       <span className="block truncate text-xs text-muted">{label}</span>
       {children}
@@ -305,14 +310,14 @@ export default function InvestmentSheet({
       title={initial ? 'Edit entry' : 'New entry'}
       onBack={requestBack}
       footer={
-        <button type="button" onClick={() => void save()} disabled={saving} className="min-h-11 w-full rounded-lg bg-primary text-sm font-medium text-canvas disabled:opacity-60">
+        <button type="button" onClick={() => void save()} disabled={saving} className="min-h-12 w-full rounded-xl bg-primary text-base font-semibold text-canvas shadow-md active:scale-[0.99] disabled:opacity-60">
           {saving ? 'Saving…' : 'Save'}
         </button>
       }
     >
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
         {/* Company ও Round — এক লাইনে। সেভ-করা কোম্পানি বাছলে সেটাই; না হলে ("Other") নাম টাইপ — দুই ক্ষেত্রেই পাশে Round */}
-        <div>
+        <div className={SECTION}>
           <SectionLabel icon={Building2} text="Company" />
           <div className="mt-2 flex gap-2">
             {customCompany && !companyId ? (
@@ -389,26 +394,26 @@ export default function InvestmentSheet({
           ) : (
             companyId !== null && lastRound !== null && <p className="mt-1 text-xs text-muted">Last round: {lastRound}</p>
           )}
-        </div>
 
         {/* এন্ট্রির নাম কোম্পানির নাম থেকে আলাদা হলে (পুরনো এন্ট্রি) তবেই দেখায় — নাম হারায় না */}
         {company && trimmedName !== company.name && (
-          <FieldCard label="Name" htmlFor="inv-name" invalid={submitted && (!trimmedName || doubleTag)}>
+          <FieldCard label="Name" htmlFor="inv-name" invalid={submitted && (!trimmedName || doubleTag)} className="mt-2.5">
             <input id="inv-name" value={investedTo} maxLength={60} onChange={(e) => setInvestedTo(e.target.value)} aria-invalid={submitted && !trimmedName} className={INPUT} />
           </FieldCard>
         )}
 
         {(companyId !== null || customCompany) && trimmedName && savedAs !== trimmedName && (
-          <p className="flex items-center gap-2 rounded-xl bg-primary/5 px-3 py-2 text-sm text-muted">
+          <p className="mt-2.5 flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-sm text-muted">
             <Check aria-hidden size={16} className="shrink-0 text-primary" />
             <span className="min-w-0 truncate">
               Saved as: <span className="font-medium text-fg">{savedAs}</span>
             </span>
           </p>
         )}
+        </div>
 
         {/* Medium ও Investment No — এক লাইনে */}
-        <div>
+        <div className={SECTION}>
           <SectionLabel icon={Landmark} text="Platform" />
           <div className="mt-2 grid grid-cols-2 gap-2">
             <FieldCard label="Medium" htmlFor="inv-medium">
@@ -445,14 +450,13 @@ export default function InvestmentSheet({
           )}
         </div>
 
-        <div>
+        <div className={SECTION}>
           <SectionLabel icon={Wallet} text="Amount & date" />
           <div className="mt-2">
             <AmountInput card value={amount} onChange={setAmount} showError={submitted} />
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2">
           <FieldCard label="Date" htmlFor="inv-date">
             <DateInput uid={uid} id="inv-date" value={date} onChange={setDate} variant="card" />
           </FieldCard>
@@ -460,9 +464,10 @@ export default function InvestmentSheet({
             <input id="inv-note" value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} className={INPUT} />
           </FieldCard>
         </div>
+        </div>
 
         {/* Duration ও Contract PDF — এক লাইনে */}
-        <div>
+        <div className={SECTION}>
           <SectionLabel icon={FileText} text="Terms & contract" />
           <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" aria-label="Contract PDF file" onChange={(e) => void pickPdf(e.target.files?.[0])} />
           <div className="mt-2 grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-center gap-2">
