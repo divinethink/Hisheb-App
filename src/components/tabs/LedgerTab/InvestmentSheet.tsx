@@ -36,9 +36,6 @@ function today(): string {
 const INPUT = 'block min-h-8 w-full bg-transparent text-base text-fg outline-none placeholder:text-muted/60';
 
 // সেকশন-লেবেল: ফর্মকে গুছিয়ে ৪ ভাগে (Company / Platform / Amount & date / Terms & contract) — শুধু presentation
-// প্রতি সেকশন হালকা টিন্টেড কার্ডে — ভেতরের ফিল্ড-কার্ডগুলো উঁচু হয়ে ফোটে (শুধু presentation)
-const SECTION = 'rounded-2xl border border-muted/15 bg-muted/5 p-3';
-
 function SectionLabel({ icon: Icon, text }: { icon: typeof Check; text: string }) {
   return (
     <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
@@ -317,7 +314,7 @@ export default function InvestmentSheet({
     >
       <div className="flex flex-col gap-4">
         {/* Company ও Round — এক লাইনে। সেভ-করা কোম্পানি বাছলে সেটাই; না হলে ("Other") নাম টাইপ — দুই ক্ষেত্রেই পাশে Round */}
-        <div className={SECTION}>
+        <div>
           <SectionLabel icon={Building2} text="Company" />
           <div className="mt-2 flex gap-2">
             {customCompany && !companyId ? (
@@ -413,7 +410,7 @@ export default function InvestmentSheet({
         </div>
 
         {/* Medium ও Investment No — এক লাইনে */}
-        <div className={SECTION}>
+        <div>
           <SectionLabel icon={Landmark} text="Platform" />
           <div className="mt-2 grid grid-cols-2 gap-2">
             <FieldCard label="Medium" htmlFor="inv-medium">
@@ -450,7 +447,7 @@ export default function InvestmentSheet({
           )}
         </div>
 
-        <div className={SECTION}>
+        <div>
           <SectionLabel icon={Wallet} text="Amount & date" />
           <div className="mt-2">
             <AmountInput card value={amount} onChange={setAmount} showError={submitted} />
@@ -467,7 +464,7 @@ export default function InvestmentSheet({
         </div>
 
         {/* Duration ও Contract PDF — এক লাইনে */}
-        <div className={SECTION}>
+        <div>
           <SectionLabel icon={FileText} text="Terms & contract" />
           <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" aria-label="Contract PDF file" onChange={(e) => void pickPdf(e.target.files?.[0])} />
           <div className="mt-2 grid grid-cols-[minmax(0,5fr)_minmax(0,7fr)] items-center gap-2">
